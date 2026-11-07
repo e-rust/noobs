@@ -1,0 +1,40 @@
+{
+  "iron": 1,
+  "root": {
+    "class": "Form",
+    "name": "fraVtLevel",
+    "caption": "Configurações: nível do teste de qualidade (tamanho por hora e a barra)",
+    "width": 760,
+    "height": 26,
+    "align": "top",
+    "fill": "transparent",
+    "children": [
+      {
+        "class": "Panel",
+        "name": "pnlLevel",
+        "style": "s_vt",
+        "align": "client",
+        "padding": [9, 0, 9, 0],
+        "cursor": "pointer",
+        "children": [
+          { "class": "Label", "name": "lblLevel", "style": "s_q_on", "align": "left", "width": 96, "hit_test": false, "text": "" },
+          { "class": "Label", "name": "lblRelative", "style": "s_q", "align": "right", "width": 64, "h_align": "trailing", "hit_test": false, "text": "" },
+          { "class": "Label", "name": "lblSize", "style": "s_q_on", "align": "right", "width": 120, "h_align": "trailing", "margins": [10, 0, 10, 0], "hit_test": false, "text": "" },
+          {
+            "class": "Panel",
+            "name": "pnlBar",
+            "style": "s_bar",
+            "align": "vert_center",
+            "height": 8,
+            "margins": [10, 0, 0, 0],
+            "hit_test": false,
+            "clip_children": true,
+            "children": [
+              { "class": "Panel", "name": "pnlBarFill", "style": "s_bar_fill", "align": "left", "width": 0, "hit_test": false }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

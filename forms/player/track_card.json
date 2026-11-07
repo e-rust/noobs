@@ -1,0 +1,39 @@
+{
+  "iron": 1,
+  "root": {
+    "class": "Form",
+    "name": "fraTrackCard",
+    "caption": "Player: cartão de faixa de áudio (linhas e volume)",
+    "width": 292,
+    "height": 120,
+    "align": "top",
+    "margins": [0, 0, 0, 6],
+    "hit_test": false,
+    "fill": "transparent",
+    "children": [
+      {
+        "class": "Panel",
+        "name": "pnlCard",
+        "style": "pl_card",
+        "align": "client",
+        "padding": [10, 8, 10, 8],
+        "children": [
+          { "class": "Label", "name": "lblTitle", "style": "pl_track", "align": "top", "height": 19.4, "v_align": "leading", "text": "" },
+          { "class": "Layout", "name": "lyRows", "align": "top", "height": 0 },
+          { "class": "Rectangle", "name": "recLine", "style": "pl_line2", "align": "top", "height": 1, "margins": [0, 6, 0, 6], "hit_test": false },
+          {
+            "class": "Layout",
+            "name": "lyVolume",
+            "align": "top",
+            "height": 22,
+            "children": [
+              { "class": "Button", "name": "btnMute", "style": "pl_tmute", "text": "", "icon": "pl-tvol", "icon_size": 14, "hint": "Mutar", "align": "left", "width": 22, "margins": [0, 0, 8, 0] },
+              { "class": "Label", "name": "lblPct", "style": "pl_pct", "align": "right", "width": 38, "margins": [8, 0, 0, 0], "h_align": "trailing", "text": "" },
+              { "class": "TrackBar", "name": "trkVolume", "style": "pl_track", "align": "client", "min": 0, "max": 200, "thumb_size": 10, "track_size": 3, "solid_thumb": true, "limit": 100, "danger_color": "danger_2", "tab_stop": false }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

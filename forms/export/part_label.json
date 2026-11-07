@@ -1,0 +1,15 @@
+{
+  "iron": 1,
+  "root": {
+    "class": "Form",
+    "name": "fraExPartLabel",
+    "caption": "Exportar: duração de um trecho no meio dele (sem a forma de onda)",
+    "width": 100,
+    "height": 46,
+    "fill": "transparent",
+    "hit_test": false,
+    "children": [
+      { "class": "Label", "name": "lblPart", "style": "legend", "align": "client", "h_align": "center", "hit_test": false, "text": "" }
+    ]
+  }
+}

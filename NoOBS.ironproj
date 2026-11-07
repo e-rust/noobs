@@ -1,0 +1,440 @@
+{
+  "iron_project": 1,
+  "name": "NoOBS",
+  "language": "rust",
+  "main_form": "frmMain",
+  "forms": [
+    {
+      "name": "frmMain",
+      "file": "forms/main.json",
+      "auto_create": true
+    },
+    {
+      "name": "frmSettings",
+      "file": "forms/settings.json",
+      "auto_create": false
+    },
+    {
+      "name": "frmPlayer",
+      "file": "forms/player.json",
+      "auto_create": false
+    },
+    {
+      "name": "frmExport",
+      "file": "forms/export.json",
+      "auto_create": false
+    },
+    {
+      "name": "frmPicker",
+      "file": "forms/picker.json",
+      "auto_create": false
+    },
+    {
+      "name": "fraGeneral",
+      "file": "forms/settings/general.json",
+      "auto_create": false
+    },
+    {
+      "name": "fraOnRecord",
+      "file": "forms/settings/onrecord.json",
+      "auto_create": false
+    },
+    {
+      "name": "fraFiles",
+      "file": "forms/settings/files.json",
+      "auto_create": false
+    },
+    {
+      "name": "fraVideo",
+      "file": "forms/settings/video.json",
+      "auto_create": false
+    },
+    {
+      "name": "fraAudio",
+      "file": "forms/settings/audio.json",
+      "auto_create": false
+    },
+    {
+      "name": "fraReplay",
+      "file": "forms/settings/replay.json",
+      "auto_create": false
+    },
+    {
+      "name": "fraHotkeys",
+      "file": "forms/settings/hotkeys.json",
+      "auto_create": false
+    },
+    {
+      "name": "fraDevices",
+      "file": "forms/settings/devices.json",
+      "auto_create": false
+    },
+    {
+      "name": "fraTranscribe",
+      "file": "forms/settings/transcribe.json",
+      "auto_create": false
+    },
+    {
+      "name": "fraUpdates",
+      "file": "forms/settings/updates.json",
+      "auto_create": false
+    },
+    {
+      "name": "fraAbout",
+      "file": "forms/settings/about.json",
+      "auto_create": false
+    },
+    {
+      "name": "fraWindowCard",
+      "file": "forms/picker/window_card.json",
+      "auto_create": false
+    },
+    {
+      "name": "fraAreaButton",
+      "file": "forms/picker/area_button.json",
+      "auto_create": false
+    },
+    {
+      "name": "fraSourceRow",
+      "file": "forms/main/source_row.json",
+      "auto_create": false
+    },
+    {
+      "name": "fraLegendRow",
+      "file": "forms/main/legend_row.json",
+      "auto_create": false
+    },
+    {
+      "name": "fraLibGroup",
+      "file": "forms/library/group.json",
+      "auto_create": false
+    },
+    {
+      "name": "fraRecCard",
+      "file": "forms/library/rec_card.json",
+      "auto_create": false
+    },
+    {
+      "name": "fraFolderCard",
+      "file": "forms/library/folder_card.json",
+      "auto_create": false
+    },
+    {
+      "name": "fraInfoSection",
+      "file": "forms/player/info_section.json",
+      "auto_create": false
+    },
+    {
+      "name": "fraInfoRow",
+      "file": "forms/player/info_row.json",
+      "auto_create": false
+    },
+    {
+      "name": "fraViewOption",
+      "file": "forms/player/view_option.json",
+      "auto_create": false
+    },
+    {
+      "name": "fraTrackCard",
+      "file": "forms/player/track_card.json",
+      "auto_create": false
+    },
+    {
+      "name": "fraTurn",
+      "file": "forms/player/turn.json",
+      "auto_create": false
+    },
+    {
+      "name": "fraSpeakerEdit",
+      "file": "forms/player/speaker_edit.json",
+      "auto_create": false
+    },
+    {
+      "name": "fraHiddenFolder",
+      "file": "forms/settings/parts/hidden_folder.json",
+      "auto_create": false
+    },
+    {
+      "name": "fraDeviceGroup",
+      "file": "forms/settings/parts/device_group.json",
+      "auto_create": false
+    },
+    {
+      "name": "fraDeviceRow",
+      "file": "forms/settings/parts/device_row.json",
+      "auto_create": false
+    },
+    {
+      "name": "fraQueueRow",
+      "file": "forms/settings/parts/queue_row.json",
+      "auto_create": false
+    },
+    {
+      "name": "fraAboutItem",
+      "file": "forms/settings/parts/about_item.json",
+      "auto_create": false
+    },
+    {
+      "name": "fraHotkeyCard",
+      "file": "forms/settings/parts/hotkey_card.json",
+      "auto_create": false
+    },
+    {
+      "name": "fraVtLevel",
+      "file": "forms/settings/parts/vt_level.json",
+      "auto_create": false
+    },
+    {
+      "name": "fraSliderTick",
+      "file": "forms/settings/parts/slider_tick.json",
+      "auto_create": false
+    },
+    {
+      "name": "fraExPill",
+      "file": "forms/export/pill.json",
+      "auto_create": false
+    },
+    {
+      "name": "fraExTick",
+      "file": "forms/export/tick.json",
+      "auto_create": false
+    },
+    {
+      "name": "fraExPartLabel",
+      "file": "forms/export/part_label.json",
+      "auto_create": false
+    },
+    {
+      "name": "fraConfirm",
+      "file": "forms/view/confirm.json",
+      "auto_create": false
+    }
+  ],
+  "theme": "themes/noobs-dark.json",
+  "colors": {
+    "green": "#10B981",
+    "red": "#EF4444",
+    "red_glow": "#EF44442E",
+    "danger_2": "#F87171",
+    "danger_text": "danger_2",
+    "alert": "#F03E3E",
+    "amber": "#F59E0B",
+    "blue": "#3B82F6",
+    "blue_2": "#60A5FA",
+    "device_default": "#22C55E",
+    "thumb_bg": "#0B0B0D",
+    "track_1": "#3B82F6",
+    "track_2": "#06B6D4",
+    "track_3": "#F59E0B",
+    "track_4": "#A855F7",
+    "track_5": "#F472B6",
+    "track_6": "#6366F1",
+    "track_7": "#14B8A6",
+    "track_8": "#C2410C",
+    "track_9": "#0EA5E9",
+    "track_10": "#8B5CF6",
+    "speaker_1": {
+      "dark": "#6EE7A8",
+      "light": "#0F7A45"
+    },
+    "speaker_2": {
+      "dark": "#7CC4FA",
+      "light": "#1668B8"
+    },
+    "speaker_3": {
+      "dark": "#F8B57C",
+      "light": "#A1580F"
+    },
+    "speaker_4": {
+      "dark": "#D8A5F5",
+      "light": "#7A3FA8"
+    },
+    "speaker_5": {
+      "dark": "#F59DB1",
+      "light": "#B03A5B"
+    },
+    "speaker_6": {
+      "dark": "#E8DD7A",
+      "light": "#7D6C0A"
+    },
+    "side_bg": {
+      "dark": "#0F0F0FF5",
+      "light": "#FFFFFFF7"
+    },
+    "side_card": {
+      "dark": "#FFFFFF0A",
+      "light": "#00000008"
+    },
+    "side_card_line": {
+      "dark": "#FFFFFF0F",
+      "light": "#00000014"
+    },
+    "side_empty": {
+      "dark": "#FFFFFF73",
+      "light": "#0000008C"
+    },
+    "side_faint": {
+      "dark": "#FFFFFF08",
+      "light": "#00000008"
+    },
+    "side_head": {
+      "dark": "#FFFFFFBF",
+      "light": "#000000B3"
+    },
+    "side_hover": {
+      "dark": "#FFFFFF12",
+      "light": "#0000000F"
+    },
+    "side_hover_line": {
+      "dark": "#FFFFFF1F",
+      "light": "#0000001F"
+    },
+    "side_key": {
+      "dark": "#FFFFFF8C",
+      "light": "#0000008C"
+    },
+    "side_line": {
+      "dark": "#FFFFFF0F",
+      "light": "#00000014"
+    },
+    "side_line2": {
+      "dark": "#FFFFFF0D",
+      "light": "#0000000F"
+    },
+    "side_mark": {
+      "dark": "#FFFFFF59",
+      "light": "#00000059"
+    },
+    "side_pct": {
+      "dark": "#FFFFFFA6",
+      "light": "#00000099"
+    },
+    "side_search": {
+      "dark": "#FFFFFF0F",
+      "light": "#00000008"
+    },
+    "side_search_line": {
+      "dark": "#FFFFFF1F",
+      "light": "#0000001F"
+    },
+    "side_search_text": {
+      "dark": "#FFFFFF",
+      "light": "#1F2937"
+    },
+    "side_sect": {
+      "dark": "#FFFFFF73",
+      "light": "#00000073"
+    },
+    "side_spk_edit": {
+      "dark": "#FFFFFF1F",
+      "light": "#0000000D"
+    },
+    "side_spk_hover": {
+      "dark": "#FFFFFF1A",
+      "light": "#0000000F"
+    },
+    "side_tmute": {
+      "dark": "#FFFFFFB3",
+      "light": "#0000008C"
+    },
+    "side_tmute_hover": {
+      "dark": "#FFFFFF14",
+      "light": "#0000000F"
+    },
+    "side_tmute_text_hover": {
+      "dark": "#FFFFFF",
+      "light": "#000000D9"
+    },
+    "side_track_rail": {
+      "dark": "#FFFFFF26",
+      "light": "#0000001F"
+    },
+    "side_ttext": {
+      "dark": "#FFFFFFD1",
+      "light": "#000000D1"
+    },
+    "side_ttime": {
+      "dark": "#FFFFFF66",
+      "light": "#0000008C"
+    },
+    "side_turn_hover": {
+      "dark": "#FFFFFF0D",
+      "light": "#0000000A"
+    },
+    "side_turn_on": {
+      "dark": "#FFFFFF14",
+      "light": "#0000000F"
+    },
+    "side_val": {
+      "dark": "#FFFFFFEB",
+      "light": "#000000E0"
+    },
+    "side_vicon": {
+      "dark": "#FFFFFF8C",
+      "light": "#00000073"
+    },
+    "side_view_on": {
+      "dark": "#10B9811F",
+      "light": "#10B9811A"
+    },
+    "side_x": {
+      "dark": "#FFFFFF99",
+      "light": "#0000008C"
+    },
+    "side_x_hover": {
+      "dark": "#FFFFFF1A",
+      "light": "#0000000F"
+    },
+    "side_x_text_hover": {
+      "dark": "#FFFFFF",
+      "light": "#000000"
+    }
+  },
+  "scroll": {
+    "wheel_step": 100.0,
+    "smooth": true,
+    "smooth_ms": 160.0
+  },
+  "publish": {
+    "app_name": "NoOBS",
+    "publisher": "e-rust",
+    "version": "0.0.1-beta",
+    "icon": "assets/images/icon.png",
+    "windows": {
+      "installer": "nsis",
+      "files": ["runtime/*.dll"],
+      "install_dir": "{localappdata}\\NoOBS",
+      "exe_dir": "bin",
+      "autostart": "on",
+      "autostart_args": "/autostart",
+      "desktop_shortcut": "off",
+      "close_running": true,
+      "run_after_install": true,
+      "data_dir": "{localappdata}\\NoOBS"
+    }
+  },
+  "output": {
+    "dir": "runtime",
+    "name": "NoOBS"
+  },
+  "locale": "pt-BR",
+  "render": {
+    "windows": "d2d",
+    "linux": "auto",
+    "macos": "auto",
+    "android": "auto",
+    "ios": "cpu"
+  },
+  "text": {
+    "windows": "native",
+    "linux": "native",
+    "macos": "native",
+    "android": "native",
+    "ios": "native",
+    "web": "native"
+  },
+  "present": "composition",
+  "platforms": [
+    "windows"
+  ]
+}

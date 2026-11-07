@@ -1,0 +1,16 @@
+{
+  "iron": 1,
+  "root": {
+    "class": "Form",
+    "name": "fraExTick",
+    "caption": "Exportar: marca da régua da linha do tempo (o fio e o tempo)",
+    "width": 60,
+    "height": 17,
+    "fill": "transparent",
+    "hit_test": false,
+    "children": [
+      { "class": "Rectangle", "name": "shpTick", "style": "ex_tick", "left": 0, "top": 0, "width": 1, "height": 17, "hit_test": false },
+      { "class": "Label", "name": "lblTick", "style": "ex_tick", "left": 4, "top": 0, "width": 56, "height": 17, "hit_test": false, "text": "" }
+    ]
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "iron": 1,
+  "root": {
+    "class": "Form",
+    "name": "fraRecCard",
+    "caption": "Biblioteca: cartão de gravação",
+    "width": 170,
+    "height": 148,
+    "clip_children": false,
+    "hit_test": false,
+    "fill": "transparent",
+    "children": [
+      { "class": "MediaCard", "name": "mcCard", "align": "client", "icon": "video", "draggable": true }
+    ]
+  }
+}

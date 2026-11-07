@@ -1,0 +1,166 @@
+{
+  "rust/fraAbout": {
+    "nanos": 1793667310000000000,
+    "len": 503
+  },
+  "rust/fraAboutItem": {
+    "nanos": 1794077272471712200,
+    "len": 388
+  },
+  "rust/fraAreaButton": {
+    "nanos": 1794070147659154400,
+    "len": 391
+  },
+  "rust/fraAudio": {
+    "nanos": 1794077889320124000,
+    "len": 726
+  },
+  "rust/fraConfirm": {
+    "nanos": 1794078556219835400,
+    "len": 382
+  },
+  "rust/fraDeviceGroup": {
+    "nanos": 1794077145390422400,
+    "len": 394
+  },
+  "rust/fraDeviceRow": {
+    "nanos": 1794077145390422400,
+    "len": 388
+  },
+  "rust/fraDevices": {
+    "nanos": 1793667455000000000,
+    "len": 369
+  },
+  "rust/fraExPartLabel": {
+    "nanos": 1794079085620000100,
+    "len": 394
+  },
+  "rust/fraExPill": {
+    "nanos": 1794079085620000100,
+    "len": 379
+  },
+  "rust/fraExTick": {
+    "nanos": 1794079085620000100,
+    "len": 379
+  },
+  "rust/fraFiles": {
+    "nanos": 1794077886372081300,
+    "len": 1379
+  },
+  "rust/fraFolderCard": {
+    "nanos": 1794075399820381600,
+    "len": 391
+  },
+  "rust/fraGeneral": {
+    "nanos": 1794077873222561600,
+    "len": 1938
+  },
+  "rust/fraHiddenFolder": {
+    "nanos": 1794077145390422400,
+    "len": 397
+  },
+  "rust/fraHotkeyCard": {
+    "nanos": 1794077484070801600,
+    "len": 391
+  },
+  "rust/fraHotkeys": {
+    "nanos": 1793667310000000000,
+    "len": 503
+  },
+  "rust/fraInfoRow": {
+    "nanos": 1794075977633844300,
+    "len": 382
+  },
+  "rust/fraInfoSection": {
+    "nanos": 1794075977633844300,
+    "len": 394
+  },
+  "rust/fraLegendRow": {
+    "nanos": 1794070461477972100,
+    "len": 388
+  },
+  "rust/fraLibGroup": {
+    "nanos": 1794071394764858800,
+    "len": 385
+  },
+  "rust/fraOnRecord": {
+    "nanos": 1794077881818270900,
+    "len": 2578
+  },
+  "rust/fraQueueRow": {
+    "nanos": 1794077272471712200,
+    "len": 385
+  },
+  "rust/fraRecCard": {
+    "nanos": 1794075399819639700,
+    "len": 382
+  },
+  "rust/fraReplay": {
+    "nanos": 1794077912366025800,
+    "len": 2552
+  },
+  "rust/fraSliderTick": {
+    "nanos": 1794077707337592800,
+    "len": 391
+  },
+  "rust/fraSourceRow": {
+    "nanos": 1794070461477972100,
+    "len": 388
+  },
+  "rust/fraSpeakerEdit": {
+    "nanos": 1794075977637943500,
+    "len": 394
+  },
+  "rust/fraTrackCard": {
+    "nanos": 1794075977636934000,
+    "len": 388
+  },
+  "rust/fraTranscribe": {
+    "nanos": 1794077902073497300,
+    "len": 1190
+  },
+  "rust/fraTurn": {
+    "nanos": 1794075977636934000,
+    "len": 373
+  },
+  "rust/fraUpdates": {
+    "nanos": 1794077905113287400,
+    "len": 823
+  },
+  "rust/fraVideo": {
+    "nanos": 1794077718951023500,
+    "len": 2511
+  },
+  "rust/fraViewOption": {
+    "nanos": 1794075977633844300,
+    "len": 391
+  },
+  "rust/fraVtLevel": {
+    "nanos": 1794077707337592800,
+    "len": 382
+  },
+  "rust/fraWindowCard": {
+    "nanos": 1794069695150435600,
+    "len": 391
+  },
+  "rust/frmExport": {
+    "nanos": 1794080501545746000,
+    "len": 9227
+  },
+  "rust/frmMain": {
+    "nanos": 1794071546440650500,
+    "len": 4248
+  },
+  "rust/frmPicker": {
+    "nanos": 1794070193694478800,
+    "len": 1727
+  },
+  "rust/frmPlayer": {
+    "nanos": 1794083318560811500,
+    "len": 3072
+  },
+  "rust/frmSettings": {
+    "nanos": 1794077916902953600,
+    "len": 950
+  }
+}

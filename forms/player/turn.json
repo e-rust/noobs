@@ -1,0 +1,38 @@
+{
+  "iron": 1,
+  "root": {
+    "class": "Form",
+    "name": "fraTurn",
+    "caption": "Player: fala da transcrição",
+    "width": 352,
+    "height": 60,
+    "align": "top",
+    "hit_test": false,
+    "fill": "transparent",
+    "children": [
+      {
+        "class": "Panel",
+        "name": "pnlTurn",
+        "style": "pl_turn",
+        "align": "client",
+        "padding": [16, 8, 14, 8],
+        "cursor": "pointer",
+        "children": [
+          { "class": "Rectangle", "name": "recMark", "style": "pl_turn_mark", "align": "none", "left": 0, "top": 0, "width": 2, "height": 60, "hit_test": false, "visible": false },
+          {
+            "class": "Layout",
+            "name": "lyHead",
+            "align": "top",
+            "height": 15.4,
+            "margins": [0, 0, 0, 3],
+            "children": [
+              { "class": "Label", "name": "lblTime", "style": "pl_ttime", "align": "right", "width": 60, "margins": [8, 0, 0, 0], "h_align": "trailing", "hit_test": false, "text": "00:00" },
+              { "class": "Label", "name": "lblSpeaker", "style": "pl_spk", "align": "left", "width": 60, "margins": [-3, 0, 0, 0], "letter_spacing": 0.2, "cursor": "text", "hit_test": true, "hint": "Clique para dar um nome a este falante", "text": "" }
+            ]
+          },
+          { "class": "Label", "name": "lblText", "style": "pl_ttext", "align": "client", "wrap": true, "v_align": "center", "hit_test": false, "text": "" }
+        ]
+      }
+    ]
+  }
+}

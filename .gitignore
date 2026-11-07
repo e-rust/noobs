@@ -1,0 +1,24 @@
+# Configuracoes locais do Claude Code.
+.claude/
+.agents/
+
+# A compilacao do Rust.
+rust/target/
+
+# runtime\ e o runtime de desenvolvimento: o NoOBS.exe compilado e as DLLs do
+# FFmpeg, nao versionados. A interface (forms\, themes\) e as traducoes
+# (locales\) vao dentro do exe (build.rs).
+# Versionado ali so o runtime do C++ (Visual C++ 2015-2022, da pasta Redist do
+# Visual Studio 14.44): vai no instalador ao lado do exe, para o NoOBS abrir numa
+# maquina sem o Visual C++ Redistributable instalado.
+runtime/*
+!runtime/vcruntime140*.dll
+!runtime/msvcp140*.dll
+
+# O que o publish do Iron gera (iron-tool publish NoOBS.ironproj --installer).
+dist/
+
+# Estado local da IDE do Iron (marcadores, abas abertas).
+.iron/*
+# O ícone do Windows com todos os tamanhos (o iron-build embute no exe): fica no git.
+!.iron/app-icon.ico

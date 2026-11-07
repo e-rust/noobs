@@ -1,0 +1,25 @@
+{
+  "iron": 1,
+  "root": {
+    "class": "Form",
+    "name": "fraExPill",
+    "caption": "Exportar: pílula de uma tela ou de uma faixa de áudio",
+    "width": 100,
+    "height": 30.1,
+    "fill": "transparent",
+    "children": [
+      {
+        "class": "Panel",
+        "name": "pnlPill",
+        "style": "ex_chk",
+        "align": "client",
+        "padding": [11, 0, 0, 0],
+        "cursor": "pointer",
+        "children": [
+          { "class": "CheckBox", "name": "chkPill", "style": "web", "box_size": 13, "text": "", "align": "left", "width": 13, "margins": [0, 8.5, 6, 8.6], "hit_test": false },
+          { "class": "Label", "name": "lblPill", "style": "ex_chk", "align": "client", "hit_test": false, "text": "" }
+        ]
+      }
+    ]
+  }
+}

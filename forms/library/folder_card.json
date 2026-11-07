@@ -1,0 +1,16 @@
+{
+  "iron": 1,
+  "root": {
+    "class": "Form",
+    "name": "fraFolderCard",
+    "caption": "Biblioteca: cartão de pasta",
+    "width": 170,
+    "height": 54,
+    "clip_children": false,
+    "hit_test": false,
+    "fill": "transparent",
+    "children": [
+      { "class": "MediaCard", "name": "mcCard", "align": "client", "compact": true, "icon": "folder", "draggable": true, "accepts_drops": true }
+    ]
+  }
+}

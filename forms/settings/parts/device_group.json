@@ -1,0 +1,18 @@
+{
+  "iron": 1,
+  "root": {
+    "class": "Form",
+    "name": "fraDeviceGroup",
+    "caption": "Configurações: grupo de dispositivos (título, linha e as linhas dos dispositivos)",
+    "width": 760,
+    "height": 60,
+    "align": "top",
+    "auto_size": true,
+    "fill": "transparent",
+    "children": [
+      { "class": "Label", "name": "lblGroup", "style": "s_group", "align": "top", "auto_size": true, "wrap": false, "v_align": "leading", "letter_spacing": 0.4, "text_case": "upper", "text": "" },
+      { "class": "Rectangle", "name": "lnGroup", "style": "sep", "align": "top", "height": 1, "margins": [0, 6, 0, 0] },
+      { "class": "Layout", "name": "lyRows", "align": "top", "auto_size": true, "margins": [0, 4, 0, 0] }
+    ]
+  }
+}

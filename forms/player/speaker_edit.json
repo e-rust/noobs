@@ -1,0 +1,17 @@
+{
+  "iron": 1,
+  "root": {
+    "class": "Form",
+    "name": "fraSpeakerEdit",
+    "caption": "Player: campo do nome do falante",
+    "width": 200,
+    "height": 19.4,
+    "align": "left",
+    "margins": [-3, -2, 0, -2],
+    "hit_test": false,
+    "fill": "transparent",
+    "children": [
+      { "class": "Edit", "name": "edName", "style": "pl_spk_edit", "align": "client", "text": "" }
+    ]
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "iron": 1,
+  "root": {
+    "class": "Form",
+    "name": "fraAreaButton",
+    "caption": "Seletor: botão de área salva",
+    "width": 200,
+    "height": 34,
+    "fill": "transparent",
+    "children": [
+      { "class": "Button", "name": "btnArea", "style": "outline", "align": "client", "text": "" }
+    ]
+  }
+}

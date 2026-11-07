@@ -1,0 +1,65 @@
+{
+  "iron": 1,
+  "root": {
+    "class": "Form",
+    "name": "fraHotkeyCard",
+    "caption": "Configurações: cartão de atalho (modo, teclas e as opções do modo)",
+    "width": 760,
+    "height": 136,
+    "align": "top",
+    "auto_size": true,
+    "fill": "transparent",
+    "children": [
+      {
+        "class": "Panel",
+        "name": "pnlCard",
+        "style": "s_box",
+        "align": "top",
+        "auto_size": true,
+        "padding": [12, 10, 12, 10],
+        "children": [
+          { "class": "Layout", "name": "lyKeys", "align": "top", "height": 32, "children": [
+              { "class": "ComboBox", "name": "cmbMode", "arrow": "triangle", "align": "left", "width": 176, "margins": [0, 0, 10, 0] },
+              { "class": "Panel", "name": "pnlCtrl", "style": "s_mod", "align": "left", "width": 60, "margins": [0, 1.5, 6, 1.5], "children": [
+                  { "class": "CheckBox", "name": "chkCtrl", "style": "mod", "box_size": 13, "align": "client", "margins": [11, 0, 6, 0], "text": "Ctrl" }
+                ] },
+              { "class": "Panel", "name": "pnlShift", "style": "s_mod", "align": "left", "width": 60, "margins": [0, 1.5, 6, 1.5], "children": [
+                  { "class": "CheckBox", "name": "chkShift", "style": "mod", "box_size": 13, "align": "client", "margins": [11, 0, 6, 0], "text": "Shift" }
+                ] },
+              { "class": "Panel", "name": "pnlAlt", "style": "s_mod", "align": "left", "width": 60, "margins": [0, 1.5, 6, 1.5], "children": [
+                  { "class": "CheckBox", "name": "chkAlt", "style": "mod", "box_size": 13, "align": "client", "margins": [11, 0, 6, 0], "text": "Alt" }
+                ] },
+              { "class": "Panel", "name": "pnlWin", "style": "s_mod", "align": "left", "width": 60, "margins": [0, 1.5, 6, 1.5], "children": [
+                  { "class": "CheckBox", "name": "chkWin", "style": "mod", "box_size": 13, "align": "client", "margins": [11, 0, 6, 0], "text": "Win" }
+                ] },
+              { "class": "Button", "name": "btnRemove", "style": "s_x", "font_size": 18, "align": "right", "width": 28, "height": 28, "margins": [10, 2, 0, 2], "hint": "Remover atalho", "text": "×" },
+              { "class": "Label", "name": "lblPlus", "style": "s_plus", "align": "left", "width": 10, "margins": [4, 0, 10, 0], "hit_test": false, "text": "+" },
+              { "class": "ComboBox", "name": "cmbKey", "arrow": "triangle", "align": "client" }
+            ] },
+          { "class": "Layout", "name": "lyWindow", "align": "top", "height": 32, "margins": [0, 10, 0, 0], "visible": false, "children": [
+              { "class": "Label", "name": "lblWindowTitle", "style": "s_name2", "align": "left", "width": 150, "hit_test": false, "text": "Título da janela contém" },
+              { "class": "Edit", "name": "edtWindowTitle", "align": "left", "width": 360, "placeholder": "ex.: nova guia" }
+            ] },
+          { "class": "Layout", "name": "lyAppAudio", "align": "top", "height": 17, "margins": [0, 10, 0, 0], "visible": false, "children": [
+              { "class": "CheckBox", "name": "chkAppAudio", "style": "web", "box_size": 16, "align": "client", "text": "Gravar o som do app" }
+            ] },
+          { "class": "Layout", "name": "lyArea", "align": "top", "height": 35, "margins": [0, 10, 0, 0], "visible": false, "children": [
+              { "class": "Button", "name": "btnAreaClear", "style": "s", "align": "right", "width": 120, "height": 33, "margins": [8, 0, 0, 0], "text": "Escolher na hora" },
+              { "class": "Button", "name": "btnAreaDefine", "style": "s", "align": "right", "width": 100, "height": 33, "margins": [8, 0, 0, 0], "text": "Definir área" },
+              { "class": "Label", "name": "lblArea", "style": "s_inline3", "align": "client", "hit_test": false, "text": "Sem área salva — o atalho abre a seleção para você desenhar" }
+            ] },
+          { "class": "Layout", "name": "lyTimelapse", "align": "top", "height": 17, "margins": [0, 10, 0, 0], "visible": false, "children": [
+              { "class": "CheckBox", "name": "chkTimelapse", "style": "web", "box_size": 16, "align": "client", "text": "Timelapse: grava só quando a área muda (o tempo parado é cortado)" }
+            ] },
+          { "class": "Layout", "name": "lyDelay", "align": "top", "height": 32, "margins": [0, 10, 0, 0], "children": [
+              { "class": "Label", "name": "lblDelay", "style": "s_name2", "align": "left", "width": 140, "margins": [0, 0, 10, 0], "hit_test": false, "text": "Atraso antes de começar" },
+              { "class": "ComboBox", "name": "cmbDelay", "arrow": "triangle", "align": "left", "width": 160 }
+            ] },
+          { "class": "Layout", "name": "lyStatus", "align": "top", "height": 16, "margins": [0, 10, 0, 0], "visible": false, "children": [
+              { "class": "Label", "name": "lblStatus", "style": "s_hint", "align": "client", "hit_test": false, "text": "" }
+            ] }
+        ]
+      }
+    ]
+  }
+}

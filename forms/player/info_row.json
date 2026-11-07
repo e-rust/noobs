@@ -1,0 +1,17 @@
+{
+  "iron": 1,
+  "root": {
+    "class": "Form",
+    "name": "fraInfoRow",
+    "caption": "Player: linha chave e valor do painel de informações",
+    "width": 292,
+    "height": 24.8,
+    "align": "top",
+    "hit_test": false,
+    "fill": "transparent",
+    "children": [
+      { "class": "Label", "name": "lblKey", "style": "pl_ikey", "align": "left", "width": 110, "text": "" },
+      { "class": "Label", "name": "lblValue", "style": "pl_ival", "align": "client", "margins": [10, 0, 0, 0], "hit_test": true, "h_align": "trailing", "trimming": "character", "text": "" }
+    ]
+  }
+}

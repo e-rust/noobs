@@ -1,0 +1,17 @@
+{
+  "iron": 1,
+  "root": {
+    "class": "Form",
+    "name": "fraInfoSection",
+    "caption": "Player: título de seção do painel de informações",
+    "width": 292,
+    "height": 27,
+    "align": "top",
+    "hit_test": false,
+    "fill": "transparent",
+    "children": [
+      { "class": "Label", "name": "lblTitle", "style": "pl_sect", "align": "top", "height": 14, "text_case": "upper", "letter_spacing": 0.6, "text": "" },
+      { "class": "Rectangle", "name": "recLine", "style": "pl_line", "align": "top", "height": 1, "margins": [0, 4, 0, 8], "hit_test": false }
+    ]
+  }
+}

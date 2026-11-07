@@ -1,0 +1,50 @@
+{
+  "iron": 1,
+  "root": {
+    "class": "Form",
+    "name": "fraSourceRow",
+    "caption": "Tela principal: linha de dispositivo de áudio",
+    "width": 376,
+    "height": 45,
+    "align": "top",
+    "clip_children": false,
+    "fill": "transparent",
+    "children": [
+      {
+        "class": "Panel",
+        "name": "pnlRow",
+        "style": "row",
+        "align": "client",
+        "padding": [10, 8, 10, 8],
+        "clip_children": false,
+        "cursor": "pointer",
+        "children": [
+          { "class": "Rectangle", "name": "shpStripe", "style": "stripe", "left": -12, "top": 0, "width": 3, "height": 45, "hit_test": false },
+          { "class": "Switch", "name": "swOn", "align": "right", "width": 36, "margins": [10, 4, 0, 4] },
+          {
+            "class": "Layout",
+            "name": "lyBody",
+            "align": "client",
+            "hit_test": false,
+            "children": [
+              {
+                "class": "Layout",
+                "name": "lyLine",
+                "align": "top",
+                "height": 17,
+                "hit_test": false,
+                "children": [
+                  { "class": "Circle", "name": "dotDefault", "align": "left", "width": 7, "margins": [0, 5, 6, 5], "fill": "device_default", "stroke_width": 0, "visible": false, "hint": "Dispositivo padrão do sistema" },
+                  { "class": "Icon", "name": "icoBtMic", "align": "left", "width": 13, "margins": [0, 2, 6, 2], "icon": "warning", "color": "amber", "hit_test": true, "visible": false, "hint": "Atenção: enquanto este microfone Bluetooth estiver conectado e o NoOBS aberto (mesmo sem marcar pra gravar — os medidores de nível já abrem acesso ao mic), o Windows mantém o fone no perfil HFP. A qualidade do áudio do dispositivo cai pra mono 8 ou 16 kHz e o volume costuma ir pro máximo. Limitação do Bluetooth Classic — desmarcar aqui não resolve. Pra recuperar HD, desative ou desconecte o dispositivo no Windows, ou use um microfone USB separado." },
+                  { "class": "Icon", "name": "icoBtSpeaker", "align": "left", "width": 13, "margins": [0, 2, 6, 2], "icon": "warning", "color": "amber", "hit_test": true, "visible": false, "hint": "Atenção: alto-falante Bluetooth. Quando qualquer app no Windows acessa um microfone Bluetooth (incluindo os medidores de nível do NoOBS), este dispositivo cai pra qualidade telefônica (mono 8 ou 16 kHz) e volume máximo automaticamente. Limitação do Bluetooth Classic — pra HD, desative o microfone Bluetooth no Windows, ou use BT LE Audio (hardware mais novo + Windows 11)." },
+                  { "class": "Label", "name": "lblName", "style": "row", "align": "client", "hit_test": false, "text": "" }
+                ]
+              },
+              { "class": "LevelMeter", "name": "mtrLevel", "align": "top", "height": 7, "margins": [0, 4, 0, 0], "stereo": true, "gradient": true, "show_peak": false, "mid": 0.6, "high": 0.75, "smoothing": 90 }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

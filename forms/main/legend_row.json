@@ -1,0 +1,26 @@
+{
+  "iron": 1,
+  "root": {
+    "class": "Form",
+    "name": "fraLegendRow",
+    "caption": "Tela principal: linha da legenda das faixas",
+    "width": 364,
+    "height": 22,
+    "align": "top",
+    "margins": [6, 0, 6, 0],
+    "fill": "transparent",
+    "children": [
+      {
+        "class": "Layout",
+        "name": "lyRow",
+        "align": "client",
+        "children": [
+          { "class": "Circle", "name": "dotDefault", "align": "left", "width": 8, "margins": [0, 7, 10, 7], "fill": "device_default", "stroke_width": 0, "hit_test": false, "visible": false },
+          { "class": "Rectangle", "name": "shpTrack", "align": "left", "width": 3, "margins": [2, 4, 13, 4], "stroke_width": 0, "hit_test": false, "visible": false },
+          { "class": "Label", "name": "lblTrack", "style": "legend_track", "align": "left", "width": 56, "hit_test": false, "text": "" },
+          { "class": "Label", "name": "lblName", "style": "legend", "align": "client", "hit_test": false, "text": "" }
+        ]
+      }
+    ]
+  }
+}

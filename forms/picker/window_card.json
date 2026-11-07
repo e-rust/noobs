@@ -1,0 +1,27 @@
+{
+  "iron": 1,
+  "root": {
+    "class": "Form",
+    "name": "fraWindowCard",
+    "caption": "Seletor: cartão de janela",
+    "width": 205,
+    "height": 186.125,
+    "fill": "transparent",
+    "children": [
+      {
+        "class": "Panel",
+        "name": "pnlCard",
+        "style": "wcard",
+        "align": "client",
+        "padding": 8,
+        "cursor": "pointer",
+        "hint": "Gravar esta janela",
+        "children": [
+          { "class": "Image", "name": "imgThumb", "align": "top", "height": 120.125, "fit": "contain", "radius": 6, "fill": "thumb_bg", "hit_test": false },
+          { "class": "Label", "name": "lblTitle", "style": "row", "align": "top", "height": 16, "margins": [0, 6, 0, 0], "hit_test": false, "text": "" },
+          { "class": "Label", "name": "lblInfo", "style": "sub", "align": "top", "height": 14, "margins": [0, 2, 0, 0], "hit_test": false, "text": "" }
+        ]
+      }
+    ]
+  }
+}

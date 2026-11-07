@@ -1,0 +1,30 @@
+{
+  "iron": 1,
+  "root": {
+    "class": "Form",
+    "name": "fraLibGroup",
+    "caption": "Biblioteca: grupo de cartões",
+    "width": 1100,
+    "height": 54.4,
+    "align": "top",
+    "clip_children": false,
+    "hit_test": false,
+    "fill": "transparent",
+    "children": [
+      {
+        "class": "Layout",
+        "name": "lyHead",
+        "align": "top",
+        "height": 28.4,
+        "margins": [0, 18, 0, 8],
+        "hit_test": false,
+        "children": [
+          { "class": "Rectangle", "name": "shpLine", "style": "sep", "align": "bottom", "height": 1, "margins": [-22, 0, -22, 0] },
+          { "class": "CheckBox", "name": "chkAll", "align": "right", "width": 16, "margins": [0, 5.7, 0, 6.7], "hint": "Selecionar todos do período" },
+          { "class": "Label", "name": "lblTitle", "style": "section", "align": "client", "margins": [0, 6, 0, 7], "text_case": "upper", "letter_spacing": 0.66, "text": "" }
+        ]
+      },
+      { "class": "FlowLayout", "name": "flowCards", "align": "top", "height": 0, "gap": 12, "line_gap": 12, "clip_children": false, "hit_test": false }
+    ]
+  }
+}

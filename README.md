@@ -1,0 +1,146 @@
+# NoOBS
+
+<p align="center">
+  <img src="docs/imagens/app-escuro.png" alt="NoOBS — tema escuro" width="49%">
+  <img src="docs/imagens/app-claro.png" alt="NoOBS — tema claro" width="49%">
+</p>
+
+Gravador de tela com motor de captura próprio, em Rust, e interface no
+[Iron](https://github.com/e-rust/iron). Sem instalar nem configurar nada —
+só abrir e gravar.
+
+---
+
+## Por que o NoOBS
+
+- **Zero configuração.** Sem cenas, sem fontes, sem perfis. Abriu, seus
+  monitores e microfones já estão lá, prontos.
+
+- **Some quando não está usando.** Depois de 1 minuto na bandeja, cai pra
+  **~5 MB de RAM** — só o ícone e o atalho global. Volta sozinho na hora
+  de gravar.
+
+- **Todos os monitores num arquivo só.** Lado a lado, sem faixa preta de
+  monitor que ficou de fora.
+
+- **Pausa sem abrir outro arquivo.** O botão de pausa, ao lado do de gravar janela, pausa e
+  retoma; o vídeo sai inteiro, sem o trecho pausado.
+
+- **Ou só uma janela.** O botão ao lado do buffer mostra as janelas
+  abertas com uma prévia de cada; escolhida uma, só ela entra no vídeo,
+  mesmo coberta por outras. Marcando "Gravar o som do app", o som só
+  daquele programa vai junto, numa faixa própria com o nome dele.
+
+- **Cada microfone e alto-falante na própria faixa.** Faixa 1 é a mistura
+  de tudo; as outras ficam isoladas, uma por dispositivo, sem limite de
+  faixas. Abre no DaVinci ou no Premiere com os nomes certos, pronto pra
+  separar voz de áudio do sistema.
+
+- **Arquivos que não desperdiçam espaço.** Grava por qualidade, não por
+  taxa fixa: tela parada quase não ocupa nada, e as cenas de movimento
+  gastam o que precisarem. Na aba Vídeo, um teste grava alguns segundos da
+  sua tela e mostra, nível por nível, quanto cada um ocuparia por hora e
+  como a imagem fica — dois níveis lado a lado, no mesmo ponto, em tamanho
+  real.
+
+- **Junta e exporta sem sair do app.** Unir não reencoda — é instantâneo
+  e sem perda. A exportação recorta trechos,
+  escolhe monitores e reduz resolução, com prévia do que está saindo. Para
+  enquadrar, é só arrastar as bordas da prévia: o que ficar dentro da
+  moldura é o que vai pro arquivo. A linha do tempo mostra a intensidade
+  do áudio pra acertar o corte, dá pra exportar só o áudio, e a
+  transcrição pode sair gravada no vídeo como legenda. Dá pra exportar
+  acelerado, em qualquer velocidade até 512×: o áudio acelera junto sem
+  afinar a voz, e a taxa de quadros pode subir com a velocidade (60 fps
+  a 2× sai em até 120 fps). O vídeo da origem é lido na placa de vídeo. O arquivo
+  exportado mantém os monitores, as faixas e a transcrição da gravação.
+  Fechou a tela? Ela continua em segundo plano, com a barra de progresso
+  no card da gravação e um botão de cancelar ali mesmo.
+
+- **Organiza em pastas, sem abrir o Explorer.** Crie pastas na própria
+  lista, arraste uma gravação pra dentro ou use recortar e colar. Excluir
+  uma pasta avisa quantas gravações vão junto.
+
+- **O vídeo leva os dados junto.** Transcrição, nomes de quem falou e a
+  posição de cada monitor ficam guardados dentro do próprio arquivo, num
+  espaço que qualquer player ignora. Copiou pra outro computador? O NoOBS
+  de lá abre com tudo pronto, sem transcrever de novo.
+
+- **Grava chamadas sozinho.** Detecta quando o Teams, o Meet ou o
+  WhatsApp abre o microfone, começa a gravar e para quando a chamada
+  acaba. Funciona até com o app hibernando.
+
+- **Guarda os últimos minutos sem gravar no disco.** Ligue o buffer em
+  memória e jogue: quando acontecer algo que valha guardar, um atalho
+  salva o trecho como gravação normal e o buffer recomeça — dá pra salvar
+  vários pedaços seguidos, e a emenda entre eles se sobrepõe em vez de
+  perder um pedaço. Ele liga sozinho quando você abre um jogo da sua
+  lista (mesmo com o NoOBS hibernando), e um indicador discreto mostra
+  quanto já está guardado — clicar nele salva o trecho. O tempo e a
+  memória guardados são seus, com o máximo limitado ao que cabe na
+  máquina. Começou a gravar com o buffer ligado? A gravação já sai com o
+  que ele tinha guardado, emendada sem perder nem repetir um quadro.
+
+- **Transcreve e legenda na sua placa de vídeo.** Instala com um clique
+  na aba de Transcrição: o NoOBS baixa o motor e os modelos (~3,7 GB, uma
+  vez só) e transcreve na GPU — AMD, NVIDIA ou Intel. Cada palavra sai
+  marcada no instante exato em que foi dita, e números por extenso viram
+  algarismos. Com faixas isoladas, cada fala leva o nome do dispositivo de
+  onde veio.
+
+- **À prova de queda de energia.** Grava em MKV, recuperável quadro a
+  quadro. Um travamento não leva a gravação junto.
+
+Também tem tema claro/escuro acompanhando o Windows, interface em
+português, inglês e espanhol, atalho global, ícone na bandeja, início com
+o Windows, player embutido com zoom, velocidade e forma de onda, e
+exclusão sempre pela lixeira. Enquanto você grava ou o buffer está
+ligado, o NoOBS segura os trabalhos pesados em segundo plano (como a
+transcrição) pra não disputar a máquina com o que está sendo capturado.
+
+---
+
+## Instalação
+
+Baixe a versão mais recente em
+[Releases](https://github.com/e-rust/noobs/releases).
+
+O instalador oferece **iniciar com o Windows** (marcado por padrão) e
+**atalho na área de trabalho** (desmarcado). Na primeira execução o app
+abre nas Configurações pra você escolher a pasta de gravação e o atalho.
+
+---
+
+## Compilar
+
+No Windows, com o Rust e o Iron instalados (e o NSIS para o instalador). O
+NoOBS é um projeto do Iron: `NoOBS.ironproj`, as telas em `forms\`, os temas
+em `themes\`, as imagens em `assets\` e as traduções em `locales\` abrem na
+IDE do Iron; o código fica em `rust\`.
+
+O `rust\Cargo.toml` acha o Iron em `.iron\sdk`, uma junção até a instalação do
+Iron desta máquina (fora do git). Quem cria é o próprio Iron, ao abrir o projeto
+na IDE ou rodar o `iron-tool`, e também o `scripts\build.bat`, pela pasta que o
+instalador do Iron grava no registro (`HKCU\Software\Iron`, `SdkDir`). O Iron
+pode estar instalado em qualquer lugar.
+
+- `scripts\build.bat` compila e põe o `NoOBS.exe` em `runtime\`, de onde
+  ele roda (`scripts\build.bat debug` compila mais rápido, sem otimização).
+- `iron-tool publish NoOBS.ironproj --installer` (ou Publicar na IDE do
+  Iron) gera o instalador em `dist\`, com a versão e as opções do
+  `NoOBS.ironproj` (`publish`).
+
+O `runtime\` precisa das DLLs do FFmpeg (`avcodec-61`, `avformat-61`,
+`avutil-59`, `swscale-8`, `swresample-5`, `libx264-164`, `zlib`, `srt`,
+`librist`); o `build.bat` avisa quando faltam. O instalador leva o exe e as
+DLLs do `runtime\`.
+
+---
+
+## Terceiros
+
+Este software utiliza os seguintes componentes open-source:
+
+- **Iron** — MIT ou Apache 2.0 — https://github.com/e-rust/iron (a
+  interface: janelas, telas, controles e o renderizador Direct2D)
+- **FFmpeg** — LGPL v2.1+ / GPL v2+ — https://ffmpeg.org

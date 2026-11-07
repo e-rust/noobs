@@ -1,0 +1,156 @@
+[package]
+name = "noobs"
+version = "0.1.0"
+edition = "2021"
+build = "build.rs"
+description = "NoOBS: gravador de tela com motor de captura próprio e UI nativa no Iron"
+
+[dependencies]
+# UI nativa: o projeto iron fica na pasta de cima (`NoOBS.ironproj`,
+# `forms/`, `themes/`). As features são as que os forms usam; a IDE atualiza a lista a
+# cada "Gerar código".
+iron = { path = "../.iron/sdk/crates/iron", default-features = false, features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+libloading = "0.8"
+base64 = "0.22"
+sha1 = "0.10"
+# O `#[implement]` expande para `windows_core::...`; precisa estar na raiz.
+windows-core = "0.61"
+jpeg-encoder = "0.6"
+# Miniaturas da biblioteca (JPG do cache) decodificadas numa worker.
+image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+windows = { version = "0.61", features = [
+  "Win32_Devices_FunctionDiscovery",
+  "Win32_Foundation",
+  "Win32_Globalization",
+  "Win32_Media_Audio",
+  "Win32_Media_DirectShow",
+  "Win32_System_Ole",
+  "Win32_Media_Audio_Endpoints",
+  "Win32_Storage_FileSystem",
+  "Win32_System_Com_StructuredStorage",
+  "Win32_System_Variant",
+  "Win32_UI_Shell_PropertiesSystem",
+  "Win32_Graphics_Dwm",
+  "Win32_Graphics_Gdi",
+  "Win32_System_Com",
+  "Win32_System_LibraryLoader",
+  "Win32_System_Threading",
+  "Win32_System_Registry",
+  "Win32_Storage_Xps",
+  "Win32_UI_HiDpi",
+  "Win32_UI_Input_KeyboardAndMouse",
+  "Win32_UI_Shell",
+  "Win32_UI_WindowsAndMessaging",
+  "Win32_Security",
+  "Win32_Security_Authorization",
+  "Win32_Networking_WinHttp",
+  "Win32_System_JobObjects",
+  "Win32_System_Diagnostics_ToolHelp",
+  "Win32_System_SystemInformation",
+  "Win32_Graphics_GdiPlus",
+  "Win32_System_RemoteDesktop",
+  "Win32_System_Performance",
+  "Win32_System_ProcessStatus",
+    # Motor de captura próprio: D3D11, DXGI e WGC.
+    "Foundation",
+    "Graphics",
+    "Graphics_Capture",
+    # Pedido de captura sem a borda amarela (`GraphicsCaptureAccess`).
+    "Security",
+    "Security_Authorization",
+    "Security_Authorization_AppCapabilityAccess",
+    "Graphics_DirectX",
+    "Graphics_DirectX_Direct3D11",
+    "Win32_Graphics_Direct3D",
+    "Win32_Media_MediaFoundation",
+    "Win32_Graphics_Direct3D_Fxc",
+    "Win32_Graphics_Direct3D11",
+    "Win32_Graphics_Dxgi",
+    "Win32_Graphics_Dxgi_Common",
+    "Win32_System_WinRT",
+    "Win32_System_WinRT_Direct3D11",
+    "Win32_System_WinRT_Graphics_Capture",
+] }
+flate2 = { version = "1.1.10", default-features = false, features = ["rust_backend"] }
+sha2 = "0.10"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+
+[features]
+# Torna os módulos públicos pros executáveis de teste de `tests/` (rodam FORA
+# do app, gravam a tela de verdade e precisam das DLLs do FFmpeg em `runtime\`, na raiz).
+# Fora da suíte padrão:
+#   cargo test --release --features app-tests --test mensagens [-- filtro]
+#   cargo test --release --features app-tests --test captura [-- filtro]
+app-tests = []
+dev = ["iron/dev"]
+
+# As mensagens da página pelo dispatch, com o motor de captura de verdade.
+[[test]]
+name = "mensagens"
+path = "tests/mensagens.rs"
+harness = false
+required-features = ["app-tests"]
+
+# O motor de captura direto.
+[[test]]
+name = "captura"
+path = "tests/captura.rs"
+harness = false
+required-features = ["app-tests"]
+
+# O player acelerado medido num arquivo de verdade (tests/player.rs).
+[[test]]
+name = "player"
+path = "tests/player.rs"
+harness = false
+required-features = ["app-tests"]
+
+[build-dependencies]
+# Embute o projeto iron (e o ícone do projeto) (forms, temas) no executável.
+iron-build = { path = "../.iron/sdk/crates/iron-build" }
+
+# iron:render: o renderizador de cada plataforma (Projeto → Opções; a IDE reescreve este bloco)
+# Windows: Direct2D
+[target.'cfg(windows)'.dependencies]
+iron = { path = "../.iron/sdk/crates/iron", default-features = false, features = ["d2d"] }
+
+# Linux: Automático (Skia GPU, senão CPU)
+[target.'cfg(target_os = "linux")'.dependencies]
+iron = { path = "../.iron/sdk/crates/iron", default-features = false, features = ["skia-gpu", "skia-cpu"] }
+
+# macOS: Automático (Skia GPU, senão CPU)
+[target.'cfg(target_os = "macos")'.dependencies]
+iron = { path = "../.iron/sdk/crates/iron", default-features = false, features = ["skia-gpu", "skia-cpu"] }
+
+# Android: Automático (Skia GPU, senão CPU)
+[target.'cfg(target_os = "android")'.dependencies]
+iron = { path = "../.iron/sdk/crates/iron", default-features = false, features = ["skia-gpu", "skia-cpu"] }
+
+# iOS: Skia CPU
+[target.'cfg(target_os = "ios")'.dependencies]
+iron = { path = "../.iron/sdk/crates/iron", default-features = false, features = ["skia-cpu"] }
+
+# iron:render-end
+
+# Em desenvolvimento (o Executar e a depuração da IDE do iron): o NoOBS e as dependências
+# otimizados. Sem otimização, a captura, a mixagem de áudio e a conversão de vídeo não
+# acompanham o tempo real e o app fica inutilizável. O depurador continua com as linhas.
+[profile.dev]
+opt-level = 2
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+# SEM `panic = "abort"`: com ele todo `catch_unwind` do projeto (probe,
+# miniatura, exportação, dispatch, timers…) vira código morto no release e
+# qualquer falha fecha o app sem deixar nada no log. Com o unwind, a falha é
+# registrada e o app segue.
+

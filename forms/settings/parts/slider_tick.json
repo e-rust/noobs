@@ -1,0 +1,15 @@
+{
+  "iron": 1,
+  "root": {
+    "class": "Form",
+    "name": "fraSliderTick",
+    "caption": "Configurações: marca de um trilho que muda de número (o FPS)",
+    "width": 20,
+    "height": 14,
+    "hit_test": false,
+    "fill": "transparent",
+    "children": [
+      { "class": "Label", "name": "lblTick", "style": "s_tick", "align": "client", "hit_test": false, "text": "" }
+    ]
+  }
+}

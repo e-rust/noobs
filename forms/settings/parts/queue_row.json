@@ -1,0 +1,29 @@
+{
+  "iron": 1,
+  "root": {
+    "class": "Form",
+    "name": "fraQueueRow",
+    "caption": "Configurações: item da fila de transcrição",
+    "width": 760,
+    "height": 30,
+    "align": "top",
+    "fill": "transparent",
+    "children": [
+      {
+        "class": "Panel",
+        "name": "pnlRow",
+        "style": "s_q_row",
+        "align": "client",
+        "padding": [8, 0, 8, 0],
+        "children": [
+          { "class": "Rectangle", "name": "shpLine", "style": "edge2", "align": "most_top", "height": 1, "margins": [-8, 0, -8, 0], "hit_test": false, "visible": false },
+          { "class": "Label", "name": "lblDot", "style": "s_q_dur", "align": "left", "width": 12, "h_align": "center", "margins": [0, 0, 8, 0], "hit_test": false, "text": "⠿" },
+          { "class": "Label", "name": "lblNow", "style": "s_q_now", "align": "right", "width": 40, "letter_spacing": 0.4, "text_case": "upper", "margins": [8, 0, 0, 0], "hit_test": false, "visible": false, "text": "agora" },
+          { "class": "Button", "name": "btnRemove", "style": "s_x", "font_size": 15, "align": "right", "width": 20, "height": 20, "margins": [8, 5, 0, 5], "hint": "Tirar da fila", "text": "×" },
+          { "class": "Label", "name": "lblDuration", "style": "s_q_dur", "align": "right", "width": 30, "margins": [8, 0, 0, 0], "hit_test": false, "text": "" },
+          { "class": "Label", "name": "lblName", "style": "s_q", "align": "client", "hit_test": false, "text": "" }
+        ]
+      }
+    ]
+  }
+}

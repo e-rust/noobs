@@ -1,0 +1,16 @@
+{
+  "iron": 1,
+  "root": {
+    "class": "Form",
+    "name": "fraHiddenFolder",
+    "caption": "Configurações: pasta da lista de pastas ocultas",
+    "width": 760,
+    "height": 18,
+    "align": "top",
+    "fill": "transparent",
+    "children": [
+      { "class": "CheckBox", "name": "chkHidden", "style": "web", "box_size": 16, "align": "left", "width": 120, "margins": [0, 0, 8, 0], "text": "" },
+      { "class": "Label", "name": "lblCount", "style": "s_label", "align": "client", "hit_test": false, "text": "" }
+    ]
+  }
+}

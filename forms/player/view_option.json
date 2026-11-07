@@ -1,0 +1,41 @@
+{
+  "iron": 1,
+  "root": {
+    "class": "Form",
+    "name": "fraViewOption",
+    "caption": "Player: opção da visualização (tela cheia ou região)",
+    "width": 292,
+    "height": 34.8,
+    "align": "top",
+    "margins": [0, 0, 0, 4],
+    "hit_test": false,
+    "fill": "transparent",
+    "children": [
+      {
+        "class": "Panel",
+        "name": "pnlOption",
+        "style": "pl_view",
+        "align": "client",
+        "padding": [11, 0, 10, 0],
+        "cursor": "pointer",
+        "children": [
+          {
+            "class": "Panel",
+            "name": "pnlMark",
+            "style": "pl_radio",
+            "align": "left",
+            "width": 16,
+            "margins": [0, 9.4, 10, 9.4],
+            "hit_test": false,
+            "children": [
+              { "class": "Circle", "name": "cirDot", "align": "center", "width": 7, "height": 7, "fill": "white", "stroke_width": 0, "hit_test": false, "visible": false },
+              { "class": "Button", "name": "btnCheck", "style": "pl_check", "text": "", "icon": "check", "icon_size": 11, "align": "client", "hit_test": false, "visible": false }
+            ]
+          },
+          { "class": "Button", "name": "btnIcon", "style": "pl_vicon", "text": "", "icon": "pl-expand", "icon_size": 18, "align": "left", "width": 18, "margins": [0, 0, 10, 0], "hit_test": false },
+          { "class": "Label", "name": "lblLabel", "style": "pl_vlabel", "align": "client", "trimming": "character", "hit_test": false, "text": "" }
+        ]
+      }
+    ]
+  }
+}

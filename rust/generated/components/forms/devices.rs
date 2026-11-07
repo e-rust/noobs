@@ -1,0 +1,121 @@
+
+/// O form fraDevices: os componentes (resolvidos ao abrir; os que só existem em algumas
+/// plataformas são `Option`) e o estado dele (`Data`, no arquivo do form). Cada janela
+/// aberta tem a sua; os handlers são métodos dela.
+pub struct FraDevices {
+    pub form: Form,
+    pub lblDevicesHint: Label,
+    pub lyDevices: Layout,
+    pub lblDevicesEmpty: Label,
+    pub data: super::devices::Data,
+}
+
+/// Os componentes do fraDevices sem o estado, para o código fora dos handlers
+/// (`FraDevices::components(ui)`): uma cópia, que se usa à vontade com o `ui`.
+#[derive(Clone, Copy, Debug)]
+pub struct FraDevicesComponents {
+    pub form: Form,
+    pub lblDevicesHint: Label,
+    pub lyDevices: Layout,
+    pub lblDevicesEmpty: Label,
+}
+
+impl std::ops::Deref for FraDevices {
+    type Target = Form;
+    fn deref(&self) -> &Form {
+        &self.form
+    }
+}
+
+impl FraDevices {
+    /// Monta a instância de um fraDevices recém-criado (o `register` liga). Um componente que
+    /// sumiu do form ou mudou de classe impede o form de abrir, com a lista do que não bate.
+    pub fn bind(ui: &mut Ui, root: ComponentId) -> Result<Box<dyn std::any::Any>, String> {
+        let mut problems: Vec<String> = Vec::new();
+        let instance = Self {
+            form: Form { id: root },
+            lblDevicesHint: Label { id: handles::resolve(ui, root, "lblDevicesHint", "Label", &mut problems) },
+            lyDevices: Layout { id: handles::resolve(ui, root, "lyDevices", "Layout", &mut problems) },
+            lblDevicesEmpty: Label { id: handles::resolve(ui, root, "lblDevicesEmpty", "Label", &mut problems) },
+            data: Default::default(),
+        };
+        if !problems.is_empty() {
+            return Err(format!("o form fraDevices não bate com o código: {}", problems.join("; ")));
+        }
+        ui.set_form_components(root, Box::new(FraDevicesComponents {
+            form: instance.form,
+            lblDevicesHint: instance.lblDevicesHint,
+            lyDevices: instance.lyDevices,
+            lblDevicesEmpty: instance.lblDevicesEmpty,
+        }));
+        Ok(Box::new(instance))
+    }
+
+    /// Os componentes do fraDevices aberto (o primeiro, se houver dois), sem o estado: valem
+    /// também enquanto um handler dele roda, quando o `get` dá `None`.
+    pub fn components(ui: &Ui) -> Option<FraDevicesComponents> {
+        ui.form_components(ui.find_path("fraDevices")?)
+    }
+
+    /// Cria o fraDevices (ou devolve o que já está criado, como o `CreateForm`); mostrar é com
+    /// `ui.show`.
+    pub fn create(ui: &mut Ui) -> Result<ComponentId, iron::prelude::Error> {
+        ui.create_form("fraDevices")
+    }
+
+    /// Cria mais um fraDevices dentro de `parent` (uma linha, um cartão: cada um com a sua
+    /// instância e os handlers falando com ela) e devolve os componentes dele. O nome
+    /// segue livre no form de `parent` (`fraDevices`, `fraDevices2`...).
+    pub fn create_in(ui: &mut Ui, parent: ComponentId) -> Result<FraDevicesComponents, iron::prelude::Error> {
+        let root = ui.create_form_instance("fraDevices")?;
+        let name = ui.free_name_in(parent, "fraDevices");
+        if let Err(e) = ui.set_name(root, &name).and_then(|_| ui.set_parent(root, Some(parent))) {
+            ui.free(root);
+            return Err(e);
+        }
+        ui.form_components(root).ok_or(iron::prelude::Error::InvalidId)
+    }
+
+    /// Os componentes de uma instância do fraDevices (a raiz dela: o `form.id` de um
+    /// [`create_in`](Self::create_in)).
+    pub fn components_of(ui: &Ui, root: ComponentId) -> Option<FraDevicesComponents> {
+        ui.form_components(root)
+    }
+
+    /// O fraDevices aberto (o primeiro, se houver dois), para outro form ler ou mexer nele.
+    pub fn get(ui: &Ui) -> Option<&FraDevices> {
+        ui.form_instance(ui.find_path("fraDevices")?)
+    }
+
+    pub fn get_mut(ui: &mut Ui) -> Option<&mut FraDevices> {
+        let form = ui.find_path("fraDevices")?;
+        ui.form_instance_mut(form)
+    }
+
+    /// O Label deste form com o nome (`None` se não há um Label com ele).
+    pub fn find_label(&self, name: &str) -> Option<Label> {
+        match name {
+            "lblDevicesHint" => Some(self.lblDevicesHint),
+            "lblDevicesEmpty" => Some(self.lblDevicesEmpty),
+            _ => None,
+        }
+    }
+
+    /// O Label que disparou o evento (`None` se o `sender` não é um Label deste form).
+    pub fn sender_as_label(&self, ui: &Ui, sender: ComponentId) -> Option<Label> {
+        self.find_label(ui.name(sender)?)
+    }
+
+    /// O Layout deste form com o nome (`None` se não há um Layout com ele).
+    pub fn find_layout(&self, name: &str) -> Option<Layout> {
+        match name {
+            "lyDevices" => Some(self.lyDevices),
+            _ => None,
+        }
+    }
+
+    /// O Layout que disparou o evento (`None` se o `sender` não é um Layout deste form).
+    pub fn sender_as_layout(&self, ui: &Ui, sender: ComponentId) -> Option<Layout> {
+        self.find_layout(ui.name(sender)?)
+    }
+}
