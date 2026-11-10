@@ -1,5 +1,5 @@
 {
-  "iron_project": 1,
+  "aylis_project": 1,
   "name": "NoOBS",
   "language": "rust",
   "main_form": "frmMain",
@@ -7,207 +7,248 @@
     {
       "name": "frmMain",
       "file": "forms/main.json",
-      "auto_create": true
+      "auto_create": true,
+      "modified": 1794072287411
     },
     {
       "name": "frmSettings",
       "file": "forms/settings.json",
-      "auto_create": false
+      "auto_create": false,
+      "modified": 1794050476331
     },
     {
       "name": "frmPlayer",
       "file": "forms/player.json",
-      "auto_create": false
+      "auto_create": false,
+      "modified": 1794083402563
     },
     {
       "name": "frmExport",
       "file": "forms/export.json",
-      "auto_create": false
+      "auto_create": false,
+      "modified": 1794089353357
     },
     {
       "name": "frmPicker",
       "file": "forms/picker.json",
-      "auto_create": false
+      "auto_create": false,
+      "modified": 1794050476331
     },
     {
       "name": "fraGeneral",
       "file": "forms/settings/general.json",
-      "auto_create": false
+      "auto_create": false,
+      "modified": 1794050476333
     },
     {
       "name": "fraOnRecord",
       "file": "forms/settings/onrecord.json",
-      "auto_create": false
+      "auto_create": false,
+      "modified": 1794077127217
     },
     {
       "name": "fraFiles",
       "file": "forms/settings/files.json",
-      "auto_create": false
+      "auto_create": false,
+      "modified": 1794077122776
     },
     {
       "name": "fraVideo",
       "file": "forms/settings/video.json",
-      "auto_create": false
+      "auto_create": false,
+      "modified": 1794077690661
     },
     {
       "name": "fraAudio",
       "file": "forms/settings/audio.json",
-      "auto_create": false
+      "auto_create": false,
+      "modified": 1794050476331
     },
     {
       "name": "fraReplay",
       "file": "forms/settings/replay.json",
-      "auto_create": false
+      "auto_create": false,
+      "modified": 1794050476333
     },
     {
       "name": "fraHotkeys",
       "file": "forms/settings/hotkeys.json",
-      "auto_create": false
+      "auto_create": false,
+      "modified": 1794077361550
     },
     {
       "name": "fraDevices",
       "file": "forms/settings/devices.json",
-      "auto_create": false
+      "auto_create": false,
+      "modified": 1794077124874
     },
     {
       "name": "fraTranscribe",
       "file": "forms/settings/transcribe.json",
-      "auto_create": false
+      "auto_create": false,
+      "modified": 1794077262523
     },
     {
       "name": "fraUpdates",
       "file": "forms/settings/updates.json",
-      "auto_create": false
+      "auto_create": false,
+      "modified": 1794050476333
     },
     {
       "name": "fraAbout",
       "file": "forms/settings/about.json",
-      "auto_create": false
+      "auto_create": false,
+      "modified": 1794077266211
     },
     {
       "name": "fraWindowCard",
       "file": "forms/picker/window_card.json",
-      "auto_create": false
+      "auto_create": false,
+      "modified": 1794069557449
     },
     {
       "name": "fraAreaButton",
       "file": "forms/picker/area_button.json",
-      "auto_create": false
+      "auto_create": false,
+      "modified": 1794070116544
     },
     {
       "name": "fraSourceRow",
       "file": "forms/main/source_row.json",
-      "auto_create": false
+      "auto_create": false,
+      "modified": 1794070421032
     },
     {
       "name": "fraLegendRow",
       "file": "forms/main/legend_row.json",
-      "auto_create": false
+      "auto_create": false,
+      "modified": 1794070424378
     },
     {
       "name": "fraLibGroup",
       "file": "forms/library/group.json",
-      "auto_create": false
+      "auto_create": false,
+      "modified": 1794071364382
     },
     {
       "name": "fraRecCard",
       "file": "forms/library/rec_card.json",
-      "auto_create": false
+      "auto_create": false,
+      "modified": 1794075399221
     },
     {
       "name": "fraFolderCard",
       "file": "forms/library/folder_card.json",
-      "auto_create": false
+      "auto_create": false,
+      "modified": 1794075399219
     },
     {
       "name": "fraInfoSection",
       "file": "forms/player/info_section.json",
-      "auto_create": false
+      "auto_create": false,
+      "modified": 1794075950653
     },
     {
       "name": "fraInfoRow",
       "file": "forms/player/info_row.json",
-      "auto_create": false
+      "auto_create": false,
+      "modified": 1794075950672
     },
     {
       "name": "fraViewOption",
       "file": "forms/player/view_option.json",
-      "auto_create": false
+      "auto_create": false,
+      "modified": 1794075950695
     },
     {
       "name": "fraTrackCard",
       "file": "forms/player/track_card.json",
-      "auto_create": false
+      "auto_create": false,
+      "modified": 1794075950721
     },
     {
       "name": "fraTurn",
       "file": "forms/player/turn.json",
-      "auto_create": false
+      "auto_create": false,
+      "modified": 1794075950740
     },
     {
       "name": "fraSpeakerEdit",
       "file": "forms/player/speaker_edit.json",
-      "auto_create": false
+      "auto_create": false,
+      "modified": 1794075950764
     },
     {
       "name": "fraHiddenFolder",
       "file": "forms/settings/parts/hidden_folder.json",
-      "auto_create": false
+      "auto_create": false,
+      "modified": 1794077099404
     },
     {
       "name": "fraDeviceGroup",
       "file": "forms/settings/parts/device_group.json",
-      "auto_create": false
+      "auto_create": false,
+      "modified": 1794077111222
     },
     {
       "name": "fraDeviceRow",
       "file": "forms/settings/parts/device_row.json",
-      "auto_create": false
+      "auto_create": false,
+      "modified": 1794077105540
     },
     {
       "name": "fraQueueRow",
       "file": "forms/settings/parts/queue_row.json",
-      "auto_create": false
+      "auto_create": false,
+      "modified": 1794077254298
     },
     {
       "name": "fraAboutItem",
       "file": "forms/settings/parts/about_item.json",
-      "auto_create": false
+      "auto_create": false,
+      "modified": 1794077256908
     },
     {
       "name": "fraHotkeyCard",
       "file": "forms/settings/parts/hotkey_card.json",
-      "auto_create": false
+      "auto_create": false,
+      "modified": 1794077355847
     },
     {
       "name": "fraVtLevel",
       "file": "forms/settings/parts/vt_level.json",
-      "auto_create": false
+      "auto_create": false,
+      "modified": 1794077694970
     },
     {
       "name": "fraSliderTick",
       "file": "forms/settings/parts/slider_tick.json",
-      "auto_create": false
+      "auto_create": false,
+      "modified": 1794077696888
     },
     {
       "name": "fraExPill",
       "file": "forms/export/pill.json",
-      "auto_create": false
+      "auto_create": false,
+      "modified": 1794079057657
     },
     {
       "name": "fraExTick",
       "file": "forms/export/tick.json",
-      "auto_create": false
+      "auto_create": false,
+      "modified": 1794079057679
     },
     {
       "name": "fraExPartLabel",
       "file": "forms/export/part_label.json",
-      "auto_create": false
+      "auto_create": false,
+      "modified": 1794079057703
     },
     {
       "name": "fraConfirm",
       "file": "forms/view/confirm.json",
-      "auto_create": false
+      "auto_create": false,
+      "modified": 1794078543001
     }
   ],
   "theme": "themes/noobs-dark.json",
@@ -395,14 +436,21 @@
     "smooth": true,
     "smooth_ms": 160.0
   },
+  "output": {
+    "dir": "runtime",
+    "name": "NoOBS"
+  },
+  "locale": "pt-BR",
   "publish": {
     "app_name": "NoOBS",
-    "publisher": "e-rust",
-    "version": "0.0.1-beta",
+    "version": "0.0.2-beta",
     "icon": "assets/images/icon.png",
+    "publisher": "e-rust",
     "windows": {
       "installer": "nsis",
-      "files": ["runtime/*.dll"],
+      "files": [
+        "runtime/*.dll"
+      ],
       "install_dir": "{localappdata}\\NoOBS",
       "exe_dir": "bin",
       "autostart": "on",
@@ -413,11 +461,6 @@
       "data_dir": "{localappdata}\\NoOBS"
     }
   },
-  "output": {
-    "dir": "runtime",
-    "name": "NoOBS"
-  },
-  "locale": "pt-BR",
   "render": {
     "windows": "d2d",
     "linux": "auto",

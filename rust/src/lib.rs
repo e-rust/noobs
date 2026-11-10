@@ -1,5 +1,5 @@
 //! NoOBS — gravador de tela com motor de captura próprio (D3D11 + WGC +
-//! WASAPI + libavcodec) e UI nativa no Iron. Sem libobs: o runtime é o exe e
+//! WASAPI + libavcodec) e UI nativa no Aylis. Sem libobs: o runtime é o exe e
 //! as DLLs do FFmpeg.
 //!
 //! Camadas:
@@ -7,15 +7,15 @@
 //! 2. captura e mídia — [`capture`], `ffmpeg_ops`, `ffmpeg_export`
 //! 3. domínio — `native_engine`, `encoder`, `probe`, `config`, `lang`, `types`
 //! 4. orquestração — `bridge` (handlers), `view` (core → interface),
-//!    `app_view` (a janela do iron), `forms` (os eventos dos forms), `ui`
+//!    `app_view` (a janela do aylis), `forms` (os eventos dos forms), `ui`
 //!    (host: janela oculta, bandeja, laço)
 //!
 //! Biblioteca + binário: o `main.rs` só chama [`run_app`]. Os testes rodam
 //! sempre FORA do app: `#[cfg(test)]` (só no `cargo test`) e os executáveis
 //! de `tests/` (feature `app-tests`, ver `modulos!`).
 
-/// O projeto Iron embutido (forms, temas, assets, traduções): a janela e o idioma saem dele.
-pub static PROJECT: iron::EmbeddedProject = iron::include_project!();
+/// O projeto Aylis embutido (forms, temas, assets, traduções): a janela e o idioma saem dele.
+pub static PROJECT: aylis::EmbeddedProject = aylis::include_project!();
 
 
 /// Os módulos são PRIVADOS no build normal: o exe não expõe nada. Só com a
@@ -53,7 +53,7 @@ pub mod ffi;
 /// `tests/captura.rs` o usa direto.
 pub mod capture;
 
-/// O que a IDE do iron gera (não edite): as structs dos forms, o acesso tipado e o
+/// O que a IDE do aylis gera (não edite): as structs dos forms, o acesso tipado e o
 /// registro; os arquivos dos forms ficam em `src/forms/`.
 #[path = "../generated/mod.rs"]
 pub mod generated;

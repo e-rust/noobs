@@ -3,7 +3,7 @@
 //! página recebia vira um método do [`View`].
 //!
 //! Quem implementa:
-//! * na janela, `app_view::IronView` (atualiza os forms do iron);
+//! * na janela, `app_view::AylisView` (atualiza os forms do aylis);
 //! * nos testes (`cargo test` e o executável `tests/mensagens.rs`), o
 //!   [`Recorder`], que guarda cada chamada no MESMO formato das mensagens
 //!   antigas — assim as conferências por `type` dos testes continuam valendo

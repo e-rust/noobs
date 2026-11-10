@@ -78,7 +78,11 @@ impl Dec {
         let (tb, src_w, src_h) = (st.time_base, par.width, par.height);
         let mut duration = unsafe { container_duration_us(input.ptr()) } as f64 / 1e6;
         if duration <= 0.0 {
+            // MKV sem `Duration` (gravação interrompida): a varredura deixa o
+            // cursor no EOF — sem voltar ao início, o `probe()` abaixo não acha
+            // quadro nenhum e o vídeo "não abre".
             duration = unsafe { scan_duration_by_packets(input.ptr()) } as f64 / 1e6;
+            input.rewind();
         }
         let mut d = Dec {
             a,

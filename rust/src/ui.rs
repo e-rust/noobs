@@ -1,4 +1,4 @@
-//! Host da interface: a janela do iron (o form `frmMain`, o que o usuário vê)
+//! Host da interface: a janela do aylis (o form `frmMain`, o que o usuário vê)
 //! e uma janela Win32 OCULTA que fica com o que precisa de um HWND fixo e do
 //! laço de mensagens:
 //!
@@ -8,7 +8,7 @@
 //! * a 2ª instância (`WM_SHOW_INSTANCE`) e o instalador, que procuram a
 //!   classe `TNoOBS` — um `WM_CLOSE` nela fecha o app.
 //!
-//! O laço é o do iron (winit). Ele despacha as mensagens de TODAS as janelas
+//! O laço é o do aylis (winit). Ele despacha as mensagens de TODAS as janelas
 //! da thread, então a janela oculta funciona sem laço próprio. Ordem de
 //! arranque/encerramento igual à de antes: COM → janelas → laço →
 //! `on_shutdown` (com o STA ainda vivo) → `CoUninitialize`.
@@ -27,7 +27,7 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{RegisterHotKey, SetFocus, Unre
 use windows::Win32::UI::Shell::{ITaskbarList3, ShellExecuteW, TaskbarList};
 use windows::Win32::UI::WindowsAndMessaging::*;
 
-use iron::prelude::{ComponentId, Ui, WindowCommand};
+use aylis::prelude::{ComponentId, Ui, WindowCommand};
 
 use crate::app_view::{self, with_ui};
 use crate::single_instance::{CLASS_NAME, MUTEX_NAME, SHOW_MSG_NAME};
@@ -38,7 +38,7 @@ const TRAY_COMMAND_BASE: u16 = 9000;
 
 /// A janela oculta (mensagens, timers, atalhos, bandeja).
 static HOST_HWND: AtomicIsize = AtomicIsize::new(0);
-/// HWND da janela do iron, pra perguntas de qualquer thread (visível,
+/// HWND da janela do aylis, pra perguntas de qualquer thread (visível,
 /// minimizada). 0 até a 1ª exibição.
 static VISIBLE_HWND: AtomicIsize = AtomicIsize::new(0);
 static WM_SHOW_INSTANCE: AtomicU32 = AtomicU32::new(0);
@@ -57,7 +57,7 @@ struct WinState {
     was_maximized: bool,
     /// Posição e tamanho da 1ª vez que a janela aparece.
     initial_bounds: Option<RECT>,
-    /// Ícone do exe já aplicado no HWND do iron.
+    /// Ícone do exe já aplicado no HWND do aylis.
     icon_applied: bool,
     /// /autostart sem bandeja: a 1ª exibição é minimizada.
     start_minimized: bool,
@@ -92,6 +92,9 @@ pub struct Hooks {
     /// Janela criada, antes do laço: o backend e a interface sobem.
     pub on_start: Option<fn()>,
     pub on_shutdown: Option<fn()>,
+    /// Logoff/desligar/reiniciar do Windows (`WM_ENDSESSION`): o processo é
+    /// encerrado assim que a mensagem volta, sem passar pelo `on_shutdown`.
+    pub on_end_session: Option<fn()>,
 }
 
 static HOOKS: std::sync::Mutex<Hooks> = std::sync::Mutex::new(Hooks {
@@ -104,6 +107,7 @@ static HOOKS: std::sync::Mutex<Hooks> = std::sync::Mutex::new(Hooks {
     on_window_hidden: None,
     on_start: None,
     on_shutdown: None,
+    on_end_session: None,
 });
 
 pub fn set_hooks(h: Hooks) {
@@ -125,7 +129,7 @@ pub fn release_thread_com() {
     wstate(|s| s.taskbar = None);
 }
 
-/// Um pedido à janela do iron (esconder, mostrar, minimizar...).
+/// Um pedido à janela do aylis (esconder, mostrar, minimizar...).
 fn window_command(command: WindowCommand) {
     with_ui(move |ui| {
         if let Some(form) = app_view::main_form() {
@@ -138,11 +142,11 @@ fn host_window() -> HWND {
     HWND(HOST_HWND.load(Ordering::SeqCst) as *mut _)
 }
 
-/// HWND da janela visível (o form do iron), se ela já foi criada pelo winit
+/// HWND da janela visível (o form do aylis), se ela já foi criada pelo winit
 /// (o laço começou). Antes disso, `None`.
 fn visible_hwnd() -> Option<HWND> {
     let form = app_view::main_form()?;
-    iron::platform::win::hwnd(form).map(|h| HWND(h as *mut _))
+    aylis::platform::win::hwnd(form).map(|h| HWND(h as *mut _))
 }
 
 /// Dono de diálogos e caixas de mensagem: a janela visível, senão a oculta.
@@ -277,7 +281,7 @@ pub fn apply_window_title() {
 
 /// Janela visível, minimizada ou não. MINIMIZADA conta como visível (o botão
 /// está na taskbar) — ao contrário de [`is_window_shown`]. De qualquer thread:
-/// lê o HWND (a thread das prévias pergunta), não o estado do iron.
+/// lê o HWND (a thread das prévias pergunta), não o estado do aylis.
 pub fn is_window_visible() -> bool {
     let h = VISIBLE_HWND.load(Ordering::SeqCst);
     h != 0 && unsafe { IsWindowVisible(HWND(h as *mut _)).as_bool() }
@@ -420,7 +424,7 @@ fn bring_to_front(hwnd: HWND) {
     }
 }
 
-/// O HWND do iron só existe depois que o laço começa: ícone do exe e barra de
+/// O HWND do aylis só existe depois que o laço começa: ícone do exe e barra de
 /// título no tema entram aqui.
 fn on_visible_hwnd() {
     let Some(hwnd) = visible_hwnd() else { return };
@@ -495,7 +499,7 @@ pub fn apply_tray_menu_theme(dark: bool) {
 
 /// Tela cheia da janela: sem bordas, cobrindo o monitor onde ela está.
 ///
-/// Sem bordas, no monitor da janela (o `SetFullscreen` do iron).
+/// Sem bordas, no monitor da janela (o `SetFullscreen` do aylis).
 pub fn toggle_fullscreen() {
     let on = wstate(|s| {
         s.fullscreen = !s.fullscreen;
@@ -591,6 +595,25 @@ extern "system" fn host_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARA
         }
         WM_COMMAND if (wparam.0 & 0xFFFF) as u16 >= TRAY_COMMAND_BASE => {
             tray::handle_command((wparam.0 & 0xFFFF) as i32);
+            LRESULT(0)
+        }
+        // Logoff/desligar/reiniciar. O Windows manda para todas as janelas de
+        // topo (esta também, mesmo oculta). Não vetamos: só fechamos o arquivo.
+        WM_QUERYENDSESSION => {
+            log::log(&format!("UI: WM_QUERYENDSESSION (lParam=0x{:X}).", lparam.0));
+            LRESULT(1)
+        }
+        // wParam != 0: a sessão VAI acabar e o processo é encerrado assim que
+        // isto voltar — o laço de eventos não termina e o `on_shutdown` não
+        // roda. Sem fechar aqui, o MKV em gravação ficava sem trailer (sem
+        // duração nem índice).
+        WM_ENDSESSION => {
+            if wparam.0 != 0 {
+                log::log(&format!("UI: WM_ENDSESSION — a sessao do Windows esta acabando (lParam=0x{:X}).", lparam.0));
+                if let Some(f) = hooks(|h| h.on_end_session) {
+                    f();
+                }
+            }
             LRESULT(0)
         }
         // Ninguém vê esta janela: um WM_CLOSE nela é o instalador pedindo pro
@@ -715,7 +738,7 @@ pub fn run() {
     let mut app = match app_view::create() {
         Ok(app) => app,
         Err(e) => {
-            log!("UI: falha ao abrir o projeto iron: {e}");
+            log!("UI: falha ao abrir o projeto aylis: {e}");
             unsafe { CoUninitialize() };
             return;
         }
@@ -755,7 +778,7 @@ pub fn run() {
 
     app.development();
     let options = app.options();
-    if let Err(e) = iron::platform::run_with(app.ui, form, options) {
+    if let Err(e) = aylis::platform::run_with(app.ui, form, options) {
         log!("UI: laco de eventos terminou com erro: {e}");
     }
 

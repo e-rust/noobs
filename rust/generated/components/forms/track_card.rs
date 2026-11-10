@@ -79,21 +79,21 @@ impl FraTrackCard {
 
     /// Cria o fraTrackCard (ou devolve o que já está criado, como o `CreateForm`); mostrar é com
     /// `ui.show`.
-    pub fn create(ui: &mut Ui) -> Result<ComponentId, iron::prelude::Error> {
+    pub fn create(ui: &mut Ui) -> Result<ComponentId, aylis::prelude::Error> {
         ui.create_form("fraTrackCard")
     }
 
     /// Cria mais um fraTrackCard dentro de `parent` (uma linha, um cartão: cada um com a sua
     /// instância e os handlers falando com ela) e devolve os componentes dele. O nome
     /// segue livre no form de `parent` (`fraTrackCard`, `fraTrackCard2`...).
-    pub fn create_in(ui: &mut Ui, parent: ComponentId) -> Result<FraTrackCardComponents, iron::prelude::Error> {
+    pub fn create_in(ui: &mut Ui, parent: ComponentId) -> Result<FraTrackCardComponents, aylis::prelude::Error> {
         let root = ui.create_form_instance("fraTrackCard")?;
         let name = ui.free_name_in(parent, "fraTrackCard");
         if let Err(e) = ui.set_name(root, &name).and_then(|_| ui.set_parent(root, Some(parent))) {
             ui.free(root);
             return Err(e);
         }
-        ui.form_components(root).ok_or(iron::prelude::Error::InvalidId)
+        ui.form_components(root).ok_or(aylis::prelude::Error::InvalidId)
     }
 
     /// Os componentes de uma instância do fraTrackCard (a raiz dela: o `form.id` de um

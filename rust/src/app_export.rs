@@ -9,7 +9,7 @@
 //! `forms/export/`: as pílulas das telas e das faixas (`fraExPill`), as marcas da régua
 //! (`fraExTick`) e a duração dos trechos (`fraExPartLabel`), estas duas reaproveitadas
 //! entre um desenho e outro. A prévia é o motor do player (`playback`) aberto PARADO na
-//! gravação, num `FrameView`, com o `CropBox` do iron por cima; a linha do tempo
+//! gravação, num `FrameView`, com o `CropBox` do aylis por cima; a linha do tempo
 //! (trechos, divisões e forma de onda) é desenhada aqui numa imagem da janela visível,
 //! com o cursor e a régua por cima.
 
@@ -18,7 +18,7 @@ use std::cell::RefCell;
 use std::collections::BTreeSet;
 use std::sync::Arc;
 
-use iron::prelude::*;
+use aylis::prelude::*;
 
 use crate::app_view::{main_form, with_ui};
 use crate::bridge::export::{self as bexp, ExportRequest};
@@ -2583,8 +2583,8 @@ mod tests {
         assert_eq!(speed(&st), 1.0);
     }
 
-    fn app() -> iron::Application {
-        let mut app = iron::Application::bundled(crate::PROJECT).unwrap();
+    fn app() -> aylis::Application {
+        let mut app = aylis::Application::bundled(crate::PROJECT).unwrap();
         crate::generated::register(&mut app.ui);
         app
     }

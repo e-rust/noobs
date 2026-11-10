@@ -1,9 +1,9 @@
-//! O que a IDE do Iron refaz a cada "Gerar código" (não edite): o acesso tipado aos
+//! O que a IDE do Aylis refaz a cada "Gerar código" (não edite): o acesso tipado aos
 //! componentes, a struct de cada form e o registro. O código dos forms é seu, em
 //! `src/forms/`.
 
-use iron::prelude::Ui;
-use iron::prelude::instances::form_handler;
+use aylis::prelude::Ui;
+use aylis::prelude::instances::form_handler;
 
 pub mod components;
 pub use components::*;

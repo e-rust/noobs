@@ -8,7 +8,7 @@ use crate::generated::{FraAreaButton, FraWindowCard, FrmPicker};
 use std::cell::RefCell;
 use std::collections::HashMap;
 
-use iron::prelude::*;
+use aylis::prelude::*;
 
 use crate::app_view::{main_form, with_ui};
 use crate::view::{WindowItem, WindowMatches};
@@ -403,7 +403,7 @@ mod tests {
     /// componentes tipados, lado a lado no mesmo pai.
     #[test]
     fn the_cards_are_frames_with_their_own_components() {
-        let mut app = iron::Application::bundled(crate::PROJECT).unwrap();
+        let mut app = aylis::Application::bundled(crate::PROJECT).unwrap();
         crate::generated::register(&mut app.ui);
         let ui = &mut app.ui;
         let grid = ui.create("FlowLayout", None).unwrap();

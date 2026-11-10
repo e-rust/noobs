@@ -1,11 +1,11 @@
 //! Os componentes dos forms com as propriedades tipadas e a struct de cada form, com os
 //! componentes resolvidos ao abrir (`self.edtNome.set_text(ui, ...)`).
-//! Gerado pela IDE do Iron a cada "Gerar código": não edite.
+//! Gerado pela IDE do Aylis a cada "Gerar código": não edite.
 
 #![allow(non_snake_case, dead_code, unused_imports)]
 
-use iron::prelude::handles::{self, Handle};
-use iron::prelude::{ComponentId, PropValue, Ui};
+use aylis::prelude::handles::{self, Handle};
+use aylis::prelude::{ComponentId, PropValue, Ui};
 include!("components/classes/ActivityIndicator.rs");
 include!("components/classes/Breadcrumb.rs");
 include!("components/classes/Button.rs");

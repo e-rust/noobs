@@ -1,6 +1,6 @@
-//! O idioma do app. As traduções são as do Iron: `locales/<idioma>.json` na raiz do projeto,
+//! O idioma do app. As traduções são as do Aylis: `locales/<idioma>.json` na raiz do projeto,
 //! com o texto em português como chave (`{"Configurações": "Settings"}`), lidas pelo
-//! `iron::tr` de qualquer lugar e thread (a tela, a bandeja, as notificações). Aqui só a
+//! `aylis::tr` de qualquer lugar e thread (a tela, a bandeja, as notificações). Aqui só a
 //! escolha do idioma (a do config ou a do Windows) e os valores por nome (`{{sec}}`).
 
 use std::sync::Mutex;
@@ -37,11 +37,11 @@ fn system_locale() -> String {
 }
 
 /// Escolhe o idioma (`language` do config; vazio = o do Windows) e carrega as traduções do
-/// Iron. Com a janela aberta, quem chama traduz a tela também (`iron::Application::set_language`).
+/// Aylis. Com a janela aberta, quem chama traduz a tela também (`aylis::Application::set_language`).
 pub fn init_language() {
     let configured = config::get_config_str("language", "");
     let code = if configured.is_empty() { match_locale(&system_locale()) } else { match_locale(&configured) };
-    iron::load_translations(&crate::PROJECT, code);
+    aylis::load_translations(&crate::PROJECT, code);
     log!("Idioma: {code}");
     *CURRENT.lock().unwrap_or_else(|p| p.into_inner()) = code.to_owned();
 }
@@ -52,12 +52,12 @@ pub fn current_language() -> String {
 
 /// O texto no idioma do app (o texto em português é a chave).
 pub fn tr(text: &str) -> String {
-    iron::tr(text)
+    aylis::tr(text)
 }
 
 /// [`tr`] com valores por nome: `tr_with("Gravando há {{sec}} s", &[("sec", "3")])`.
 pub fn tr_with(text: &str, args: &[(&str, &str)]) -> String {
-    let mut out = iron::tr(text);
+    let mut out = aylis::tr(text);
     for (name, value) in args {
         out = out.replace(&format!("{{{{{name}}}}}"), value);
     }
@@ -72,7 +72,7 @@ pub fn tr_of(family: &str, item: &str) -> String {
         ("about.builtWith", "0") => "Rust — target Win64 nativo",
         ("about.builtWith", "1") => "Direct3D 11 + Windows Graphics Capture + WASAPI — captura de tela, janela, webcam e áudio",
         ("about.builtWith", "2") => "FFmpeg — encoders, MKV/MP4, remux, extração de faixas e thumbnails",
-        ("about.builtWith", "3") => "Iron — interface nativa (renderer Direct2D)",
+        ("about.builtWith", "3") => "Aylis — interface nativa (renderer Direct2D)",
         ("about.features", "0") => "<b>Pronto em um clique</b> — telas, webcam, microfones e áudio do sistema detectados automaticamente, sem cenas nem fontes pra configurar",
         ("about.features", "1") => "<b>Multi-monitor</b> e <b>webcam</b> gravados simultaneamente",
         ("about.features", "2") => "<b>Faixas de áudio separadas</b> — o mic e cada saída viram uma track própria no MKV",

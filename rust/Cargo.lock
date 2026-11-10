@@ -28,16 +28,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "accesskit_android"
-version = "0.9.1"
-dependencies = [
- "accesskit",
- "accesskit_consumer",
- "jni 0.21.1",
- "log",
-]
-
-[[package]]
 name = "accesskit_atspi_common"
 version = "0.21.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -495,6 +485,315 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
 
 [[package]]
+name = "aylis"
+version = "0.1.0"
+dependencies = [
+ "aylis-3d",
+ "aylis-build",
+ "aylis-controls",
+ "aylis-core",
+ "aylis-devlink",
+ "aylis-json",
+ "aylis-platform-winit",
+ "aylis-project",
+ "aylis-remote",
+ "js-sys",
+ "serde_json",
+ "tungstenite",
+ "wasm-bindgen",
+ "web-sys",
+]
+
+[[package]]
+name = "aylis-3d"
+version = "0.1.0"
+dependencies = [
+ "aylis-core",
+ "bytemuck",
+ "glam",
+ "gltf",
+ "image",
+ "pollster",
+ "serde_json",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+ "wgpu",
+ "wgpu-hal",
+ "windows 0.62.2",
+]
+
+[[package]]
+name = "aylis-accesskit-android"
+version = "0.9.1"
+dependencies = [
+ "accesskit",
+ "accesskit_consumer",
+ "jni 0.21.1",
+ "log",
+]
+
+[[package]]
+name = "aylis-build"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+]
+
+[[package]]
+name = "aylis-controls"
+version = "0.1.0"
+dependencies = [
+ "aylis-controls-base",
+ "aylis-controls-charts",
+ "aylis-controls-device",
+ "aylis-controls-editors",
+ "aylis-controls-industrial",
+ "aylis-core",
+]
+
+[[package]]
+name = "aylis-controls-base"
+version = "0.1.0"
+dependencies = [
+ "aylis-core",
+ "fancy-regex",
+ "onig",
+ "regex",
+ "serde_json",
+ "web-time",
+]
+
+[[package]]
+name = "aylis-controls-charts"
+version = "0.1.0"
+dependencies = [
+ "aylis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "aylis-controls-device"
+version = "0.1.0"
+dependencies = [
+ "aylis-core",
+]
+
+[[package]]
+name = "aylis-controls-editors"
+version = "0.1.0"
+dependencies = [
+ "aylis-core",
+ "image",
+]
+
+[[package]]
+name = "aylis-controls-industrial"
+version = "0.1.0"
+dependencies = [
+ "aylis-core",
+]
+
+[[package]]
+name = "aylis-core"
+version = "0.1.0"
+dependencies = [
+ "harfrust",
+]
+
+[[package]]
+name = "aylis-d2d"
+version = "0.1.0"
+dependencies = [
+ "aylis-core",
+ "windows 0.62.2",
+ "windows-core 0.62.2",
+ "windows-numerics 0.3.1",
+]
+
+[[package]]
+name = "aylis-data"
+version = "0.1.0"
+dependencies = [
+ "aylis-core",
+ "serde_json",
+ "web-time",
+]
+
+[[package]]
+name = "aylis-dbcontrols"
+version = "0.1.0"
+dependencies = [
+ "aylis-controls",
+ "aylis-core",
+ "aylis-data",
+ "image",
+]
+
+[[package]]
+name = "aylis-devlink"
+version = "0.1.0"
+dependencies = [
+ "getrandom 0.2.17",
+ "serde_json",
+ "snow",
+ "tungstenite",
+]
+
+[[package]]
+name = "aylis-json"
+version = "0.1.0"
+dependencies = [
+ "aylis-core",
+ "serde_json",
+]
+
+[[package]]
+name = "aylis-markdown"
+version = "0.1.0"
+dependencies = [
+ "aylis-controls-base",
+ "aylis-core",
+ "pulldown-cmark",
+]
+
+[[package]]
+name = "aylis-media"
+version = "0.1.0"
+dependencies = [
+ "aylis-core",
+ "cpal",
+ "jni 0.21.1",
+ "js-sys",
+ "libc",
+ "ndk-context",
+ "ndk-sys",
+ "objc2 0.5.3",
+ "objc2-foundation 0.2.2",
+ "png",
+ "symphonia",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+ "windows 0.62.2",
+]
+
+[[package]]
+name = "aylis-platform-winit"
+version = "0.1.0"
+dependencies = [
+ "accesskit",
+ "accesskit_winit",
+ "arboard",
+ "aylis-accesskit-android",
+ "aylis-core",
+ "aylis-d2d",
+ "aylis-skia",
+ "aylis-web",
+ "block2 0.5.1",
+ "gilrs",
+ "glutin",
+ "glutin-winit",
+ "jni 0.21.1",
+ "js-sys",
+ "libloading",
+ "log",
+ "objc2 0.5.3",
+ "objc2-foundation 0.2.2",
+ "raw-window-handle",
+ "rfd",
+ "serde_json",
+ "softbuffer",
+ "ureq",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+ "web-time",
+ "windows 0.62.2",
+ "windows-future 0.3.2",
+ "winit",
+ "zbus",
+]
+
+[[package]]
+name = "aylis-project"
+version = "0.1.0"
+dependencies = [
+ "aylis-build",
+ "aylis-core",
+ "aylis-json",
+ "aylis-vector",
+ "junction",
+ "serde",
+ "serde_json",
+ "toml_edit",
+]
+
+[[package]]
+name = "aylis-providers"
+version = "0.1.0"
+dependencies = [
+ "aylis-core",
+ "aylis-data",
+ "qrcode",
+ "rust_xlsxwriter",
+]
+
+[[package]]
+name = "aylis-remote"
+version = "0.1.0"
+dependencies = [
+ "aylis-controls",
+ "aylis-core",
+ "aylis-data",
+ "aylis-dbcontrols",
+ "aylis-json",
+ "aylis-markdown",
+ "aylis-media",
+ "aylis-project",
+ "aylis-providers",
+ "aylis-vector",
+ "aylis-webview",
+ "getrandom 0.3.4",
+ "miniz_oxide 0.8.9",
+ "serde_json",
+]
+
+[[package]]
+name = "aylis-skia"
+version = "0.1.0"
+dependencies = [
+ "aylis-core",
+ "skia-safe",
+]
+
+[[package]]
+name = "aylis-vector"
+version = "0.1.0"
+dependencies = [
+ "aylis-core",
+ "roxmltree",
+ "serde_json",
+]
+
+[[package]]
+name = "aylis-web"
+version = "0.1.0"
+dependencies = [
+ "aylis-core",
+ "js-sys",
+ "wasm-bindgen",
+ "web-sys",
+]
+
+[[package]]
+name = "aylis-webview"
+version = "0.1.0"
+dependencies = [
+ "aylis-core",
+]
+
+[[package]]
 name = "base64"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -888,15 +1187,6 @@ name = "core_detect"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f8f80099a98041a3d1622845c271458a2d73e688351bf3cb999266764b81d48"
-
-[[package]]
-name = "core_maths"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77745e017f5edba1a9c1d854f6f3a52dac8a12dd5af5d2f54aecf61e43d80d30"
-dependencies = [
- "libm",
-]
 
 [[package]]
 name = "coreaudio-rs"
@@ -1339,6 +1629,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
 
 [[package]]
+name = "font-types"
+version = "0.12.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "835ae9d781464a79026cde387f9cbc650c9a4909d7cf7e658b127e3c35d2f35d"
+dependencies = [
+ "bytemuck",
+]
+
+[[package]]
 name = "foreign-types"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1702,6 +2001,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "harfrust"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "865dcc4105d51c323d8fedbb2d75b5e9c8ecddf5613f74c82f851d0afbc97114"
+dependencies = [
+ "bitflags 2.13.2",
+ "bytemuck",
+ "read-fonts",
+ "smallvec",
+ "yoke",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1839,306 +2151,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "879f10e63c20629ecabbb64a8010319738c66a5cd0c29b02d63d272b03751d01"
 dependencies = [
  "generic-array",
-]
-
-[[package]]
-name = "iron"
-version = "0.1.0"
-dependencies = [
- "iron-3d",
- "iron-build",
- "iron-controls",
- "iron-core",
- "iron-devlink",
- "iron-json",
- "iron-platform-winit",
- "iron-project",
- "iron-remote",
- "js-sys",
- "serde_json",
- "tungstenite",
- "wasm-bindgen",
- "web-sys",
-]
-
-[[package]]
-name = "iron-3d"
-version = "0.1.0"
-dependencies = [
- "bytemuck",
- "glam",
- "gltf",
- "image",
- "iron-core",
- "pollster",
- "serde_json",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
- "wgpu",
- "wgpu-hal",
- "windows 0.62.2",
-]
-
-[[package]]
-name = "iron-build"
-version = "0.1.0"
-dependencies = [
- "serde_json",
-]
-
-[[package]]
-name = "iron-controls"
-version = "0.1.0"
-dependencies = [
- "iron-controls-base",
- "iron-controls-charts",
- "iron-controls-device",
- "iron-controls-editors",
- "iron-controls-industrial",
- "iron-core",
-]
-
-[[package]]
-name = "iron-controls-base"
-version = "0.1.0"
-dependencies = [
- "fancy-regex",
- "iron-core",
- "onig",
- "regex",
- "serde_json",
- "web-time",
-]
-
-[[package]]
-name = "iron-controls-charts"
-version = "0.1.0"
-dependencies = [
- "iron-core",
- "serde_json",
-]
-
-[[package]]
-name = "iron-controls-device"
-version = "0.1.0"
-dependencies = [
- "iron-core",
-]
-
-[[package]]
-name = "iron-controls-editors"
-version = "0.1.0"
-dependencies = [
- "image",
- "iron-core",
-]
-
-[[package]]
-name = "iron-controls-industrial"
-version = "0.1.0"
-dependencies = [
- "iron-core",
-]
-
-[[package]]
-name = "iron-core"
-version = "0.1.0"
-dependencies = [
- "rustybuzz",
- "ttf-parser",
-]
-
-[[package]]
-name = "iron-d2d"
-version = "0.1.0"
-dependencies = [
- "iron-core",
- "windows 0.62.2",
- "windows-core 0.62.2",
- "windows-numerics 0.3.1",
-]
-
-[[package]]
-name = "iron-data"
-version = "0.1.0"
-dependencies = [
- "iron-core",
- "serde_json",
- "web-time",
-]
-
-[[package]]
-name = "iron-dbcontrols"
-version = "0.1.0"
-dependencies = [
- "image",
- "iron-controls",
- "iron-core",
- "iron-data",
-]
-
-[[package]]
-name = "iron-devlink"
-version = "0.1.0"
-dependencies = [
- "getrandom 0.2.17",
- "serde_json",
- "snow",
- "tungstenite",
-]
-
-[[package]]
-name = "iron-json"
-version = "0.1.0"
-dependencies = [
- "iron-core",
- "serde_json",
-]
-
-[[package]]
-name = "iron-markdown"
-version = "0.1.0"
-dependencies = [
- "iron-controls-base",
- "iron-core",
- "pulldown-cmark",
-]
-
-[[package]]
-name = "iron-media"
-version = "0.1.0"
-dependencies = [
- "cpal",
- "iron-core",
- "jni 0.21.1",
- "js-sys",
- "libc",
- "ndk-context",
- "ndk-sys",
- "objc2 0.5.3",
- "objc2-foundation 0.2.2",
- "png",
- "symphonia",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
- "windows 0.62.2",
-]
-
-[[package]]
-name = "iron-platform-winit"
-version = "0.1.0"
-dependencies = [
- "accesskit",
- "accesskit_android",
- "accesskit_winit",
- "arboard",
- "block2 0.5.1",
- "gilrs",
- "glutin",
- "glutin-winit",
- "iron-core",
- "iron-d2d",
- "iron-skia",
- "iron-web",
- "jni 0.21.1",
- "js-sys",
- "libloading",
- "log",
- "objc2 0.5.3",
- "objc2-foundation 0.2.2",
- "raw-window-handle",
- "rfd",
- "serde_json",
- "softbuffer",
- "ureq",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
- "web-time",
- "windows 0.62.2",
- "windows-future 0.3.2",
- "winit",
- "zbus",
-]
-
-[[package]]
-name = "iron-project"
-version = "0.1.0"
-dependencies = [
- "iron-build",
- "iron-core",
- "iron-json",
- "iron-vector",
- "junction",
- "serde",
- "serde_json",
- "toml_edit",
-]
-
-[[package]]
-name = "iron-providers"
-version = "0.1.0"
-dependencies = [
- "iron-core",
- "iron-data",
- "qrcode",
- "rust_xlsxwriter",
-]
-
-[[package]]
-name = "iron-remote"
-version = "0.1.0"
-dependencies = [
- "getrandom 0.3.4",
- "iron-controls",
- "iron-core",
- "iron-data",
- "iron-dbcontrols",
- "iron-json",
- "iron-markdown",
- "iron-media",
- "iron-project",
- "iron-providers",
- "iron-vector",
- "iron-webview",
- "miniz_oxide 0.8.9",
- "serde_json",
-]
-
-[[package]]
-name = "iron-skia"
-version = "0.1.0"
-dependencies = [
- "iron-core",
- "skia-safe",
-]
-
-[[package]]
-name = "iron-vector"
-version = "0.1.0"
-dependencies = [
- "iron-core",
- "roxmltree",
- "serde_json",
-]
-
-[[package]]
-name = "iron-web"
-version = "0.1.0"
-dependencies = [
- "iron-core",
- "js-sys",
- "wasm-bindgen",
- "web-sys",
-]
-
-[[package]]
-name = "iron-webview"
-version = "0.1.0"
-dependencies = [
- "iron-core",
 ]
 
 [[package]]
@@ -2539,12 +2551,12 @@ dependencies = [
 name = "noobs"
 version = "0.1.0"
 dependencies = [
+ "aylis",
+ "aylis-build",
  "base64 0.22.1",
  "chrono",
  "flate2",
  "image",
- "iron",
- "iron-build",
  "jpeg-encoder",
  "libloading",
  "serde",
@@ -3396,6 +3408,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "read-fonts"
+version = "0.46.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bdaa4fffe9ff3ca2c353fa9729792805b9b3e324695ff5a081f860612e81b330"
+dependencies = [
+ "bytemuck",
+ "foldhash",
+ "font-types",
+ "once_cell",
+ "smallvec",
+ "yoke",
+]
+
+[[package]]
 name = "redox_syscall"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3600,24 +3626,6 @@ name = "rustversion"
 version = "1.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf54715a573b99ac80df0bc206da022bcd442c974952c7b9720069370852e21f"
-
-[[package]]
-name = "rustybuzz"
-version = "0.20.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd3c7c96f8a08ee34eff8857b11b49b07d71d1c3f4e88f8a88d4c9e9f90b1702"
-dependencies = [
- "bitflags 2.13.2",
- "bytemuck",
- "core_maths",
- "log",
- "smallvec",
- "ttf-parser",
- "unicode-bidi-mirroring",
- "unicode-ccc",
- "unicode-properties",
- "unicode-script",
-]
 
 [[package]]
 name = "same-file"
@@ -3936,6 +3944,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "stable_deref_trait"
+version = "1.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6ce2be8dc25455e1f91df71bfa12ad37d7af1092ae736f3a6cd0e37bc7810596"
+
+[[package]]
 name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4131,6 +4145,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
+]
+
+[[package]]
+name = "synstructure"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "901704edd0dfe137f1987838ee4f259e4e063c31371bdb423f7ae38ec6f77f02"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 3.0.9",
 ]
 
 [[package]]
@@ -4341,9 +4366,6 @@ name = "ttf-parser"
 version = "0.25.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2df906b07856748fa3f6e0ad0cbaa047052d4a7dd609e231c4f72cee8c36f31"
-dependencies = [
- "core_maths",
-]
 
 [[package]]
 name = "tungstenite"
@@ -4395,34 +4417,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "357cc3acc6a036009fd6c973ed009037c732d60d0b4f6c673e9041497482a28f"
 
 [[package]]
-name = "unicode-bidi-mirroring"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5dfa6e8c60bb66d49db113e0125ee8711b7647b5579dc7f5f19c42357ed039fe"
-
-[[package]]
-name = "unicode-ccc"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce61d488bcdc9bc8b5d1772c404828b17fc481c0a582b5581e95fb233aef503e"
-
-[[package]]
 name = "unicode-ident"
 version = "1.0.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2c754d6c33795a1c324727428e5a7dedb5b06195f9890bdbcba760d3e246563"
-
-[[package]]
-name = "unicode-properties"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "993ad287eb20e8ba755312801cfe1413e0f25d604075863acaddca10b04c1833"
-
-[[package]]
-name = "unicode-script"
-version = "0.5.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa04c955db05429d464c74d495c1ee677e1866e783a4c3747f9c0cef7756cabf"
 
 [[package]]
 name = "unicode-segmentation"
@@ -5445,6 +5443,29 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e450f9b2ed1dff33c94c12589a87338689467b9c4f5d8a5710bd09a847d2c8a7"
 
 [[package]]
+name = "yoke"
+version = "0.8.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "417ef3fcf6c300b7dbd25c85531a746931c02ad536f3cf4786ed1e88223340b3"
+dependencies = [
+ "stable_deref_trait",
+ "yoke-derive",
+ "zerofrom",
+]
+
+[[package]]
+name = "yoke-derive"
+version = "0.8.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec8ebde2db3681e8c9980cc27822030e68752690ddfa9473e739aeb4dbde6d71"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 3.0.9",
+ "synstructure",
+]
+
+[[package]]
 name = "zbus"
 version = "5.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5568,6 +5589,27 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.119",
+]
+
+[[package]]
+name = "zerofrom"
+version = "0.1.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0ec05a11813ea801ff6d75110ad09cd0824ddba17dfe17128ea0d5f68e6c5272"
+dependencies = [
+ "zerofrom-derive",
+]
+
+[[package]]
+name = "zerofrom-derive"
+version = "0.1.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f75b4683f6c7f45248d4d64056a24298c6281e0993356d7d1b4a1a962ef10d4a"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 3.0.9",
+ "synstructure",
 ]
 
 [[package]]

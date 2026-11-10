@@ -1002,15 +1002,45 @@ pub fn shutdown() {
     crate::area_frame::hide();
     lock_detector::stop();
     if engine::exists() {
-        // Sync: no shutdown não há message loop para drenar o evento.
-        engine::with_engine(|e| {
-            if e.is_recording() || e.is_stopping() {
-                e.stop_recording();
-            }
-        });
+        finish_file_now();
         engine::destroy(); // Drop → para a sessão de captura
     }
 }
+
+/// Fecha o arquivo da gravação AGORA (trailer do MKV escrito) e só volta com
+/// ele completo. Usado no shutdown e no fim da sessão do Windows (logoff,
+/// desligar, reiniciar), quando o processo morre logo depois de voltarmos —
+/// sem isto o MKV ficava sem `Duration`, sem índice e com tamanho
+/// desconhecido.
+pub fn finish_file_now() {
+    if !engine::exists() {
+        return;
+    }
+    // Sync: no shutdown não há message loop para drenar o evento.
+    let path = engine::with_engine(|e| {
+        if e.is_recording() {
+            log!("Gravacao: fechando o arquivo antes de sair.");
+            e.stop_recording();
+        }
+        e.output_path().to_owned()
+    })
+    .unwrap_or_default();
+    // Um "Parar" assíncrono já em curso (clicou Parar e logo saiu/desligou):
+    // o `stop_recording` não tem o que fazer, quem fecha o arquivo é a thread
+    // do stop. Espera ela — cada `with_engine` drena a fila e o `Stopped`
+    // limpa o `is_stopping`.
+    let t0 = Instant::now();
+    while engine::with_engine(|e| e.is_stopping()).unwrap_or(false) {
+        if t0.elapsed() >= std::time::Duration::from_secs(FINISH_WAIT_SECS) {
+            log!("Gravacao: o arquivo nao fechou em {FINISH_WAIT_SECS} s ({path}).");
+            return;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+}
+
+/// Teto da espera do [`finish_file_now`] por um stop assíncrono em curso.
+const FINISH_WAIT_SECS: u64 = 15;
 
 #[cfg(test)]
 mod tests {

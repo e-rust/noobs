@@ -60,6 +60,12 @@ impl Button {
     pub fn set_modal_result(self, ui: &mut Ui, value: impl Into<String>) {
         handles::write(ui, self.id, "modal_result", Into::<String>::into(value))
     }
+    pub fn repeat_enter(self, ui: &Ui) -> bool {
+        handles::read(ui, self.id, "repeat_enter").and_then(|v| v.to_bool().ok()).unwrap_or_default()
+    }
+    pub fn set_repeat_enter(self, ui: &mut Ui, value: bool) {
+        handles::write(ui, self.id, "repeat_enter", value)
+    }
     pub fn left(self, ui: &Ui) -> f64 {
         handles::read(ui, self.id, "left").and_then(|v| v.to_f64().ok()).unwrap_or_default()
     }

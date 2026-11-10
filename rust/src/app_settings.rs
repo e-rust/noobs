@@ -17,7 +17,7 @@ use crate::generated::{FraAbout, FraAboutItem, FraAudio, FraDeviceGroup, FraQueu
 use std::cell::RefCell;
 use std::collections::HashMap;
 
-use iron::prelude::*;
+use aylis::prelude::*;
 
 use crate::app_view::with_ui;
 use crate::bridge::{self, hotkeys as bhk, recording, replay, settings, shell, transcribe as btr, video_test};
@@ -1247,7 +1247,7 @@ fn text_width(ui: &Ui, l: ComponentId, text: &str) -> f32 {
 fn md_lines(ui: &Ui, l: ComponentId, html: &str, w: f32) -> f32 {
     let font = ui.font_of(l);
     let mut total = 0.0;
-    for (run, bold, _) in iron::controls::markup_runs(html) {
+    for (run, bold, _) in aylis::controls::markup_runs(html) {
         let mut f = font.clone();
         if bold {
             f.weight = FontWeight::Bold;
@@ -1257,7 +1257,7 @@ fn md_lines(ui: &Ui, l: ComponentId, html: &str, w: f32) -> f32 {
     if total <= w {
         return 1.0;
     }
-    let plain = iron::controls::markup_plain(html);
+    let plain = aylis::controls::markup_plain(html);
     let one = ui.measure_text("Ág", &TextStyle { font: font.clone(), ..TextStyle::default() }).height.max(1.0);
     (wrapped_height(ui, l, &plain, w * 0.97) / one).round().max(1.0)
 }
@@ -1388,11 +1388,11 @@ fn limit_column(ui: &mut Ui, page: ComponentId) {
             continue;
         }
         // Quem já escolheu o próprio tamanho (o fundo do tema) fica como está.
-        if cb.self_align() != iron::core::SelfAlign::Stretch {
+        if cb.self_align() != aylis::core::SelfAlign::Stretch {
             continue;
         }
         if let Some(cb) = ui.control_mut(id) {
-            cb.set_self_align(iron::core::SelfAlign::Start).set_max_width(COL_MAX).set_min_width(COL_MIN);
+            cb.set_self_align(aylis::core::SelfAlign::Start).set_max_width(COL_MAX).set_min_width(COL_MIN);
         }
     }
 }
@@ -1476,7 +1476,7 @@ fn load_general(ui: &mut Ui) {
     // O fundo do tamanho dos botões, encostado à esquerda (não depende da largura da coluna).
     if let Some(cb) = ui.control_mut(frm.pnlTheme.id) {
         let m = cb.margins();
-        cb.set_margins([0.0, m.top, 0.0, 0.0]).set_self_align(iron::core::SelfAlign::Start).set_width(x + 1.0);
+        cb.set_margins([0.0, m.top, 0.0, 0.0]).set_self_align(aylis::core::SelfAlign::Start).set_width(x + 1.0);
     }
     let (labels, _, idx) = language_options();
     fitems(ui, Some(frm.cmbLanguage), &labels, idx);
@@ -1993,7 +1993,7 @@ fn transcribe_queue(ui: &mut Ui, frame: ComponentId, queue: &[QueueItem]) {
         row.lblDuration.set_text(ui, dur);
         row.lblDuration.set_width(ui, f64::from(w));
         row.lblName.set_text(ui, q.name.as_str());
-        // Arrastar para reordenar a espera (o iron entrega o soltar na linha de destino).
+        // Arrastar para reordenar a espera (o aylis entrega o soltar na linha de destino).
         if !q.current {
             let at = waiting;
             let id = q.id.clone();
@@ -2903,8 +2903,8 @@ pub mod about {
 mod tests {
     use super::*;
 
-    fn app() -> iron::Application {
-        let mut app = iron::Application::bundled(crate::PROJECT).unwrap();
+    fn app() -> aylis::Application {
+        let mut app = aylis::Application::bundled(crate::PROJECT).unwrap();
         crate::generated::register(&mut app.ui);
         app
     }

@@ -6,7 +6,7 @@
 </p>
 
 Gravador de tela com motor de captura próprio, em Rust, e interface no
-[Iron](https://github.com/e-rust/iron). Sem instalar nem configurar nada —
+[Aylis](https://github.com/e-rust/aylis). Sem instalar nem configurar nada —
 só abrir e gravar.
 
 ---
@@ -113,22 +113,24 @@ abre nas Configurações pra você escolher a pasta de gravação e o atalho.
 
 ## Compilar
 
-No Windows, com o Rust e o Iron instalados (e o NSIS para o instalador). O
-NoOBS é um projeto do Iron: `NoOBS.ironproj`, as telas em `forms\`, os temas
+No Windows, com o Rust e o Aylis instalados (e o NSIS para o instalador). O
+NoOBS é um projeto do Aylis: `NoOBS.aylisproj`, as telas em `forms\`, os temas
 em `themes\`, as imagens em `assets\` e as traduções em `locales\` abrem na
-IDE do Iron; o código fica em `rust\`.
+IDE do Aylis; o código fica em `rust\`.
 
-O `rust\Cargo.toml` acha o Iron em `.iron\sdk`, uma junção até a instalação do
-Iron desta máquina (fora do git). Quem cria é o próprio Iron, ao abrir o projeto
-na IDE ou rodar o `iron-tool`, e também o `scripts\build.bat`, pela pasta que o
-instalador do Iron grava no registro (`HKCU\Software\Iron`, `SdkDir`). O Iron
+O `rust\Cargo.toml` acha o Aylis em `.aylis\sdk`, uma junção até a instalação do
+Aylis desta máquina (fora do git). Quem cria é o próprio Aylis, ao abrir o projeto
+na IDE ou rodar o `aylis-tool`, e também o `scripts\build.bat`, pela pasta que o
+instalador do Aylis grava no registro (`HKCU\Software\Aylis`, `SdkDir`). O Aylis
 pode estar instalado em qualquer lugar.
 
-- `scripts\build.bat` compila e põe o `NoOBS.exe` em `runtime\`, de onde
-  ele roda (`scripts\build.bat debug` compila mais rápido, sem otimização).
-- `iron-tool publish NoOBS.ironproj --installer` (ou Publicar na IDE do
-  Iron) gera o instalador em `dist\`, com a versão e as opções do
-  `NoOBS.ironproj` (`publish`).
+- `scripts\build.bat` compila com o compilador do Aylis (`aylis-tool build`:
+  gera o código dos forms, verifica o projeto e compila) e põe o `NoOBS.exe`
+  em `runtime\`, de onde ele roda (`scripts\build.bat debug` compila mais
+  rápido, sem otimização).
+- `aylis-tool publish NoOBS.aylisproj --installer` (ou Publicar na IDE do
+  Aylis) gera o instalador em `dist\`, com a versão e as opções do
+  `NoOBS.aylisproj` (`publish`).
 
 O `runtime\` precisa das DLLs do FFmpeg (`avcodec-61`, `avformat-61`,
 `avutil-59`, `swscale-8`, `swresample-5`, `libx264-164`, `zlib`, `srt`,
@@ -141,6 +143,6 @@ DLLs do `runtime\`.
 
 Este software utiliza os seguintes componentes open-source:
 
-- **Iron** — MIT ou Apache 2.0 — https://github.com/e-rust/iron (a
+- **Aylis** — MIT ou Apache 2.0 — https://github.com/e-rust/aylis (a
   interface: janelas, telas, controles e o renderizador Direct2D)
 - **FFmpeg** — LGPL v2.1+ / GPL v2+ — https://ffmpeg.org

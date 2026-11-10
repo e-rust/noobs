@@ -15,7 +15,7 @@ use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 
 use chrono::{Datelike, Local, NaiveDate, NaiveDateTime};
-use iron::prelude::*;
+use aylis::prelude::*;
 
 use crate::app_view::with_ui;
 use crate::view::{Library, RecItem};
@@ -884,7 +884,7 @@ fn paste(ui: &mut Ui, target: &str) {
     bridge::handle_move_items(&ids, target);
 }
 
-/// O diálogo de confirmação (o `confirm` do iron); `on_ok` roda no OK.
+/// O diálogo de confirmação (o `confirm` do aylis); `on_ok` roda no OK.
 fn confirm(ui: &mut Ui, title: String, message: String, ok: String, danger: bool, on_ok: impl FnOnce(&mut Ui) + 'static) {
     let icon = if danger { crate::app_view::ConfirmIcon::Delete } else { crate::app_view::ConfirmIcon::Merge };
     crate::app_view::confirm(ui, &title, &message, &ok, danger, icon, on_ok);
@@ -1297,8 +1297,8 @@ mod tests {
         assert_eq!(period("lixo", today).0, "zzz-unknown");
     }
 
-    fn app() -> iron::Application {
-        let mut app = iron::Application::bundled(crate::PROJECT).unwrap();
+    fn app() -> aylis::Application {
+        let mut app = aylis::Application::bundled(crate::PROJECT).unwrap();
         crate::generated::register(&mut app.ui);
         app
     }

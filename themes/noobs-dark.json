@@ -1,6 +1,6 @@
 {
   "name": "NoOBS Dark",
-  "base": "Iron Dark",
+  "base": "Aylis Dark",
   "family": "NoOBS",
   "dark": true,
   "colors": {

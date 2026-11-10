@@ -1,5 +1,5 @@
 {
-  "iron": 1,
+  "aylis": 1,
   "root": {
     "class": "Form",
     "name": "fraAbout",
@@ -23,7 +23,7 @@
           { "class": "Label", "name": "lblAboutBuiltWith", "style": "s_group", "align": "top", "auto_size": true, "wrap": false, "v_align": "center", "letter_spacing": 0.66, "text_case": "upper", "margins": [0, 4, 0, 0], "text": "Construído com" },
           { "class": "Layout", "name": "lyAboutBuiltWith", "align": "top", "auto_size": true, "margins": [0, 0, 0, 0] }
         ] },
-      { "class": "Label", "name": "lblAboutFooter", "style": "s_hint", "align": "top", "auto_size": true, "wrap": true, "v_align": "leading", "margins": [0, 8, 0, 0], "text": "Usa o FFmpeg (LGPL/GPL) e o Iron." }
+      { "class": "Label", "name": "lblAboutFooter", "style": "s_hint", "align": "top", "auto_size": true, "wrap": true, "v_align": "leading", "margins": [0, 8, 0, 0], "text": "Usa o FFmpeg (LGPL/GPL) e o Aylis." }
     ]
   }
 }

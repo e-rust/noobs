@@ -1,15 +1,15 @@
-//! A janela no iron: implementa o [`View`] (core → interface) e liga os eventos
+//! A janela no aylis: implementa o [`View`] (core → interface) e liga os eventos
 //! dos forms direto nas funções do core (interface → core), sem JSON.
 //!
-//! O `Ui` do iron pertence ao laço de eventos: o core roda na main thread, mas
-//! fora de um evento do iron, e não o recebe. Cada chamada do `View` vira uma
-//! função na fila ([`with_ui`]) que o iron roda logo em seguida, com o `Ui`, na
+//! O `Ui` do aylis pertence ao laço de eventos: o core roda na main thread, mas
+//! fora de um evento do aylis, e não o recebe. Cada chamada do `View` vira uma
+//! função na fila ([`with_ui`]) que o aylis roda logo em seguida, com o `Ui`, na
 //! ordem em que chegou.
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-use iron::prelude::*;
+use aylis::prelude::*;
 
 use crate::generated as g;
 
@@ -64,7 +64,7 @@ pub fn frame_sink(id: String, apply: fn(&mut Ui, &str, crate::playback::Out)) ->
     })
 }
 
-/// A fila da interface do iron, para mandar trabalho direto de outra thread (os
+/// A fila da interface do aylis, para mandar trabalho direto de outra thread (os
 /// quadros do motor de vídeo: um salto só até a tela).
 pub fn poster() -> Option<Poster> {
     POSTER.with(|p| p.borrow().clone())
@@ -150,7 +150,7 @@ pub fn show_form(ui: &mut Ui, form: Option<g::Form>, on: bool) {
 
 /// Troca o tema inteiro (o escuro ou o claro do NoOBS).
 fn apply_theme(ui: &mut Ui, dark: bool) {
-    match iron::json::load_theme(if dark { THEME_DARK } else { THEME_LIGHT }) {
+    match aylis::json::load_theme(if dark { THEME_DARK } else { THEME_LIGHT }) {
         Ok(theme) => ui.set_theme(theme),
         Err(e) => log!("UI: tema do NoOBS inválido: {e}"),
     }
@@ -167,16 +167,16 @@ pub fn show_toast(title: &str, msg: &str, warn: bool, ttl_ms: u32) {
     });
 }
 
-pub struct IronView;
+pub struct AylisView;
 
-impl View for IronView {
+impl View for AylisView {
     fn theme(&self, dark: bool, _pref: &str) {
         with_ui(move |ui| apply_theme(ui, dark));
     }
     fn language_changed(&self, language: &str, _pref: &str) {
-        // Os textos dos forms (o Iron) e, abaixo, os que o código põe.
+        // Os textos dos forms (o Aylis) e, abaixo, os que o código põe.
         let language = language.to_owned();
-        with_ui(move |ui| iron::Application::set_language(ui, &language));
+        with_ui(move |ui| aylis::Application::set_language(ui, &language));
         with_ui(app_main::on_language_changed);
         with_ui(crate::app_library::on_language_changed);
         app_settings::on_language_changed();
@@ -366,12 +366,12 @@ fn static_status(s: &str) -> &'static str {
     }
 }
 
-/// Abre o projeto iron (forms e temas embutidos no exe), registra os
+/// Abre o projeto aylis (forms e temas embutidos no exe), registra os
 /// handlers e o [`View`]. A janela só nasce quando o laço começa.
-pub fn create() -> Result<iron::Application, iron::Error> {
-    let mut app = iron::Application::bundled(crate::PROJECT)?;
+pub fn create() -> Result<aylis::Application, aylis::Error> {
+    let mut app = aylis::Application::bundled(crate::PROJECT)?;
     // O Application sobe no idioma do projeto (o português): o escolhido vale também na tela.
-    iron::Application::set_language(&mut app.ui, &crate::lang::current_language());
+    aylis::Application::set_language(&mut app.ui, &crate::lang::current_language());
     crate::generated::register(&mut app.ui);
     POSTER.with(|p| *p.borrow_mut() = Some(app.ui.poster()));
     MAIN_FORM.with(|m| m.set(Some(app.main_form)));
@@ -379,7 +379,7 @@ pub fn create() -> Result<iron::Application, iron::Error> {
         embed_screen(&mut app.ui, app.main_form, label, create);
     }
     apply_theme(&mut app.ui, crate::bridge::resolved_theme() == "dark");
-    crate::view::set(Rc::new(IronView));
+    crate::view::set(Rc::new(AylisView));
     with_ui(app_main::setup);
     with_ui(crate::app_library::apply_texts);
     with_ui(crate::app_player::setup);
@@ -486,7 +486,7 @@ mod tests {
     /// sem rodar a ação e o frame é liberado.
     #[test]
     fn the_confirmation_is_a_frame() {
-        let mut app = iron::Application::bundled(crate::PROJECT).unwrap();
+        let mut app = aylis::Application::bundled(crate::PROJECT).unwrap();
         crate::generated::register(&mut app.ui);
         MAIN_FORM.with(|m| m.set(Some(app.main_form)));
         let ui = &mut app.ui;

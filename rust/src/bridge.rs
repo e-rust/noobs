@@ -3,7 +3,7 @@
 //! área, teste de vídeo, shell, settings).
 //!
 //! ## Interface
-//! A interface (iron) chama os handlers DIRETO e recebe os eventos pelo
+//! A interface (aylis) chama os handlers DIRETO e recebe os eventos pelo
 //! [`crate::view::View`], sem JSON. Do protocolo da versão web sobrou só o
 //! que os testes usam:
 //! * `dispatch` — a entrada por JSON (só com `test`/`app-tests`);
@@ -132,7 +132,16 @@ pub fn install_hooks() {
         on_window_hidden: Some(shell::on_window_hidden),
         on_start: Some(start),
         on_shutdown: Some(shutdown),
+        on_end_session: Some(end_session),
     });
+}
+
+/// `WM_ENDSESSION`: o Windows encerra o processo assim que voltarmos. O
+/// arquivo em gravação fecha PRIMEIRO (é o que não pode se perder); depois o
+/// resto do shutdown normal, que é idempotente.
+fn end_session() {
+    recording::finish_file_now();
+    shutdown();
 }
 
 /// `OnTimer`: cada módulo reconhece os próprios ids; `false` = não é dele.
@@ -202,7 +211,7 @@ fn on_timer_other(id: usize) {
 }
 
 /// Evento no formato da página antiga. Só os testes recebem; no app, é de uma
-/// tela ainda não portada pro iron e não tem destino (some com a fase dela).
+/// tela ainda não portada pro aylis e não tem destino (some com a fase dela).
 pub fn post_json(value: Value) {
     #[cfg(test)]
     {
@@ -257,7 +266,7 @@ fn int_field(obj: &Value, key: &str, default: i32) -> i32 {
 }
 
 /// Entrada por JSON (o protocolo da versão web). Só os testes a usam: o app
-/// chama os handlers direto da interface (iron).
+/// chama os handlers direto da interface (aylis).
 /// Uma falha num handler não derruba o app: registra ("excecao no handler") e
 /// segue.
 #[cfg(any(test, feature = "app-tests"))]

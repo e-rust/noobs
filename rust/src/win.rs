@@ -20,11 +20,11 @@ pub fn message_box(title: &str, text: &str) {
     }
 }
 
-/// O recurso de ícone do app: o 1, que o `iron_build` embute do ícone do projeto
+/// O recurso de ícone do app: o 1, que o `aylis_build` embute do ícone do projeto
 /// (`publish.icon`).
 const APP_ICON: windows::core::PCWSTR = windows::core::PCWSTR(1 as *const u16);
 
-/// Ícone do app (o do projeto, embutido pelo `iron_build`); `IDI_APPLICATION` se
+/// Ícone do app (o do projeto, embutido pelo `aylis_build`); `IDI_APPLICATION` se
 /// faltar. Ícone de recurso é compartilhado: não precisa de `DestroyIcon`.
 pub fn main_icon() -> windows::Win32::UI::WindowsAndMessaging::HICON {
     use windows::Win32::System::LibraryLoader::GetModuleHandleW;

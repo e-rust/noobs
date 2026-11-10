@@ -384,11 +384,11 @@ impl ScrollBox {
     pub fn set_popup_menu(self, ui: &mut Ui, value: impl Into<String>) {
         handles::write(ui, self.id, "popup_menu", Into::<String>::into(value))
     }
-    pub fn scroll_to(self, ui: &mut Ui, a1: impl Handle) {
-        handles::call(ui, self.id, "scroll_to", &[PropValue::Component(Some(a1.id()))]);
+    pub fn scroll_to(self, ui: &mut Ui, component: impl Handle) -> Result<(), String> {
+        handles::try_call(ui, self.id, "scroll_to", &[PropValue::Component(Some(component.id()))]).map(|_| ())
     }
-    pub fn visible_components(self, ui: &mut Ui, a1: impl Handle, a2: bool) -> String {
-        let v = handles::call(ui, self.id, "visible_components", &[PropValue::Component(Some(a1.id())), a2.into()]);
-        handles::text(ui, v)
+    pub fn visible_components(self, ui: &mut Ui, list: impl Handle, fully: bool) -> Result<String, String> {
+        let v = handles::try_call(ui, self.id, "visible_components", &[PropValue::Component(Some(list.id())), fully.into()])?;
+        Ok(handles::text(ui, Some(v)))
     }
 }

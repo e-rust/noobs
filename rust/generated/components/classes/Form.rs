@@ -438,8 +438,8 @@ impl Form {
     pub fn set_popup_menu(self, ui: &mut Ui, value: impl Into<String>) {
         handles::write(ui, self.id, "popup_menu", Into::<String>::into(value))
     }
-    pub fn move_to_monitor(self, ui: &mut Ui, a1: i64) {
-        handles::call(ui, self.id, "move_to_monitor", &[a1.into()]);
+    pub fn move_to_monitor(self, ui: &mut Ui, monitor: i64) -> Result<(), String> {
+        handles::try_call(ui, self.id, "move_to_monitor", &[monitor.into()]).map(|_| ())
     }
     pub fn show(self, ui: &mut Ui) {
         let _ = ui.show(self.id);

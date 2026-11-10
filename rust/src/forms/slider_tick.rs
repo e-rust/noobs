@@ -2,7 +2,7 @@
 //! os handlers novos (os componentes e o registro ficam em `generated/`).
 
 #[allow(unused_imports)]
-use iron::prelude::*;
+use aylis::prelude::*;
 
 use crate::generated::FraSliderTick;
 

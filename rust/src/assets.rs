@@ -1,4 +1,4 @@
-//! Restos de versões anteriores no perfil do usuário. As traduções são as do Iron
+//! Restos de versões anteriores no perfil do usuário. As traduções são as do Aylis
 //! (`locales/`, embutidas com o projeto) e a interface vai no exe pelo `build.rs`.
 
 use std::path::Path;

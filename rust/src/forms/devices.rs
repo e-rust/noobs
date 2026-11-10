@@ -2,7 +2,7 @@
 //! struct do form (gerada em `generated/`); a IDE só acrescenta os novos.
 
 #[allow(unused_imports)]
-use iron::prelude::*;
+use aylis::prelude::*;
 use crate::generated::FraDevices;
 
 /// O estado do form: cada janela aberta dele tem o seu (`self.data`).

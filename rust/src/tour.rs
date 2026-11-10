@@ -1,12 +1,12 @@
 //! Passeio pelas telas, para comparar com as capturas da versão anterior (só com a
-//! feature `dev`): `NOOBS_TOUR=pasta` junto com `IRON_SNAPSHOT=outra` faz o app abrir cada
+//! feature `dev`): `NOOBS_TOUR=pasta` junto com `AYLIS_SNAPSHOT=outra` faz o app abrir cada
 //! tela (a principal, as 11 abas das Configurações, o player com os painéis e a exportação),
 //! esperar ela assentar e copiar o quadro desenhado para `pasta/NN_nome.png`; no fim, fecha.
 //! `NOOBS_TOUR_FILE` escolhe a gravação do player e da exportação.
 
 use std::path::PathBuf;
 
-use iron::core::Ui;
+use aylis::core::Ui;
 
 /// Um passo: o nome da captura e o que fazer antes dela.
 type Step = (&'static str, fn(&mut Ui));
@@ -44,9 +44,9 @@ fn file() -> String {
     std::env::var("NOOBS_TOUR_FILE").unwrap_or_default()
 }
 
-/// Liga o passeio se `NOOBS_TOUR` e `IRON_SNAPSHOT` estiverem definidos.
+/// Liga o passeio se `NOOBS_TOUR` e `AYLIS_SNAPSHOT` estiverem definidos.
 pub fn start(ui: &mut Ui) {
-    let (Some(out), Some(shots)) = (std::env::var_os("NOOBS_TOUR"), std::env::var_os("IRON_SNAPSHOT")) else { return };
+    let (Some(out), Some(shots)) = (std::env::var_os("NOOBS_TOUR"), std::env::var_os("AYLIS_SNAPSHOT")) else { return };
     let (out, shots) = (PathBuf::from(out), PathBuf::from(shots));
     let _ = std::fs::create_dir_all(&out);
     // Três segundos para a tela principal carregar (prévia das telas, biblioteca).

@@ -1,17 +1,17 @@
-// 1. O ícone do app vem do projeto (`publish.icon` no `NoOBS.ironproj`): o
-//    `iron_build::project()` o embute como recurso de ícone 1 (do
-//    `.iron\app-icon.ico`, com todos os tamanhos), que a janela, a bandeja e a
+// 1. O ícone do app vem do projeto (`publish.icon` no `NoOBS.aylisproj`): o
+//    `aylis_build::project()` o embute como recurso de ícone 1 (do
+//    `.aylis\app-icon.ico`, com todos os tamanhos), que a janela, a bandeja e a
 //    hibernação carregam (`win::main_icon`).
 // 2. Versão a partir da tag do git: criar a tag
 //    É o ato de lançar, então a versão nunca fica dessincronizada. Build fora
 //    de uma tag limpa carrega o sufixo do describe — e o app trata como
 //    desenvolvimento (não checa atualização).
-// 3. Embute o projeto Iron da pasta de cima (`NoOBS.ironproj`, forms, temas, assets e
+// 3. Embute o projeto Aylis da pasta de cima (`NoOBS.aylisproj`, forms, temas, assets e
 //    as traduções de `locales\`).
 use std::process::Command;
 
 fn main() {
-    iron_build::project();
+    aylis_build::project();
 
     // Recalcula a versão quando o HEAD ou o índice mudam (commit, checkout,
     // arquivo alterado → `-dirty`) e quando uma TAG é criada: criar a tag no

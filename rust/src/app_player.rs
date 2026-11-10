@@ -12,7 +12,7 @@ use std::collections::BTreeSet;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use iron::prelude::*;
+use aylis::prelude::*;
 
 use crate::app_view::{main_form, with_ui};
 use crate::playback::{Out, Playback, Region, ViewSpec, TRICK_MIN_RATE};
@@ -127,7 +127,7 @@ fn with<R>(f: impl FnOnce(&mut State) -> R) -> R {
 pub(crate) fn window_scale() -> f32 {
     use windows::Win32::Foundation::HWND;
     use windows::Win32::UI::HiDpi::GetDpiForWindow;
-    let Some(h) = main_form().and_then(iron::platform::win::hwnd) else { return 1.0 };
+    let Some(h) = main_form().and_then(aylis::platform::win::hwnd) else { return 1.0 };
     let dpi = unsafe { GetDpiForWindow(HWND(h as *mut _)) };
     if dpi == 0 { 1.0 } else { dpi as f32 / 96.0 }
 }
@@ -1550,7 +1550,9 @@ fn follow_transcript(ui: &mut Ui) {
     }
     let (Some(frm), Some(row)) = (FrmPlayer::components(ui), active_row()) else { return };
     if !ScrollBox::visible_children(ui, frm.scrPlayerSide.id, frm.lySide.id, true).contains(&row) {
-        frm.scrPlayerSide.scroll_to(ui, g::Form { id: row });
+        if let Err(e) = frm.scrPlayerSide.scroll_to(ui, g::Form { id: row }) {
+            log!("Player: acompanhar a transcricao falhou ({e}).");
+        }
     }
 }
 
@@ -1819,8 +1821,8 @@ mod tests {
     use super::*;
     use crate::view::Turn;
 
-    fn app() -> iron::Application {
-        let mut app = iron::Application::bundled(crate::PROJECT).unwrap();
+    fn app() -> aylis::Application {
+        let mut app = aylis::Application::bundled(crate::PROJECT).unwrap();
         crate::generated::register(&mut app.ui);
         app
     }

@@ -11,7 +11,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
-use iron::prelude::*;
+use aylis::prelude::*;
 
 use crate::app_view::{main_form, with_ui};
 use crate::view::{AudioMeter, Device, MonitorThumb, PendingKind, RecState, ReplayState};
@@ -21,7 +21,7 @@ use crate::{bridge, config, lang};
 /// de padrão, gravar/parar). As dez ficam na paleta do projeto (`track_1`…`track_10`).
 const TRACK_COLORS: usize = 10;
 
-/// Uma cor da paleta do projeto (`NoOBS.ironproj`) ou do tema, pelo nome.
+/// Uma cor da paleta do projeto (`NoOBS.aylisproj`) ou do tema, pelo nome.
 fn pal(ui: &Ui, name: &str) -> Color {
     ui.theme().color(name)
 }
@@ -79,7 +79,7 @@ fn with<R>(f: impl FnOnce(&mut State) -> R) -> R {
     ST.with(|s| f(&mut s.borrow_mut()))
 }
 
-/// Os textos fixos estão no form (o Iron traduz); aqui só o que depende deles.
+/// Os textos fixos estão no form (o Aylis traduz); aqui só o que depende deles.
 fn apply_texts(ui: &mut Ui) {
     if let Some(id) = FrmMain::components(ui).map(|frm| frm.lblScreens.id) {
         let w = ui.measure_text(&lang::tr("Telas"), &TextStyle::default()).width;
@@ -1028,8 +1028,8 @@ pub fn on_transcribe_chip(chip: (bool, bool, i32, String)) {
 mod tests {
     use super::*;
 
-    fn app() -> iron::Application {
-        let mut app = iron::Application::bundled(crate::PROJECT).unwrap();
+    fn app() -> aylis::Application {
+        let mut app = aylis::Application::bundled(crate::PROJECT).unwrap();
         crate::generated::register(&mut app.ui);
         app
     }

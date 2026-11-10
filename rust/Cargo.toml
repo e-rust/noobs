@@ -3,13 +3,13 @@ name = "noobs"
 version = "0.1.0"
 edition = "2021"
 build = "build.rs"
-description = "NoOBS: gravador de tela com motor de captura próprio e UI nativa no Iron"
+description = "NoOBS: gravador de tela com motor de captura próprio e UI nativa no Aylis"
 
 [dependencies]
-# UI nativa: o projeto iron fica na pasta de cima (`NoOBS.ironproj`,
+# UI nativa: o projeto aylis fica na pasta de cima (`NoOBS.aylisproj`,
 # `forms/`, `themes/`). As features são as que os forms usam; a IDE atualiza a lista a
 # cada "Gerar código".
-iron = { path = "../.iron/sdk/crates/iron", default-features = false, features = [] }
+aylis = { path = "../.aylis/sdk/crates/aylis", default-features = false, features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 libloading = "0.8"
@@ -85,7 +85,7 @@ zip = { version = "2", default-features = false, features = ["deflate"] }
 #   cargo test --release --features app-tests --test mensagens [-- filtro]
 #   cargo test --release --features app-tests --test captura [-- filtro]
 app-tests = []
-dev = ["iron/dev"]
+dev = ["aylis/dev"]
 
 # As mensagens da página pelo dispatch, com o motor de captura de verdade.
 [[test]]
@@ -109,33 +109,33 @@ harness = false
 required-features = ["app-tests"]
 
 [build-dependencies]
-# Embute o projeto iron (e o ícone do projeto) (forms, temas) no executável.
-iron-build = { path = "../.iron/sdk/crates/iron-build" }
+# Embute o projeto aylis (e o ícone do projeto) (forms, temas) no executável.
+aylis-build = { path = "../.aylis/sdk/crates/aylis-build" }
 
-# iron:render: o renderizador de cada plataforma (Projeto → Opções; a IDE reescreve este bloco)
+# aylis:render: o renderizador de cada plataforma (Projeto → Opções; a IDE reescreve este bloco)
 # Windows: Direct2D
 [target.'cfg(windows)'.dependencies]
-iron = { path = "../.iron/sdk/crates/iron", default-features = false, features = ["d2d"] }
+aylis = { path = "../.aylis/sdk/crates/aylis", default-features = false, features = ["d2d"] }
 
 # Linux: Automático (Skia GPU, senão CPU)
 [target.'cfg(target_os = "linux")'.dependencies]
-iron = { path = "../.iron/sdk/crates/iron", default-features = false, features = ["skia-gpu", "skia-cpu"] }
+aylis = { path = "../.aylis/sdk/crates/aylis", default-features = false, features = ["skia-gpu", "skia-cpu"] }
 
 # macOS: Automático (Skia GPU, senão CPU)
 [target.'cfg(target_os = "macos")'.dependencies]
-iron = { path = "../.iron/sdk/crates/iron", default-features = false, features = ["skia-gpu", "skia-cpu"] }
+aylis = { path = "../.aylis/sdk/crates/aylis", default-features = false, features = ["skia-gpu", "skia-cpu"] }
 
 # Android: Automático (Skia GPU, senão CPU)
 [target.'cfg(target_os = "android")'.dependencies]
-iron = { path = "../.iron/sdk/crates/iron", default-features = false, features = ["skia-gpu", "skia-cpu"] }
+aylis = { path = "../.aylis/sdk/crates/aylis", default-features = false, features = ["skia-gpu", "skia-cpu"] }
 
 # iOS: Skia CPU
 [target.'cfg(target_os = "ios")'.dependencies]
-iron = { path = "../.iron/sdk/crates/iron", default-features = false, features = ["skia-cpu"] }
+aylis = { path = "../.aylis/sdk/crates/aylis", default-features = false, features = ["skia-cpu"] }
 
-# iron:render-end
+# aylis:render-end
 
-# Em desenvolvimento (o Executar e a depuração da IDE do iron): o NoOBS e as dependências
+# Em desenvolvimento (o Executar e a depuração da IDE do aylis): o NoOBS e as dependências
 # otimizados. Sem otimização, a captura, a mixagem de áudio e a conversão de vídeo não
 # acompanham o tempo real e o app fica inutilizável. O depurador continua com as linhas.
 [profile.dev]
