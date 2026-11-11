@@ -307,8 +307,11 @@ pub enum Out {
 /// Lido pela interface a cada quadro de tela, sem mensagem.
 pub struct Shared {
     pub clock: Clock,
-    /// Instante do último quadro mostrado (bits de f64).
-    pos: AtomicU64,
+    /// O pedido de posição mais recente (número do seek/passo) e o instante do último
+    /// quadro mostrado. Juntos, sob a mesma trava: um quadro de um seek que já foi
+    /// superado (o vídeo ainda terminando o anterior, num arrasto) não pode pôr a barra
+    /// de volta no ponto velho.
+    pos: Mutex<(u64, f64)>,
     /// Quadro entregue à interface e ainda não aplicado (a interface guarda só o
     /// mais recente: nada empilha no laço de eventos).
     pub ui_pending: AtomicBool,
@@ -317,10 +320,26 @@ pub struct Shared {
 
 impl Shared {
     pub fn position(&self) -> f64 {
-        f64::from_bits(self.pos.load(Ordering::Relaxed))
+        self.pos.lock().unwrap_or_else(|e| e.into_inner()).1
     }
     fn set_position(&self, t: f64) {
-        self.pos.store(t.to_bits(), Ordering::Relaxed);
+        self.pos.lock().unwrap_or_else(|e| e.into_inner()).1 = t;
+    }
+    /// Grava `t` só se `seq` ainda é o pedido mais recente.
+    fn set_position_if(&self, seq: u64, t: f64) {
+        let mut p = self.pos.lock().unwrap_or_else(|e| e.into_inner());
+        if p.0 == seq {
+            p.1 = t;
+        }
+    }
+    /// Um pedido novo (seek ou passo): a barra vai já para `t` e o número dele volta.
+    fn request_position(&self, t: Option<f64>) -> u64 {
+        let mut p = self.pos.lock().unwrap_or_else(|e| e.into_inner());
+        p.0 += 1;
+        if let Some(t) = t {
+            p.1 = t;
+        }
+        p.0
     }
     pub fn duration(&self) -> f64 {
         f64::from_bits(self.duration.load(Ordering::Relaxed))
@@ -330,9 +349,10 @@ impl Shared {
 enum VCmd {
     Play,
     Pause,
-    Seek(f64),
-    /// Um quadro pra frente (+1) ou pra trás (-1), pausado.
-    Step(i32),
+    /// Instante e o número do pedido (ver [`Shared::request_position`]).
+    Seek(f64, u64),
+    /// Um quadro pra frente (+1) ou pra trás (-1), pausado; e o número do pedido.
+    Step(i32, u64),
     Rate(f64),
     View(ViewSpec),
 }
@@ -369,7 +389,7 @@ impl Playback {
     fn open_with(path: &str, view: ViewSpec, out: Arc<dyn Fn(Out) + Send + Sync>, autoplay: bool) -> Self {
         let shared = Arc::new(Shared {
             clock: Clock::new(),
-            pos: AtomicU64::new(0f64.to_bits()),
+            pos: Mutex::new((0, 0.0)),
             ui_pending: AtomicBool::new(false),
             duration: AtomicU64::new(0f64.to_bits()),
         });
@@ -423,13 +443,14 @@ impl Playback {
         let d = self.shared.duration();
         let t = if d > 0.0 { t.clamp(0.0, d) } else { t.max(0.0) };
         self.shared.clock.rebase(t);
-        self.shared.set_position(t);
+        let seq = self.shared.request_position(Some(t));
         let _ = self.atx.send(ACmd::Seek(t));
-        let _ = self.vtx.send(VCmd::Seek(t));
+        let _ = self.vtx.send(VCmd::Seek(t, seq));
     }
 
     pub fn step(&self, dir: i32) {
-        let _ = self.vtx.send(VCmd::Step(dir));
+        let seq = self.shared.request_position(None);
+        let _ = self.vtx.send(VCmd::Step(dir, seq));
     }
 
     pub fn set_rate(&mut self, rate: f64) {

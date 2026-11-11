@@ -612,7 +612,7 @@ pub use export::export_in_use;
 pub use folders::{
     handle_create_folder, handle_delete_folder, handle_merge_recordings, handle_move_items, handle_open_folder, handle_rename_folder,
 };
-pub use library::{handle_delete_recording, handle_open_record_dir, handle_rename_recording};
+pub use library::{handle_delete_recording, handle_open_print, handle_open_record_dir, handle_rename_recording, push_print_added};
 pub use transcribe::{handle_search_transcripts, handle_transcribe_recording};
 pub use library::{handle_request_video_info, handle_request_waveform, resolve_recording_start_clock_sec as recording_start_clock_sec};
 pub use transcribe::{handle_request_transcript, handle_set_speaker_name};

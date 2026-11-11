@@ -74,6 +74,12 @@ pub fn is_recording_ext(path: &str) -> bool {
     RECORDING_EXTS.contains(&ext.as_str())
 }
 
+/// O que a lista de gravações mostra: os vídeos e os prints (`screenshot::PRINT_EXTS`).
+/// Transcrição, exportação e união seguem só com os vídeos ([`is_recording_ext`]).
+pub fn is_library_ext(path: &str) -> bool {
+    is_recording_ext(path) || crate::screenshot::is_print_file(path)
+}
+
 fn full_path(p: &str) -> Option<PathBuf> {
     std::path::absolute(p).ok()
 }
@@ -154,6 +160,15 @@ pub fn browse_parent_dir() -> String {
 
 /// Arquivos de vídeo da pasta (não recursivo).
 pub fn list_recordings(dir: &str) -> Vec<String> {
+    list_files(dir, is_recording_ext)
+}
+
+/// Vídeos e prints da pasta (não recursivo): o que a lista de gravações mostra.
+pub fn list_library(dir: &str) -> Vec<String> {
+    list_files(dir, is_library_ext)
+}
+
+fn list_files(dir: &str, keep: fn(&str) -> bool) -> Vec<String> {
     if dir.is_empty() || !Path::new(dir).is_dir() {
         return Vec::new();
     }
@@ -161,28 +176,37 @@ pub fn list_recordings(dir: &str) -> Vec<String> {
     rd.flatten()
         .filter(|e| e.path().is_file())
         .map(|e| e.path().to_string_lossy().into_owned())
-        .filter(|p| is_recording_ext(p))
+        .filter(|p| keep(p))
         .collect()
 }
 
-/// Igual, descendo nas subpastas. Usado pelo GC do cache: o cache é por hash do
-/// path COMPLETO, então passar só o topo apagaria thumb/duração de tudo que o
-/// usuário organizou em pastas.
+/// Igual, descendo nas subpastas (só os vídeos: a transcrição conta e enfileira daqui).
 pub fn list_recordings_recursive(dir: &str) -> Vec<String> {
-    fn walk(dir: &Path, out: &mut Vec<String>) {
+    walk_files(dir, is_recording_ext)
+}
+
+/// Vídeos e prints descendo nas subpastas. Usado pelo GC do cache: o cache é por hash
+/// do path COMPLETO, então passar só o topo apagaria thumb/duração de tudo que o
+/// usuário organizou em pastas (e sem os prints, as miniaturas deles).
+pub fn list_library_recursive(dir: &str) -> Vec<String> {
+    walk_files(dir, is_library_ext)
+}
+
+fn walk_files(dir: &str, keep: fn(&str) -> bool) -> Vec<String> {
+    fn walk(dir: &Path, keep: fn(&str) -> bool, out: &mut Vec<String>) {
         let Ok(rd) = std::fs::read_dir(dir) else { return };
         for e in rd.flatten() {
             let p = e.path();
             if p.is_dir() {
-                walk(&p, out);
-            } else if is_recording_ext(&p.to_string_lossy()) {
+                walk(&p, keep, out);
+            } else if keep(&p.to_string_lossy()) {
                 out.push(p.to_string_lossy().into_owned());
             }
         }
     }
     let mut out = Vec::new();
     if !dir.is_empty() && Path::new(dir).is_dir() {
-        walk(Path::new(dir), &mut out);
+        walk(Path::new(dir), keep, &mut out);
     }
     out
 }
@@ -208,7 +232,7 @@ pub fn list_sub_folders(dir: &str) -> Vec<String> {
 /// Quantas gravações a pasta tem dentro (recursivo) e quanto ocupam. Vai junto da
 /// listagem: o aviso de exclusão precisa do número sem round-trip.
 pub fn folder_stats(dir: &str) -> (usize, i64) {
-    let files = list_recordings_recursive(dir);
+    let files = list_library_recursive(dir);
     let size = files.iter().filter_map(|f| std::fs::metadata(f).ok()).map(|m| m.len() as i64).sum();
     (files.len(), size)
 }
@@ -308,7 +332,7 @@ fn build_recordings() -> Vec<RecItem> {
     let recording = recording_active();
     let last = last_recording_path();
     let mut items = Vec::new();
-    for path in list_recordings(&dir) {
+    for path in list_library(&dir) {
         // Esconde o arquivo da gravação em andamento (tamanho parcial até o muxer
         // finalizar); `push_recording_added` o põe na lista quando termina.
         if recording && !last.is_empty() && path.eq_ignore_ascii_case(&last) {
@@ -412,6 +436,25 @@ pub fn push_recording_added(path: &str, duration_sec: i32) {
     // Gera a miniatura em background; chega depois via recording_meta.
     scan_single_recording_meta(path);
 }
+/// Um print novo (atalho de print): o card na lista, como uma gravação que terminou.
+pub fn push_print_added(path: &str) {
+    push_recording_added(path, 0);
+}
+
+/// Abrir um print da lista: no visualizador de imagens do Windows (o player é de vídeo).
+/// Só um PNG da pasta de gravações: a interface não manda abrir qualquer arquivo.
+pub fn handle_open_print(path: &str) {
+    if !crate::screenshot::is_print_file(path) || !is_path_in_record_dir(path) {
+        log!("HandleOpenPrint: recusado (nao e um print da pasta de gravacao): {path}");
+        return;
+    }
+    if !Path::new(path).is_file() {
+        post_error(lang::tr("Arquivo não encontrado"));
+        return;
+    }
+    ui::shell_open(path);
+}
+
 // ---------------------------------------------------------------------------
 // Scan de metadados (duração + miniatura) em worker
 // ---------------------------------------------------------------------------
@@ -462,9 +505,9 @@ pub fn scan_recordings_meta() {
     if root.is_empty() || !Path::new(&root).is_dir() || !crate::ffi::ffmpeg::ffmpeg_lib_available() {
         return;
     }
-    let mut files = list_recordings(&current_browse_dir());
+    let mut files = list_library(&current_browse_dir());
     // O GC olha a árvore INTEIRA: gravação guardada numa subpasta segue viva.
-    let live = list_recordings_recursive(&root);
+    let live = list_library_recursive(&root);
     std::thread::spawn(move || {
         if is_shutting_down() {
             return;
@@ -863,7 +906,7 @@ pub fn handle_delete_recording(path: &str) {
                 return;
             }
             // Limpa o cache desse arquivo agora (o GC pegaria no próximo start).
-            player::garbage_collect_cache(&list_recordings_recursive(&record_dir().to_string_lossy()));
+            player::garbage_collect_cache(&list_library_recursive(&record_dir().to_string_lossy()));
             // A transcrição é por gravação: sem isto ficaria órfã no cache e ainda
             // apareceria na busca por texto; esperando na fila, sai junto, sem aviso.
             super::transcribe::forget_recording(&path);

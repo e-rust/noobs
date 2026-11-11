@@ -21,15 +21,19 @@
             "name": "pnlUpdate",
             "style": "box",
             "align": "top",
-            "height": 66,
+            "auto_size": true,
             "margins": [13, 13, 13, 0],
-            "padding": [14, 10, 8, 10],
+            "padding": [14, 12, 10, 14],
             "visible": false,
             "children": [
-              { "class": "Button", "name": "btnUpdClose", "style": "tool", "icon": "close", "icon_size": 12, "text": "", "align": "right", "width": 26, "margins": [0, 0, 0, 20], "on_click": "update_close" },
-              { "class": "Button", "name": "btnUpdOpen", "text": "Abrir página", "align": "right", "width": 110, "margins": [8, 6, 6, 6], "on_click": "update_open" },
-              { "class": "Label", "name": "lblUpdTitle", "style": "row", "align": "top", "height": 20, "text": "" },
-              { "class": "Label", "name": "lblUpdBody", "style": "sub", "align": "client", "wrap": true, "text": "" }
+              { "class": "Layout", "name": "lyUpdHead", "align": "top", "height": 22, "children": [
+                  { "class": "Button", "name": "btnUpdClose", "style": "s_x", "icon": "close", "icon_size": 10, "text": "", "hint": "Dispensar", "align": "right", "width": 22, "on_click": "update_close" },
+                  { "class": "Label", "name": "lblUpdTitle", "style": "s_title", "align": "client", "v_align": "center", "text": "" }
+                ] },
+              { "class": "Label", "name": "lblUpdBody", "style": "s_desc", "align": "top", "auto_size": true, "wrap": true, "v_align": "leading", "margins": [0, 4, 24, 0], "text": "" },
+              { "class": "Layout", "name": "lyUpdActions", "align": "top", "height": 32, "margins": [0, 12, 0, 0], "children": [
+                  { "class": "Button", "name": "btnUpdOpen", "style": "s_primary", "text": "Abrir página", "align": "left", "width": 124, "on_click": "update_open" }
+                ] }
             ]
           },
           {

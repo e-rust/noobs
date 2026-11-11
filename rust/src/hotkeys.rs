@@ -8,7 +8,9 @@
 //!   { "mode": "replay", "hotkey": "Ctrl+Shift+Pause/Break" },
 //!   { "mode": "window", "hotkey": "Ctrl+Shift+F7", "title": "nova guia", "appAudio": true, "delaySec": 0 },
 //!   { "mode": "area",   "hotkey": "Ctrl+Pause/Break", "area": { "x": -1683, "y": 1114, "w": 642, "h": 465 }, "timelapse": true, "delaySec": 3 },
-//!   { "mode": "area",   "hotkey": "Ctrl+Alt+Pause/Break", "area": null }
+//!   { "mode": "area",   "hotkey": "Ctrl+Alt+Pause/Break", "area": null },
+//!   { "mode": "screenshot", "hotkey": "Ctrl+Shift+F8", "target": "select" },
+//!   { "mode": "screenshot", "hotkey": "Ctrl+Shift+F9", "target": "monitor" }
 //! ]
 //! ```
 //!
@@ -16,6 +18,9 @@
 //!   `title` (sem diferenciar maiúsculas); `area` grava o retângulo salvo, ou
 //!   abre a seleção quando não há um (`timelapse`: só o que muda na área, como o
 //!   Timelapse do "Capturar... → Área"); `replay` salva o trecho do buffer.
+//! * `screenshot` tira um print (PNG) do que o `target` diz ([`ShotTarget`]):
+//!   a seleção na hora, a área salva em `area` ou o monitor onde está o
+//!   mouse. Não mexe na gravação nem na contagem.
 //! * `delaySec` (0..[`DELAY_MAX`]) vale pros três modos de gravação.
 //! * Sem tempo máximo: a gravação para pelo mesmo atalho (ou qualquer outro de
 //!   gravação), como sempre.
@@ -51,6 +56,7 @@ pub enum Mode {
     Replay,
     Window,
     Area,
+    Screenshot,
 }
 
 impl Mode {
@@ -60,6 +66,7 @@ impl Mode {
             "replay" => Some(Mode::Replay),
             "window" => Some(Mode::Window),
             "area" => Some(Mode::Area),
+            "screenshot" => Some(Mode::Screenshot),
             _ => None,
         }
     }
@@ -70,12 +77,51 @@ impl Mode {
             Mode::Replay => "replay",
             Mode::Window => "window",
             Mode::Area => "area",
+            Mode::Screenshot => "screenshot",
         }
     }
 
-    /// Começa (ou para) uma gravação — o `replay` não.
+    /// Começa (ou para) uma gravação — o `replay` e o print não.
     pub fn records(self) -> bool {
-        self != Mode::Replay
+        !matches!(self, Mode::Replay | Mode::Screenshot)
+    }
+
+    /// Usa uma área (salva no item ou escolhida na hora).
+    pub fn uses_area(self) -> bool {
+        matches!(self, Mode::Area | Mode::Screenshot)
+    }
+}
+
+/// O que o print captura.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ShotTarget {
+    /// Congela a tela e abre a seleção: o print é a área desenhada.
+    #[default]
+    Select,
+    /// A área salva no item (sem ela, abre a seleção como o `Select`).
+    Area,
+    /// O monitor onde está o mouse quando o atalho é apertado.
+    Monitor,
+}
+
+impl ShotTarget {
+    /// A ordem do combo "O que capturar" do cartão.
+    pub const ALL: [ShotTarget; 3] = [ShotTarget::Select, ShotTarget::Area, ShotTarget::Monitor];
+
+    pub fn parse(s: &str) -> ShotTarget {
+        match s {
+            "area" => ShotTarget::Area,
+            "monitor" => ShotTarget::Monitor,
+            _ => ShotTarget::Select,
+        }
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ShotTarget::Select => "select",
+            ShotTarget::Area => "area",
+            ShotTarget::Monitor => "monitor",
+        }
     }
 }
 
@@ -88,16 +134,18 @@ pub struct Item {
     pub title: String,
     /// `window`: som só do app numa faixa própria.
     pub app_audio: bool,
-    /// `area`: retângulo salvo; `None` = abrir a seleção na hora.
+    /// `area` e `screenshot`: retângulo salvo; `None` = abrir a seleção na hora.
     pub area: Option<AreaRect>,
     /// `area`: grava em Timelapse (só o que muda), em vez da opção do Capturar...
     pub timelapse: bool,
     pub delay_sec: u32,
+    /// `screenshot`: o que o print captura.
+    pub target: ShotTarget,
 }
 
 impl Item {
     pub fn new(mode: Mode, hotkey: &str) -> Item {
-        Item { mode, hotkey: normalize(hotkey), title: String::new(), app_audio: false, area: None, timelapse: false, delay_sec: 0 }
+        Item { mode, hotkey: normalize(hotkey), title: String::new(), app_audio: false, area: None, timelapse: false, delay_sec: 0, target: ShotTarget::default() }
     }
 }
 
@@ -123,17 +171,21 @@ pub fn item_from_json(v: &Value) -> Option<Item> {
     let mode = Mode::parse(v.get("mode")?.as_str()?)?;
     let s = |k: &str| v.get(k).and_then(Value::as_str).unwrap_or("").to_owned();
     let delay = v.get("delaySec").and_then(Value::as_i64).unwrap_or(0).clamp(0, DELAY_MAX as i64) as u32;
+    let target = if mode == Mode::Screenshot { ShotTarget::parse(&s("target")) } else { ShotTarget::default() };
+    // O print só guarda a área quando é ela o alvo.
+    let keeps_area = mode == Mode::Area || (mode == Mode::Screenshot && target == ShotTarget::Area);
     Some(Item {
         mode,
         hotkey: normalize(&s("hotkey")),
         title: if mode == Mode::Window { s("title").trim().to_owned() } else { String::new() },
         app_audio: mode == Mode::Window && v.get("appAudio").and_then(Value::as_bool).unwrap_or(false),
-        area: if mode == Mode::Area { area_from(v.get("area")) } else { None },
+        area: if keeps_area { area_from(v.get("area")) } else { None },
         // Sem a chave (atalho de antes desta opção): desligado. Herdar a opção do Capturar...
         // ligava o Timelapse em atalhos que nunca o tiveram (numa máquina com o Capturar em
         // Timelapse, todos os atalhos de área apareciam com ele).
         timelapse: mode == Mode::Area && v.get("timelapse").and_then(Value::as_bool).unwrap_or(false),
         delay_sec: if mode.records() { delay } else { 0 },
+        target,
     })
 }
 
@@ -150,6 +202,12 @@ pub fn item_to_json(it: &Item) -> Value {
         Mode::Area => {
             m.insert("area".into(), area_json(it.area));
             m.insert("timelapse".into(), json!(it.timelapse));
+        }
+        Mode::Screenshot => {
+            m.insert("target".into(), json!(it.target.as_str()));
+            if it.target == ShotTarget::Area {
+                m.insert("area".into(), area_json(it.area));
+            }
         }
         _ => {}
     }
@@ -315,6 +373,27 @@ mod tests {
         // Campos de outro modo não vão pro arquivo.
         let r = item_to_json(&l[1]);
         assert!(r.get("delaySec").is_none() && r.get("title").is_none() && r.get("area").is_none());
+    }
+
+    #[test]
+    fn print_ida_e_volta() {
+        let v = json!([
+            { "mode": "screenshot", "hotkey": "Ctrl+Shift+F8" },
+            { "mode": "screenshot", "hotkey": "Ctrl+Shift+F9", "target": "monitor", "area": { "x": 10, "y": 20, "w": 300, "h": 200 }, "delaySec": 5 },
+            { "mode": "screenshot", "hotkey": "F9", "target": "area", "area": { "x": 10, "y": 20, "w": 300, "h": 200 } },
+            { "mode": "screenshot", "hotkey": "F10", "target": "outra coisa" }
+        ]);
+        let l = list_from_json(&v);
+        assert_eq!(l[0].target, ShotTarget::Select, "sem alvo: a seleção na hora");
+        assert_eq!(l[1].target, ShotTarget::Monitor);
+        assert_eq!(l[1].area, None, "a área só vale com o alvo área");
+        assert_eq!(l[1].delay_sec, 0, "o print não tem atraso");
+        assert_eq!(l[2].area, Some(AreaRect { x: 10, y: 20, w: 300, h: 200 }));
+        assert_eq!(l[3].target, ShotTarget::Select, "alvo desconhecido: a seleção");
+        assert!(!Mode::Screenshot.records(), "o print não para a gravação");
+        assert_eq!(list_from_json(&list_to_json(&l)), l);
+        let j = item_to_json(&l[1]);
+        assert!(j.get("area").is_none() && j.get("delaySec").is_none() && j.get("timelapse").is_none());
     }
 
     #[test]

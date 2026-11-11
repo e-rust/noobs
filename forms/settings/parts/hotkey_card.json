@@ -43,6 +43,10 @@
           { "class": "Layout", "name": "lyAppAudio", "align": "top", "height": 17, "margins": [0, 10, 0, 0], "visible": false, "children": [
               { "class": "CheckBox", "name": "chkAppAudio", "style": "web", "box_size": 16, "align": "client", "text": "Gravar o som do app" }
             ] },
+          { "class": "Layout", "name": "lyShot", "align": "top", "height": 32, "margins": [0, 10, 0, 0], "visible": false, "children": [
+              { "class": "Label", "name": "lblShotTarget", "style": "s_name2", "align": "left", "width": 140, "margins": [0, 0, 10, 0], "hit_test": false, "text": "O que capturar" },
+              { "class": "ComboBox", "name": "cmbShotTarget", "arrow": "triangle", "align": "left", "width": 280 }
+            ] },
           { "class": "Layout", "name": "lyArea", "align": "top", "height": 35, "margins": [0, 10, 0, 0], "visible": false, "children": [
               { "class": "Button", "name": "btnAreaClear", "style": "s", "align": "right", "width": 120, "height": 33, "margins": [8, 0, 0, 0], "text": "Escolher na hora" },
               { "class": "Button", "name": "btnAreaDefine", "style": "s", "align": "right", "width": 100, "height": 33, "margins": [8, 0, 0, 0], "text": "Definir área" },
@@ -50,6 +54,9 @@
             ] },
           { "class": "Layout", "name": "lyTimelapse", "align": "top", "height": 17, "margins": [0, 10, 0, 0], "visible": false, "children": [
               { "class": "CheckBox", "name": "chkTimelapse", "style": "web", "box_size": 16, "align": "client", "text": "Timelapse: grava só quando a área muda (o tempo parado é cortado)" }
+            ] },
+          { "class": "Layout", "name": "lyShotInfo", "align": "top", "auto_size": true, "margins": [0, 10, 0, 0], "visible": false, "children": [
+              { "class": "Label", "name": "lblShotInfo", "style": "s_hint", "align": "top", "auto_size": true, "wrap": true, "v_align": "leading", "hit_test": false, "text": "O print vai como PNG para a pasta de gravações e também para a área de transferência." }
             ] },
           { "class": "Layout", "name": "lyDelay", "align": "top", "height": 32, "margins": [0, 10, 0, 0], "children": [
               { "class": "Label", "name": "lblDelay", "style": "s_name2", "align": "left", "width": 140, "margins": [0, 0, 10, 0], "hit_test": false, "text": "Atraso antes de começar" },

@@ -993,7 +993,8 @@ pub fn show_update_banner(ui: &mut Ui, latest: &str, url: &str) {
     if let Some(frm) = FrmMain::components(ui) {
         frm.lblUpdTitle.set_text(ui, lang::tr("Nova versão disponível"));
         frm.lblUpdBody.set_text(ui, lang::tr_with("A versão {{version}} já está disponível para download.", &[("version", latest)]));
-        frm.btnUpdOpen.set_visible(ui, !url.is_empty());
+        // Sem página, a linha do botão some inteira (não fica um vão no aviso).
+        frm.lyUpdActions.set_visible(ui, !url.is_empty());
         frm.pnlUpdate.set_visible(ui, true);
     }
 }

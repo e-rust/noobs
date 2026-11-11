@@ -420,7 +420,7 @@ fn run_audio_only(path: &str, rx: Receiver<VCmd>, shared: Arc<Shared>, out: Arc<
         match c {
             Some(VCmd::Play) => playing = true,
             Some(VCmd::Pause) => playing = false,
-            Some(VCmd::Seek(t)) => shared.set_position(t),
+            Some(VCmd::Seek(t, _)) => shared.set_position(t),
             _ => {}
         }
         if playing {
@@ -473,6 +473,8 @@ pub(super) fn run(path: &str, view: ViewSpec, rx: Receiver<VCmd>, shared: Arc<Sh
     let frame_dur = 1.0 / d.fps;
     let mut cur = 0.0f64;
     let mut pending: Vec<VCmd> = Vec::new();
+    // O número do último seek/passo atendido (ver `Shared::request_position`).
+    let mut seq = 0u64;
 
     let mailbox: Mailbox = Arc::new((std::sync::Mutex::new((None, false)), std::sync::Condvar::new()));
     let presenter = Presenter { a: d.a, gpu: d.gpu.take(), sw: match Frame::alloc() { Some(f) => f, None => return }, sws: Vec::new() };
@@ -480,8 +482,10 @@ pub(super) fn run(path: &str, view: ViewSpec, rx: Receiver<VCmd>, shared: Arc<Sh
         let (mailbox, shared, out) = (mailbox.clone(), shared.clone(), out.clone());
         std::thread::Builder::new().name("noobs-player-present".into()).spawn(move || run_presenter(presenter, mailbox, shared, out)).ok()
     };
-    let present = |d: &mut Dec, held: bool, lay: &Option<Layout>, pts: f64| {
-        shared.set_position(pts);
+    let present = |d: &mut Dec, held: bool, lay: &Option<Layout>, pts: f64, seq: u64| {
+        // Um quadro de um pedido já superado (outro seek chegou) ainda aparece, mas a
+        // barra fica no pedido novo.
+        shared.set_position_if(seq, pts);
         let Some(l) = lay else { return };
         // A interface guarda só o mais recente (ver `app_view::frame_sink`): entregar
         // sempre não empilha nada, e o quadro não se perde por ela estar pintando.
@@ -500,7 +504,7 @@ pub(super) fn run(path: &str, view: ViewSpec, rx: Receiver<VCmd>, shared: Arc<Sh
     if d.seek(0.0) {
         cur = d.pts_of(&d.frame);
         d.hold();
-        present(&mut d, true, &lay, cur);
+        present(&mut d, true, &lay, cur, seq);
     }
 
     'main: loop {
@@ -528,7 +532,7 @@ pub(super) fn run(path: &str, view: ViewSpec, rx: Receiver<VCmd>, shared: Arc<Sh
         }
         let cmds: Vec<VCmd> = std::mem::take(&mut pending);
         // Só o último seek importa (arrastar a barra manda dezenas).
-        let last_seek = cmds.iter().rposition(|c| matches!(c, VCmd::Seek(_) | VCmd::Step(_)));
+        let last_seek = cmds.iter().rposition(|c| matches!(c, VCmd::Seek(..) | VCmd::Step(..)));
         // Idem a vista: um arrasto rápido manda várias por lote, e refazer o
         // quadro a cada uma acumulava atraso.
         let last_view = cmds.iter().rposition(|c| matches!(c, VCmd::View(_)));
@@ -548,19 +552,21 @@ pub(super) fn run(path: &str, view: ViewSpec, rx: Receiver<VCmd>, shared: Arc<Sh
                     if d.has_held && Some(i) == last_view {
                         // Pausado (ou entre quadros): o mostrado é refeito na vista nova.
                         shared.ui_pending.store(false, Ordering::Release);
-                        present(&mut d, true, &lay, cur);
+                        present(&mut d, true, &lay, cur, seq);
                     }
                 }
-                VCmd::Seek(t) if Some(i) == last_seek => {
+                VCmd::Seek(t, s) if Some(i) == last_seek => {
+                    seq = s;
                     ended = false;
                     if d.seek(t) {
                         cur = d.pts_of(&d.frame);
                         d.hold();
                         shared.ui_pending.store(false, Ordering::Release);
-                        present(&mut d, true, &lay, cur);
+                        present(&mut d, true, &lay, cur, seq);
                     }
                 }
-                VCmd::Step(dir) if Some(i) == last_seek => {
+                VCmd::Step(dir, s) if Some(i) == last_seek => {
+                    seq = s;
                     ended = false;
                     let ok = if dir > 0 {
                         // Pra frente: só o próximo quadro, sem seek.
@@ -572,7 +578,7 @@ pub(super) fn run(path: &str, view: ViewSpec, rx: Receiver<VCmd>, shared: Arc<Sh
                         cur = d.pts_of(&d.frame);
                         d.hold();
                         shared.ui_pending.store(false, Ordering::Release);
-                        present(&mut d, true, &lay, cur);
+                        present(&mut d, true, &lay, cur, seq);
                         shared.clock.rebase(cur);
                     }
                 }
@@ -592,7 +598,7 @@ pub(super) fn run(path: &str, view: ViewSpec, rx: Receiver<VCmd>, shared: Arc<Sh
             if target >= d.duration {
                 playing = false;
                 ended = true;
-                shared.set_position(d.duration);
+                shared.set_position_if(seq, d.duration);
                 out(Out::Ended);
                 continue;
             }
@@ -603,7 +609,7 @@ pub(super) fn run(path: &str, view: ViewSpec, rx: Receiver<VCmd>, shared: Arc<Sh
                     if d.seek(k + frame_dur / 3.0) {
                         cur = d.pts_of(&d.frame);
                         d.hold();
-                        present(&mut d, true, &lay, cur);
+                        present(&mut d, true, &lay, cur, seq);
                     }
                 }
                 _ => {
@@ -622,7 +628,7 @@ pub(super) fn run(path: &str, view: ViewSpec, rx: Receiver<VCmd>, shared: Arc<Sh
         if !d.next_frame() {
             playing = false;
             ended = true;
-            shared.set_position(d.duration.max(cur));
+            shared.set_position_if(seq, d.duration.max(cur));
             out(Out::Ended);
             continue;
         }
@@ -640,7 +646,7 @@ pub(super) fn run(path: &str, view: ViewSpec, rx: Receiver<VCmd>, shared: Arc<Sh
                     if d.seek(k) {
                         cur = d.pts_of(&d.frame);
                         d.hold();
-                        present(&mut d, true, &lay, cur);
+                        present(&mut d, true, &lay, cur, seq);
                     }
                     continue;
                 }
@@ -648,6 +654,9 @@ pub(super) fn run(path: &str, view: ViewSpec, rx: Receiver<VCmd>, shared: Arc<Sh
             // Atrasado: descarta antes da conversão, que é a etapa cara.
             d.frame.unref();
             cur = pts;
+            // A barra anda junto enquanto o vídeo alcança o relógio (depois de um seek
+            // tocando): sem isto ela ficava parada no ponto e depois pulava.
+            shared.set_position_if(seq, pts);
             continue;
         }
         // Espera o instante do quadro, acordando pra comandos.
@@ -666,13 +675,13 @@ pub(super) fn run(path: &str, view: ViewSpec, rx: Receiver<VCmd>, shared: Arc<Sh
                 Err(_) => break 'main,
             }
         }
-        if pending.iter().any(|c| matches!(c, VCmd::Seek(_) | VCmd::Step(_) | VCmd::Pause)) {
+        if pending.iter().any(|c| matches!(c, VCmd::Seek(..) | VCmd::Step(..) | VCmd::Pause)) {
             // Seek/pausa no meio da espera: este quadro já não vale (mas fica
             // como o mostrado se for pausa).
             if pending.iter().any(|c| matches!(c, VCmd::Pause)) {
                 cur = pts;
                 d.hold();
-                present(&mut d, true, &lay, cur);
+                present(&mut d, true, &lay, cur, seq);
             } else {
                 d.frame.unref();
             }
@@ -680,7 +689,7 @@ pub(super) fn run(path: &str, view: ViewSpec, rx: Receiver<VCmd>, shared: Arc<Sh
         }
         cur = pts;
         d.hold();
-        present(&mut d, true, &lay, cur);
+        present(&mut d, true, &lay, cur, seq);
     }
     // Fecha a thread de conversão (soltando os quadros que ela segura) antes do decoder.
     {

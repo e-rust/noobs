@@ -18,6 +18,9 @@ const VK_BACK: u32 = 0x08;
 const VK_TAB: u32 = 0x09;
 const VK_RETURN: u32 = 0x0D;
 pub const VK_PAUSE: u32 = 0x13;
+/// Print Screen: os atalhos com ela vão pelo hook de teclado (`print_key`), que a tira do
+/// Windows (o recorte e a cópia da tela não acontecem).
+pub const VK_SNAPSHOT: u32 = 0x2C;
 /// `Ctrl+Pause` chega como `VK_CANCEL` (a função "Break" da tecla).
 pub const VK_CANCEL: u32 = 0x03;
 const VK_ESCAPE: u32 = 0x1B;
@@ -86,6 +89,7 @@ fn vk_to_name(vk: u32) -> Option<String> {
         // O rótulo reflete o que está impresso no teclado; o parse aceita
         // "Pause" e "Pause/Break" (config antigo).
         VK_PAUSE => "Pause/Break",
+        VK_SNAPSHOT => "PrintScreen",
         VK_ADD => "NumpadAdd",
         VK_SUBTRACT => "NumpadSubtract",
         VK_MULTIPLY => "NumpadMultiply",
@@ -160,6 +164,7 @@ fn name_to_vk(name: &str) -> u32 {
         "DOWN" => VK_DOWN,
         "BACKSPACE" => VK_BACK,
         "PAUSE" | "BREAK" | "PAUSE/BREAK" => VK_PAUSE,
+        "PRINTSCREEN" | "PRINT" | "PRTSC" | "PRTSCN" | "PRTSCR" => VK_SNAPSHOT,
         "NUMPADADD" => VK_ADD,
         "NUMPADSUBTRACT" => VK_SUBTRACT,
         "NUMPADMULTIPLY" => VK_MULTIPLY,
@@ -309,6 +314,14 @@ mod tests {
     fn pause_aceita_os_dois_nomes() {
         assert_eq!(parse_hotkey("Pause").unwrap().vk, VK_PAUSE);
         assert_eq!(format_hotkey(0, parse_hotkey("pause/break").unwrap().vk), "Pause/Break");
+    }
+
+    #[test]
+    fn print_screen_aceita_os_nomes_do_teclado() {
+        for s in ["PrintScreen", "prtsc", "PrtScn", "Print"] {
+            assert_eq!(parse_hotkey(s).unwrap().vk, VK_SNAPSHOT, "{s}");
+        }
+        assert_eq!(format_hotkey(MOD_CTRL, VK_SNAPSHOT), "Ctrl+PrintScreen");
     }
 
     #[test]

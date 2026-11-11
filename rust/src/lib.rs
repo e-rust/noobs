@@ -118,6 +118,8 @@ modulos! {
     win_windows,
     area_select,
     area_frame,
+    screenshot,
+    print_key,
 }
 
 // O passeio pelas telas (NOOBS_TOUR), para comparar com a versão anterior.

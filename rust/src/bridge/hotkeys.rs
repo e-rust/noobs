@@ -23,8 +23,8 @@ use serde_json::json;
 use serde_json::Value;
 
 use crate::engine::AreaRect;
-use crate::hotkeys::{self, Item, Mode};
-use crate::{area_select, hotkey, lang, log, ui};
+use crate::hotkeys::{self, Item, Mode, ShotTarget};
+use crate::{area_select, hotkey, lang, log, screenshot, ui};
 
 use super::{area, countdown, post_error, post_json, recording, replay, window_record};
 
@@ -40,6 +40,8 @@ thread_local! {
     static SELECT_DELAY: Cell<u32> = const { Cell::new(0) };
     /// O Timelapse desse atalho, enquanto o usuário seleciona.
     static SELECT_TIMELAPSE: Cell<bool> = const { Cell::new(false) };
+    /// O print da tela inteira tirado no atalho, enquanto o usuário escolhe o pedaço.
+    static FROZEN: RefCell<Option<screenshot::Shot>> = const { RefCell::new(None) };
 }
 
 /// A lista, lida do config (com a migração das chaves antigas) no 1º uso.
@@ -87,6 +89,8 @@ pub fn apply() {
     let replay_on = replay::replay_active();
     let mut status = Vec::with_capacity(list.len());
     let mut registered = Vec::new();
+    // Os com Print Screen vão pelo hook de teclado, que a tira do Windows (`print_key`).
+    let mut print_keys = Vec::new();
     for (i, it) in list.iter().enumerate() {
         let st: &'static str = (|| {
             if it.hotkey.is_empty() {
@@ -101,6 +105,10 @@ pub fn apply() {
             }
             if it.mode == Mode::Replay && !replay_on {
                 return "inactive";
+            }
+            if hk.vk == hotkey::VK_SNAPSHOT {
+                print_keys.push((hk.modifiers, i));
+                return "";
             }
             let (id, alt) = hotkeys::ids_of(i);
             if !ui::register_global_hotkey(id, hk.modifiers, hk.vk) {
@@ -118,6 +126,7 @@ pub fn apply() {
         })();
         status.push(st);
     }
+    crate::print_key::set(print_keys, trigger);
     log!("Atalhos: {} de {} registrado(s).", status.iter().filter(|s| s.is_empty()).count(), list.len());
     REGISTERED.with(|r| *r.borrow_mut() = registered);
     STATUS.with(|s| *s.borrow_mut() = status);
@@ -171,7 +180,7 @@ fn on_area_defined(area: Option<AreaRect>) {
     let index = DEFINING.with(|d| d.take());
     if let (Some(i), Some(a)) = (index, area) {
         let mut l = list();
-        if let Some(it) = l.get_mut(i).filter(|it| it.mode == Mode::Area) {
+        if let Some(it) = l.get_mut(i).filter(|it| it.mode.uses_area()) {
             it.area = Some(a);
             set_list(l);
         }
@@ -201,6 +210,11 @@ pub fn trigger(index: usize) {
     log!("Atalhos: \"{}\" ({}).", it.hotkey, it.mode.as_str());
     if it.mode == Mode::Replay {
         replay::handle_save_replay();
+        return;
+    }
+    // O print não mexe na gravação nem na contagem.
+    if it.mode == Mode::Screenshot {
+        take_screenshot(&it);
         return;
     }
     // Atalho de gravação: na contagem cancela, gravando para.
@@ -243,7 +257,54 @@ pub fn trigger(index: usize) {
                 }
             }
         },
-        Mode::Replay => {}
+        Mode::Replay | Mode::Screenshot => {}
+    }
+}
+
+/// O atalho de print: o monitor do mouse e a área salva saem na hora; a seleção (ou a
+/// área salva que não existe ainda) congela a tela e abre a seleção.
+fn take_screenshot(it: &Item) {
+    if area_select::is_active() {
+        return;
+    }
+    let dir = recording::record_dir();
+    let fixed = match (it.target, it.area) {
+        (ShotTarget::Monitor, _) => Some(screenshot::cursor_monitor()),
+        (ShotTarget::Area, Some(saved)) => match area::clamp_to_screen(saved) {
+            Some(a) => Some(Some(a)),
+            None => {
+                log!("Atalhos: area do print {}x{} em ({}, {}) fora da tela atual.", saved.w, saved.h, saved.x, saved.y);
+                post_error(lang::tr("A área salva do print está fora das telas conectadas agora. Defina outra em Configurações → Atalhos."));
+                return;
+            }
+        },
+        (ShotTarget::Select | ShotTarget::Area, _) => None,
+    };
+    if let Some(rect) = fixed {
+        match rect.and_then(screenshot::capture) {
+            Some(shot) => screenshot::deliver(shot, dir),
+            None => post_error(lang::tr("Não foi possível capturar a tela.")),
+        }
+        return;
+    }
+    // Seleção: o print é o de AGORA; a seleção só escolhe o pedaço.
+    let Some(frozen) = screenshot::capture(screenshot::virtual_screen()) else {
+        post_error(lang::tr("Não foi possível capturar a tela."));
+        return;
+    };
+    FROZEN.with(|f| *f.borrow_mut() = Some(frozen));
+    if !area_select::start_with_hint(on_shot_selected, "Arraste para escolher a área do print  •  Esc cancela") {
+        FROZEN.with(|f| f.borrow_mut().take());
+    }
+}
+
+fn on_shot_selected(area: Option<AreaRect>) {
+    let frozen = FROZEN.with(|f| f.borrow_mut().take());
+    if let (Some(frozen), Some(a)) = (frozen, area) {
+        match frozen.crop(a) {
+            Some(shot) => screenshot::deliver(shot, recording::record_dir()),
+            None => post_error(lang::tr("Não foi possível capturar a tela.")),
+        }
     }
 }
 
@@ -267,4 +328,5 @@ pub fn do_init() {
 
 pub fn shutdown() {
     unregister_all();
+    crate::print_key::stop();
 }

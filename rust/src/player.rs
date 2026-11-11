@@ -269,10 +269,20 @@ pub fn save_meta_subset(path: &str, obj_json: &str) {
 /// (e guarda); miniatura: `extract_frame_jpeg` a ~10% (altura 240; o card tem
 /// ~212×122 com object-fit:cover). Worker. Devolve `(duração_s, arquivo_da_miniatura)`.
 pub fn ensure_recording_meta(path: &str) -> Option<(i32, String)> {
-    if !Path::new(path).exists() || !crate::ffi::ffmpeg::ffmpeg_lib_available() {
+    if !Path::new(path).exists() {
         return None;
     }
     let thumb = cache_dir_for().join(format!("{}.jpg", hash_name(path)));
+    // Print (PNG): sem duração, nem metadados de gravação; a miniatura sai da imagem.
+    if crate::screenshot::is_print_file(path) {
+        if !thumb.exists() && !crate::screenshot::write_thumbnail(path, &thumb, 240) {
+            log!("Player: miniatura do print falhou para {}", Path::new(path).file_name().unwrap_or_default().to_string_lossy());
+        }
+        return thumb.exists().then(|| (0, thumb.to_string_lossy().into_owned()));
+    }
+    if !crate::ffi::ffmpeg::ffmpeg_lib_available() {
+        return None;
+    }
 
     // ANTES de ler a meta: arquivo vindo de outra máquina traz layout, transcrição
     // e falantes no fim dele (e a duração do bloco evita o Probe).

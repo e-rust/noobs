@@ -17,7 +17,7 @@ use crate::{ffmpeg_ops, file_meta, lang, log, mainthread, player, record_watch, 
 
 use super::library::{
     current_browse_dir, delete_to_recycle_bin, format_bytes_short, is_dir_in_record_dir, is_path_in_record_dir,
-    is_recording_ext, list_recordings_recursive, push_recording_added, push_recordings, sanitize_file_name,
+    is_library_ext, is_recording_ext, list_library_recursive, push_recording_added, push_recordings, sanitize_file_name,
     scan_recordings_meta, set_browse_dir,
 };
 use super::recording::{last_recording_path, record_dir, recording_active};
@@ -43,7 +43,7 @@ fn parent_dir(p: &str) -> String {
 /// antigo pelo prefixo (o relativo dentro dela não mudou).
 fn migrate_cache_for_tree(old_root: &str, new_root: &str) {
     let prefix = format!("{}\\", trim_sep(new_root));
-    for f in list_recordings_recursive(new_root) {
+    for f in list_library_recursive(new_root) {
         if let Some(rel) = f.strip_prefix(&prefix) {
             player::rename_cache_entries(&format!("{}\\{rel}", trim_sep(old_root)), &f);
         }
@@ -193,7 +193,7 @@ pub fn handle_delete_folder(path: &str) {
             log!("Pasta excluida: {p}");
             // Se a pasta navegada estava dentro, current_browse_dir volta à
             // raiz sozinho na primeira leitura (o push logo abaixo).
-            player::garbage_collect_cache(&list_recordings_recursive(&record_root()));
+            player::garbage_collect_cache(&list_library_recursive(&record_root()));
             push_recordings();
             record_watch::update_dir(&current_browse_dir());
         });
@@ -231,7 +231,7 @@ pub fn handle_move_items(ids: &[String], target: &str) {
                 continue;
             }
         } else {
-            if !is_path_in_record_dir(&src) || !is_recording_ext(&src) || !Path::new(&src).is_file() {
+            if !is_path_in_record_dir(&src) || !is_library_ext(&src) || !Path::new(&src).is_file() {
                 continue;
             }
             // O muxer ainda está escrevendo nela.
@@ -405,7 +405,7 @@ pub fn handle_merge_recordings(ids: &[String]) {
             for p in recycled {
                 view::call(move |v| v.recording_removed(&p, -1));
             }
-            player::garbage_collect_cache(&list_recordings_recursive(&record_root()));
+            player::garbage_collect_cache(&list_library_recursive(&record_root()));
             push_recording_added(&out, 0);
             push_merge_done(true);
         });

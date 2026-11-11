@@ -21,7 +21,7 @@ use aylis::prelude::*;
 
 use crate::app_view::with_ui;
 use crate::bridge::{self, hotkeys as bhk, recording, replay, settings, shell, transcribe as btr, video_test};
-use crate::hotkeys::{Item, Mode};
+use crate::hotkeys::{Item, Mode, ShotTarget};
 use crate::types::GpuVendor;
 use crate::view::{Device, LocalAsrInfo, QueueItem, ReplayState, RootFolder, TranscribeState, UpdateInfo, VideoTestState};
 use crate::{config, encoder, hotkey, lang, log};
@@ -71,7 +71,7 @@ const TRANSCRIBE_LANGS: [(&str, &str); 16] = [
     ("ko", "한국어"),
     ("zh", "中文"),
 ];
-const HK_MODES: [Mode; 4] = [Mode::Record, Mode::Window, Mode::Area, Mode::Replay];
+const HK_MODES: [Mode; 5] = [Mode::Record, Mode::Window, Mode::Area, Mode::Screenshot, Mode::Replay];
 const HK_DELAYS: [u32; 6] = [0, 3, 5, 10, 15, 30];
 const VT_SVT_FLOOR_LEVEL: i32 = 3;
 
@@ -102,6 +102,7 @@ fn key_table() -> Vec<(String, String, bool)> {
     tr(&mut v, "PageDown", "Página abaixo");
     plain(&mut v, "Backspace");
     plain(&mut v, "Pause/Break");
+    tr(&mut v, "PrintScreen", "Print Screen");
     group(&mut v, "Setas");
     tr(&mut v, "Left", "← Esquerda");
     tr(&mut v, "Right", "→ Direita");
@@ -1803,7 +1804,7 @@ fn hotkey_cards(ui: &mut Ui, frm: &g::FraHotkeysComponents) {
                 let delay = it.delay_sec;
                 *it = Item::new(mode, &hk);
                 it.hotkey = hk;
-                if mode != Mode::Replay {
+                if mode.records() {
                     it.delay_sec = delay;
                 }
             });
@@ -1864,11 +1865,37 @@ fn hotkey_cards(ui: &mut Ui, frm: &g::FraHotkeysComponents) {
                 hk_update(i, |it| it.app_audio = on);
             });
         }
-        if it.mode == Mode::Area {
+        // Print: o que capturar (a seleção na hora, a área salva ou o monitor do mouse).
+        if it.mode == Mode::Screenshot {
+            card.lyShot.set_visible(ui, true);
+            card.lyShotInfo.set_visible(ui, true);
+            let w = text_width(ui, card.lblShotTarget.id, &card.lblShotTarget.text(ui)).max(140.0);
+            card.lblShotTarget.set_width(ui, f64::from(w));
+            let labels: Vec<String> = ShotTarget::ALL.iter().map(|t| lang::tr_of("hotkeys.shot", t.as_str())).collect();
+            card.cmbShotTarget.set_items(ui, combo_items(&labels).as_str());
+            card.cmbShotTarget.set_item_index(ui, ShotTarget::ALL.iter().position(|t| *t == it.target).unwrap_or(0) as i64);
+            let cmb = card.cmbShotTarget;
+            ui.on(cmb.id, "on_change", move |ui, _, _| {
+                let target = ShotTarget::ALL.get(item_of(ui, cmb)).copied().unwrap_or_default();
+                hk_update(i, |it| {
+                    it.target = target;
+                    // A área salva só vale com o alvo área.
+                    if target != ShotTarget::Area {
+                        it.area = None;
+                    }
+                });
+            });
+        }
+        let shows_area = it.mode == Mode::Area || (it.mode == Mode::Screenshot && it.target == ShotTarget::Area);
+        if shows_area {
             card.lyArea.set_visible(ui, true);
-            card.lyTimelapse.set_visible(ui, true);
-            card.btnAreaClear.set_visible(ui, it.area.is_some());
-            if it.area.is_some() {
+            card.lyTimelapse.set_visible(ui, it.mode == Mode::Area);
+            // No print, "na hora" é um alvo do combo: sem o botão de voltar a ela.
+            card.btnAreaClear.set_visible(ui, it.mode == Mode::Area && it.area.is_some());
+            if it.mode == Mode::Screenshot && it.area.is_none() {
+                card.lblArea.set_text(ui, lang::tr("Nenhuma área definida — até definir, o atalho abre a seleção"));
+            }
+            if it.mode == Mode::Area && it.area.is_some() {
                 fit_button(ui, Some(card.btnAreaClear));
                 ui.on(card.btnAreaClear.id, "on_click", move |_, _, _| hk_update(i, |it| it.area = None));
             }
@@ -1895,8 +1922,8 @@ fn hotkey_cards(ui: &mut Ui, frm: &g::FraHotkeysComponents) {
                 hk_update(i, |it| it.timelapse = on);
             });
         }
-        card.lyDelay.set_visible(ui, it.mode != Mode::Replay);
-        if it.mode != Mode::Replay {
+        card.lyDelay.set_visible(ui, it.mode.records());
+        if it.mode.records() {
             let w = text_width(ui, card.lblDelay.id, &card.lblDelay.text(ui)).max(140.0);
             card.lblDelay.set_width(ui, f64::from(w));
             card.cmbDelay.set_items(ui, delay_items.as_str());

@@ -163,6 +163,9 @@ fn search_text(it: &RecItem) -> String {
 /// de qualidade e o ícone da transcrição.
 fn badges(it: &RecItem) -> String {
     let mut out = Vec::new();
+    if is_print(&it.id) {
+        out.push("PNG".to_owned());
+    }
     if !it.codec.is_empty() {
         // Âmbar quando a codificação foi por software (como no original).
         out.push(if it.codec_hw { it.codec.clone() } else { format!("*{}", it.codec) });
@@ -468,8 +471,13 @@ fn thumb_for(id: &str, path: &str) -> Option<Image> {
 }
 
 /// Botões da barra conforme a seleção.
+/// Um print (PNG) na lista: abre fora do player e fica sem as ações de vídeo.
+fn is_print(id: &str) -> bool {
+    crate::screenshot::is_print_file(id)
+}
+
 fn sync_bar(ui: &mut Ui) {
-    let (n, busy) = with(|st| (st.selection.len(), st.merge_busy));
+    let (n, busy, prints) = with(|st| (st.selection.len(), st.merge_busy, st.selection.iter().any(|id| is_print(id))));
     let delete_hint = match n {
         0 => lang::tr("Selecione gravações para excluir"),
         1 => lang::tr("Excluir 1 gravação selecionada"),
@@ -477,6 +485,8 @@ fn sync_bar(ui: &mut Ui) {
     };
     let merge_hint = if busy {
         lang::tr("Unindo vídeos...")
+    } else if prints {
+        lang::tr("Prints não se unem: selecione só vídeos")
     } else if n < 2 {
         lang::tr("Selecione 2 ou mais gravações para unir")
     } else {
@@ -485,13 +495,20 @@ fn sync_bar(ui: &mut Ui) {
     if let Some(frm) = FrmMain::components(ui) {
         frm.btnLibDelete.set_enabled(ui, n > 0);
         frm.btnLibDelete.set_hint(ui, delete_hint);
-        frm.btnLibMerge.set_enabled(ui, n >= 2 && !busy);
+        frm.btnLibMerge.set_enabled(ui, n >= 2 && !busy && !prints);
         frm.btnLibMerge.set_hint(ui, merge_hint);
     }
     // Exportar opera sobre UMA gravação, e uma exportação por vez.
     if let Some(frm) = FrmMain::components(ui) {
-        frm.btnLibExport.set_enabled(ui, n == 1 && crate::app_export::running_id().is_empty());
-        frm.btnLibExport.set_hint(ui, if n == 1 { lang::tr("Exportar gravação selecionada") } else { lang::tr("Selecione uma gravação para exportar") });
+        frm.btnLibExport.set_enabled(ui, n == 1 && !prints && crate::app_export::running_id().is_empty());
+        let hint = if prints {
+            lang::tr("Prints não se exportam: selecione um vídeo")
+        } else if n == 1 {
+            lang::tr("Exportar gravação selecionada")
+        } else {
+            lang::tr("Selecione uma gravação para exportar")
+        };
+        frm.btnLibExport.set_hint(ui, hint);
     }
 }
 
@@ -833,6 +850,10 @@ fn card_clicked(ui: &mut Ui, id: &str) {
         toggle_select(ui, id);
         return;
     }
+    if is_print(id) {
+        bridge::handle_open_print(id);
+        return;
+    }
     crate::app_player::open(ui, id);
 }
 
@@ -1105,7 +1126,10 @@ fn open_context(ui: &mut Ui, card: ComponentId, kind: &str, id: &str, local: Poi
             let bulk = ids.len() > 1;
             let busy = !crate::app_export::running_id().is_empty();
             let count = ids.len().to_string();
-            frm.miRecExport.set_enabled(ui, !bulk && !busy);
+            // Print: sem exportar nem transcrever (não é vídeo).
+            let prints = ids.iter().any(|i| is_print(i));
+            frm.miRecExport.set_enabled(ui, !bulk && !busy && !prints);
+            frm.miRecTranscribe.set_enabled(ui, !prints);
             frm.miRecCut.set_text(ui, if bulk { lang::tr_with("Recortar {{count}} selecionadas", &[("count", &count)]) } else { lang::tr("Recortar") });
             frm.miRecDelete.set_text(ui, if bulk { lang::tr_with("Excluir {{count}} selecionadas", &[("count", &count)]) } else { lang::tr("Excluir") });
             frm.pmLibRecording.id

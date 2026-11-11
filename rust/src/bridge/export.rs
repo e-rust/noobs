@@ -34,7 +34,7 @@ use crate::{encoder, lang, log, mainthread, player};
 
 use super::devices::record_dir_free_bytes;
 use super::transcribe::SPEAKERS_META_KEY;
-use super::library::{format_bytes_short, is_path_in_record_dir, is_recording_ext, list_recordings_recursive, push_recording_added, sanitize_file_name};
+use super::library::{format_bytes_short, is_path_in_record_dir, is_recording_ext, list_library_recursive, push_recording_added, sanitize_file_name};
 use super::recording::{last_encoder_caps, record_dir, recording_active};
 use super::{is_shutting_down, post_error};
 
@@ -635,7 +635,7 @@ pub fn handle_export(req: ExportRequest) {
             }
             match res {
                 ExportResult::Ok => {
-                    player::garbage_collect_cache(&list_recordings_recursive(&record_dir().to_string_lossy()));
+                    player::garbage_collect_cache(&list_library_recursive(&record_dir().to_string_lossy()));
                     // Meta ANTES do card: o push_recording_added lê layout e duração dela.
                     // Os nomes de falante vão depois (o save_recording_meta reescreve o
                     // <hash>.json inteiro).
