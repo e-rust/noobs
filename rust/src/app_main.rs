@@ -718,6 +718,7 @@ pub fn record_click(ui: &mut Ui) {
         }
         bridge::handle_record_stop();
     } else {
+        crate::log::log("Gravar: clique no botao.");
         // A onda só no começo: parar já se vê pelo fim do pulso vermelho.
         if with(|s| s.countdown_sec) == 0 {
             start_ripple(ui);
@@ -749,6 +750,13 @@ fn cubic_bezier(x1: f32, y1: f32, x2: f32, y2: f32, t: f32) -> f32 {
 /// O relógio só anda o que a tela pôde mostrar (no máximo 50 ms por tique):
 /// com a main travada montando a captura, um relógio de parede pularia o
 /// começo da curva — onde está quase toda a expansão.
+/// Quanto a onda do botão de gravar dura.
+const RIPPLE_SECS: f32 = 1.8;
+/// O progresso da curva em que a onda já foi vista e a janela pode ir para a bandeja:
+/// 0,45 é ~0,16 s, com a onda saindo do botão pela janela (a curva desacelera; esperar
+/// ela sumir de vez, ~0,8 s, deixava a janela parada depois do efeito).
+const RIPPLE_GONE: f32 = 0.45;
+
 pub fn start_ripple(ui: &mut Ui) {
     let Some(form) = main_form() else { return };
     let Some(frm) = FrmMain::components(ui) else { return };
@@ -767,6 +775,8 @@ pub fn start_ripple(ui: &mut Ui) {
         let _ = ui.set_child_index(glow.id, usize::MAX);
         let _ = ui.set_child_index(ring.id, usize::MAX);
     }
+    // O "minimizar ao gravar" espera a onda sumir (senão a janela some antes dela).
+    bridge::recording::ripple_started();
     let (last, played) = (Instant::now(), 0.0f32);
     fn step(ui: &mut Ui, ring: Circle, glow: Circle, (cx, cy, max_r): (f32, f32, f32), e: f32) {
         let s = e * (max_r / 94.0 + 1.0);
@@ -781,11 +791,18 @@ pub fn start_ripple(ui: &mut Ui) {
     }
     let geo = (cx, cy, max_r);
     step(ui, ring, glow, geo, 0.0);
-    fn tick(ui: &mut Ui, ring: Circle, glow: Circle, geo: (f32, f32, f32), mut last: Instant, mut played: f32) {
+    fn tick(ui: &mut Ui, ring: Circle, glow: Circle, geo: (f32, f32, f32), mut last: Instant, mut played: f32, mut gone: bool) {
         let now = Instant::now();
         played += now.duration_since(last).as_secs_f32().min(0.05);
         last = now;
-        let k = (played / 1.8).min(1.0);
+        let k = (played / RIPPLE_SECS).min(1.0);
+        let e = cubic_bezier(0.16, 1.0, 0.3, 1.0, k);
+        // A curva desacelera: o efeito já foi visto bem antes do fim do tempo
+        // ([`RIPPLE_GONE`]). É aí que a janela pode ir para a bandeja.
+        if !gone && (e >= RIPPLE_GONE || k >= 1.0) {
+            gone = true;
+            bridge::recording::ripple_finished();
+        }
         if k >= 1.0 {
             for c in [ring, glow] {
                 c.set_visible(ui, false);
@@ -793,11 +810,11 @@ pub fn start_ripple(ui: &mut Ui) {
             with(|s| s.ripple_job = None);
             return;
         }
-        step(ui, ring, glow, geo, cubic_bezier(0.16, 1.0, 0.3, 1.0, k));
-        let job = ui.set_timeout(16, move |ui| tick(ui, ring, glow, geo, last, played));
+        step(ui, ring, glow, geo, e);
+        let job = ui.set_timeout(16, move |ui| tick(ui, ring, glow, geo, last, played, gone));
         with(|s| s.ripple_job = Some(job));
     }
-    let job = ui.set_timeout(16, move |ui| tick(ui, ring, glow, geo, last, played));
+    let job = ui.set_timeout(16, move |ui| tick(ui, ring, glow, geo, last, played, false));
     with(|s| s.ripple_job = Some(job));
 }
 

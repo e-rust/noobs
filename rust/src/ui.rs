@@ -306,7 +306,13 @@ pub fn hide_to_tray() {
     }
     remember_maximized();
     crate::view::call(|v| v.window_hidden());
-    window_command(WindowCommand::Hide);
+    let asked = std::time::Instant::now();
+    with_ui(move |ui| {
+        log::log(&format!("UI: janela escondida ({} ms depois do pedido).", asked.elapsed().as_millis()));
+        if let Some(form) = app_view::main_form() {
+            ui.window_command(form, WindowCommand::Hide);
+        }
+    });
     if let Some(f) = hooks(|h| h.on_window_hidden) {
         f();
     }

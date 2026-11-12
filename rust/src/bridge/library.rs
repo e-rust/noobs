@@ -533,14 +533,16 @@ pub fn scan_recordings_meta() {
             if recording_active() && !last.is_empty() && f.eq_ignore_ascii_case(&last) {
                 continue;
             }
-            if mode == "off" {
-                continue;
+            if mode != "off" {
+                if mode != "always" && is_file_cloud_only(f) {
+                    log!("ScanMeta: pulando previa (so na nuvem): {}", file_name(f));
+                } else {
+                    process_single_meta(f);
+                }
             }
-            if mode != "always" && is_file_cloud_only(f) {
-                log!("ScanMeta: pulando previa (so na nuvem): {}", file_name(f));
-                continue;
-            }
-            process_single_meta(f);
+            // Gravação interrompida (MKV sem duração): conserta em segundo plano. Depois da
+            // meta, para o reparo conferir o resultado contra a duração já medida.
+            super::repair::check(f);
         }
     });
 }

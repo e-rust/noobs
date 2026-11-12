@@ -66,6 +66,12 @@ impl Button {
     pub fn set_repeat_enter(self, ui: &mut Ui, value: bool) {
         handles::write(ui, self.id, "repeat_enter", value)
     }
+    pub fn radius(self, ui: &Ui) -> String {
+        handles::text(ui, handles::read(ui, self.id, "radius"))
+    }
+    pub fn set_radius(self, ui: &mut Ui, value: impl Into<String>) {
+        handles::write(ui, self.id, "radius", Into::<String>::into(value))
+    }
     pub fn left(self, ui: &Ui) -> f64 {
         handles::read(ui, self.id, "left").and_then(|v| v.to_f64().ok()).unwrap_or_default()
     }

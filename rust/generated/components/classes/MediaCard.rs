@@ -90,6 +90,12 @@ impl MediaCard {
     pub fn set_highlighted(self, ui: &mut Ui, value: bool) {
         handles::write(ui, self.id, "highlighted", value)
     }
+    pub fn editable_title(self, ui: &Ui) -> bool {
+        handles::read(ui, self.id, "editable_title").and_then(|v| v.to_bool().ok()).unwrap_or_default()
+    }
+    pub fn set_editable_title(self, ui: &mut Ui, value: bool) {
+        handles::write(ui, self.id, "editable_title", value)
+    }
     pub fn left(self, ui: &Ui) -> f64 {
         handles::read(ui, self.id, "left").and_then(|v| v.to_f64().ok()).unwrap_or_default()
     }
@@ -413,5 +419,8 @@ impl MediaCard {
     }
     pub fn set_popup_menu(self, ui: &mut Ui, value: impl Into<String>) {
         handles::write(ui, self.id, "popup_menu", Into::<String>::into(value))
+    }
+    pub fn rename(self, ui: &mut Ui) -> Result<(), String> {
+        handles::try_call(ui, self.id, "rename", &[]).map(|_| ())
     }
 }

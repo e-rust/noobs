@@ -42,8 +42,79 @@ pub const MIN_SIZE: i32 = 32;
 
 pub type OnSelected = fn(Option<AreaRect>);
 
+/// Uma imagem da tela num DC de memória (para o `BitBlt` do `WM_PAINT`).
+struct MemImage {
+    dc: HDC,
+    bmp: HBITMAP,
+    old: HGDIOBJ,
+}
+
+impl MemImage {
+    /// A partir de RGBA (linhas de cima pra baixo); `scale` escurece (1.0 = como está).
+    fn from_rgba(rgba: &[u8], w: i32, h: i32, scale: f32) -> Option<MemImage> {
+        unsafe {
+            let dc = CreateCompatibleDC(None);
+            if dc.is_invalid() {
+                return None;
+            }
+            let bmi = BITMAPINFO {
+                bmiHeader: BITMAPINFOHEADER {
+                    biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
+                    biWidth: w,
+                    biHeight: -h,
+                    biPlanes: 1,
+                    biBitCount: 32,
+                    biCompression: BI_RGB.0,
+                    ..Default::default()
+                },
+                ..Default::default()
+            };
+            let mut bits: *mut std::ffi::c_void = std::ptr::null_mut();
+            let Ok(bmp) = CreateDIBSection(Some(dc), &bmi, DIB_RGB_COLORS, &mut bits, None, 0) else {
+                let _ = DeleteDC(dc);
+                return None;
+            };
+            if bits.is_null() {
+                let _ = DeleteObject(HGDIOBJ(bmp.0));
+                let _ = DeleteDC(dc);
+                return None;
+            }
+            let dst = std::slice::from_raw_parts_mut(bits as *mut u8, w as usize * h as usize * 4);
+            let k = (scale * 256.0) as u32;
+            for (d, s) in dst.chunks_exact_mut(4).zip(rgba.chunks_exact(4)) {
+                // RGBA → BGRA, escurecido.
+                d[0] = ((s[2] as u32 * k) >> 8) as u8;
+                d[1] = ((s[1] as u32 * k) >> 8) as u8;
+                d[2] = ((s[0] as u32 * k) >> 8) as u8;
+                d[3] = 255;
+            }
+            let old = SelectObject(dc, HGDIOBJ(bmp.0));
+            Some(MemImage { dc, bmp, old })
+        }
+    }
+}
+
+impl Drop for MemImage {
+    fn drop(&mut self) {
+        unsafe {
+            SelectObject(self.dc, self.old);
+            let _ = DeleteObject(HGDIOBJ(self.bmp.0));
+            let _ = DeleteDC(self.dc);
+        }
+    }
+}
+
+/// A tela congelada do print: a seleção desenha esta imagem (escura fora, nítida dentro)
+/// em vez de mostrar a tela ao vivo pelo "furo" — a área fica parada.
+struct Frozen {
+    bright: MemImage,
+    dim: MemImage,
+}
+
 #[derive(Default)]
 struct State {
+    /// Modo congelado (o print); `None` = a tela ao vivo (a gravação de área).
+    frozen: Option<Frozen>,
     registered: bool,
     hwnd: Option<HWND>,
     /// Canto superior esquerdo da área de trabalho virtual (cliente → tela).
@@ -112,6 +183,36 @@ pub fn start(on_selected: OnSelected) -> bool {
     start_with_hint(on_selected, "Arraste para escolher a área que será gravada  •  Esc cancela")
 }
 
+/// Como [`start_with_hint`], sobre uma imagem congelada da área de trabalho virtual
+/// inteira (RGBA `w`×`h`, o print tirado no instante do atalho): o que aparece na
+/// seleção é essa imagem parada, não a tela ao vivo. Imagem de outro tamanho (um
+/// monitor entrou ou saiu no meio): cai na seleção ao vivo.
+pub fn start_frozen(on_selected: OnSelected, hint_key: &'static str, rgba: &[u8], w: i32, h: i32) -> bool {
+    if is_active() {
+        return false;
+    }
+    #[cfg(not(test))]
+    {
+        let (vw, vh) = unsafe { (GetSystemMetrics(SM_CXVIRTUALSCREEN), GetSystemMetrics(SM_CYVIRTUALSCREEN)) };
+        let frozen = if (w, h) == (vw, vh) && rgba.len() == w as usize * h as usize * 4 {
+            MemImage::from_rgba(rgba, w, h, 1.0)
+                .zip(MemImage::from_rgba(rgba, w, h, 1.0 - DIM_ALPHA as f32 / 255.0))
+                .map(|(bright, dim)| Frozen { bright, dim })
+        } else {
+            log!("AreaSelect: imagem congelada {w}x{h} nao bate com a tela {vw}x{vh} — selecao ao vivo.");
+            None
+        };
+        with(|s| s.frozen = frozen);
+    }
+    #[cfg(test)]
+    let _ = (rgba, w, h);
+    let ok = start_with_hint(on_selected, hint_key);
+    if !ok {
+        with(|s| s.frozen = None);
+    }
+    ok
+}
+
 /// Como [`start`], com outra instrução na tela (ex.: definir a área salva).
 pub fn start_with_hint(on_selected: OnSelected, hint_key: &'static str) -> bool {
     if is_active() {
@@ -143,8 +244,11 @@ pub fn start_with_hint(on_selected: OnSelected, hint_key: &'static str) -> bool 
 
         let font = CreateFontW(-sx(dpi, 18), 0, 0, 0, FW_SEMIBOLD.0 as i32, 0, 0, 0, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH.0 as u32, w!("Segoe UI"));
 
+        // Congelada: opaca, desenha a imagem. Ao vivo: translúcida, com o furo transparente.
+        let frozen = with(|s| s.frozen.is_some());
+        let layered = if frozen { WINDOW_EX_STYLE(0) } else { WS_EX_LAYERED };
         let Ok(hwnd) = CreateWindowExW(
-            WS_EX_LAYERED | WS_EX_TOPMOST | WS_EX_TOOLWINDOW,
+            layered | WS_EX_TOPMOST | WS_EX_TOOLWINDOW,
             CLASS_NAME,
             w!("NoOBS - area"),
             WS_POPUP,
@@ -161,7 +265,9 @@ pub fn start_with_hint(on_selected: OnSelected, hint_key: &'static str) -> bool 
             let _ = DeleteObject(HGDIOBJ(font.0));
             return false;
         };
-        let _ = SetLayeredWindowAttributes(hwnd, KEY, DIM_ALPHA, LWA_ALPHA | LWA_COLORKEY);
+        if !frozen {
+            let _ = SetLayeredWindowAttributes(hwnd, KEY, DIM_ALPHA, LWA_ALPHA | LWA_COLORKEY);
+        }
         with(|s| {
             s.hwnd = Some(hwnd);
             s.origin = (vx, vy);
@@ -179,7 +285,7 @@ pub fn start_with_hint(on_selected: OnSelected, hint_key: &'static str) -> bool 
         // Windows) o botão direito ainda cancela.
         let _ = SetForegroundWindow(hwnd);
         let _ = SetFocus(Some(hwnd));
-        log!("AreaSelect: aberta ({vw}x{vh} em {vx},{vy}).");
+        log!("AreaSelect: aberta ({vw}x{vh} em {vx},{vy}){}.", if frozen { ", sobre a tela congelada" } else { "" });
     }
     true
 }
@@ -187,7 +293,9 @@ pub fn start_with_hint(on_selected: OnSelected, hint_key: &'static str) -> bool 
 /// Fecha e avisa quem abriu. O callback sai pela fila da main: ele começa a
 /// gravação (pesado) e não pode rodar dentro do `WndProc` desta janela.
 fn finish(result: Option<AreaRect>) {
-    let (hwnd, cb, font) = with(|s| (s.hwnd.take(), s.on_selected.take(), std::mem::take(&mut s.font)));
+    let (hwnd, cb, font, frozen) = with(|s| (s.hwnd.take(), s.on_selected.take(), std::mem::take(&mut s.font), s.frozen.take()));
+    // As imagens congeladas (dezenas de MB) saem junto com a janela.
+    drop(frozen);
     if let Some(h) = hwnd {
         unsafe {
             let _ = ReleaseCapture();
@@ -245,6 +353,8 @@ fn set_selection(hwnd: HWND, new_sel: Option<RECT>) {
 
 fn paint(hwnd: HWND) {
     let (sel, dpi, font, hint_rect, hint_visible) = with(|s| (s.sel, s.dpi, s.font, s.hint_rect, s.hint_visible));
+    // Congelada: (escura, nítida) — os DCs das imagens, desenhados no lugar do preto e do furo.
+    let frozen = with(|s| s.frozen.as_ref().map(|f| (f.dim.dc, f.bright.dc)));
     unsafe {
         let mut ps = PAINTSTRUCT::default();
         let dc = BeginPaint(hwnd, &mut ps);
@@ -259,12 +369,28 @@ fn paint(hwnd: HWND) {
             let o = inflate(r, border);
             ExcludeClipRect(dc, o.left, o.top, o.right, o.bottom);
         }
-        FillRect(dc, &ps.rcPaint, black);
+        let rc = ps.rcPaint;
+        match frozen {
+            Some((dim, _)) => {
+                let _ = BitBlt(dc, rc.left, rc.top, rc.right - rc.left, rc.bottom - rc.top, Some(dim), rc.left, rc.top, SRCCOPY);
+            }
+            None => {
+                FillRect(dc, &rc, black);
+            }
+        }
         let _ = RestoreDC(dc, saved);
 
         if let Some(r) = sel {
-            // 2. Furo (cor-chave = transparente) e borda branca por FORA dele.
-            FillRect(dc, &r, key);
+            // 2. Furo (cor-chave = transparente; congelada: a imagem nítida) e borda
+            // branca por FORA dele.
+            match frozen {
+                Some((_, bright)) => {
+                    let _ = BitBlt(dc, r.left, r.top, r.right - r.left, r.bottom - r.top, Some(bright), r.left, r.top, SRCCOPY);
+                }
+                None => {
+                    FillRect(dc, &r, key);
+                }
+            }
             let o = inflate(r, border);
             for side in [
                 RECT { left: o.left, top: o.top, right: o.right, bottom: r.top },
@@ -392,5 +518,30 @@ fn ensure_class() {
     };
     unsafe {
         RegisterClassW(&wc);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A imagem congelada no DC: a nítida é o print como está (RGBA → a cor certa no
+    /// GDI); a escura é a mesma imagem escurecida como o véu da seleção ao vivo.
+    #[test]
+    fn imagem_congelada_nitida_e_escurecida() {
+        // 2x1: vermelho puro e um cinza.
+        let rgba = [255u8, 0, 0, 255, 200, 100, 50, 255];
+        let bright = MemImage::from_rgba(&rgba, 2, 1, 1.0).expect("nítida");
+        let k = 1.0 - DIM_ALPHA as f32 / 255.0;
+        let dim = MemImage::from_rgba(&rgba, 2, 1, k).expect("escura");
+        let px = |img: &MemImage, x: i32| {
+            let c = unsafe { GetPixel(img.dc, x, 0) }.0;
+            ((c & 0xFF) as u8, ((c >> 8) & 0xFF) as u8, ((c >> 16) & 0xFF) as u8)
+        };
+        assert_eq!(px(&bright, 0), (255, 0, 0), "vermelho continua vermelho");
+        assert_eq!(px(&bright, 1), (200, 100, 50));
+        let (r, g, b) = px(&dim, 1);
+        let esperado = |v: f32| (v * k) as i32;
+        assert!((r as i32 - esperado(200.0)).abs() <= 1 && (g as i32 - esperado(100.0)).abs() <= 1 && (b as i32 - esperado(50.0)).abs() <= 1, "escurecida: {:?}", (r, g, b));
     }
 }

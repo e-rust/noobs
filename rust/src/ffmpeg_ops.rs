@@ -153,7 +153,7 @@ impl Drop for OutputFile {
 
 /// Loop genérico: abre o source e N saídas, lê pacotes e despacha para cada
 /// saída que mapeia o stream. `targets[i]` = streams que vão para `outputs[i]`.
-fn remux_dispatch(src: &str, targets: &[Vec<u32>], outputs: &[String], cancel: Option<CancelFn>) -> bool {
+fn remux_dispatch(src: &str, targets: &[Vec<u32>], outputs: &[String], container: Option<&str>, cancel: Option<CancelFn>) -> bool {
     if targets.len() != outputs.len() || targets.is_empty() {
         return false;
     }
@@ -166,7 +166,7 @@ fn remux_dispatch(src: &str, targets: &[Vec<u32>], outputs: &[String], cancel: O
     let outs: Vec<Option<OutputFile>> = targets
         .iter()
         .zip(outputs)
-        .map(|(t, o)| OutputFile::open_for_streams(&input, o, t, None))
+        .map(|(t, o)| OutputFile::open_for_streams(&input, o, t, container))
         .collect();
     if outs.iter().all(Option::is_none) {
         return false;
@@ -241,6 +241,68 @@ fn remux_dispatch(src: &str, targets: &[Vec<u32>], outputs: &[String], cancel: O
     !write_failed
 }
 
+/// Um MKV que não declara a duração: a gravação foi interrompida antes do trailer
+/// (sem `Duration` e sem o índice `Cues`). Lê só o cabeçalho, sem varrer pacotes.
+/// `None` = não deu para abrir (arquivo em uso, corrompido no começo).
+pub fn mkv_lacks_duration(path: &str) -> Option<bool> {
+    if !path.to_lowercase().ends_with(".mkv") {
+        return Some(false);
+    }
+    if !ffmpeg_lib_available() {
+        return None;
+    }
+    let input = Input::open(path).ok()?;
+    let d = unsafe { duration(input.ptr()) };
+    Some(d <= 0)
+}
+
+/// O que o reparo conferiu no arquivo novo.
+#[derive(Debug, Clone, Copy)]
+pub struct RepairCheck {
+    pub duration: f64,
+    pub streams: u32,
+    pub keyframes: usize,
+}
+
+/// Reescreve um MKV interrompido em `dst` (o muxer Matroska explícito: `dst` é um
+/// `.part`) copiando TODAS as faixas, sem recodificar: o arquivo novo sai com a
+/// duração e o índice de keyframes que o original não tem. Confere o resultado —
+/// duração declarada, as mesmas faixas, keyframes no índice — antes de devolver.
+pub fn repair_mkv(src: &str, dst: &str, cancel: Option<CancelFn>) -> Result<RepairCheck, String> {
+    if !ffmpeg_lib_available() {
+        return Err("FFmpeg indisponível".into());
+    }
+    let n = {
+        let input = Input::open(src).map_err(|e| format!("abrir: {e}"))?;
+        if !input.find_stream_info() {
+            return Err("sem informação dos streams".into());
+        }
+        input.nb_streams()
+    };
+    if n == 0 {
+        return Err("sem streams".into());
+    }
+    let keep: Vec<u32> = (0..n).collect();
+    if !remux_dispatch(src, &[keep], &[dst.to_owned()], Some("matroska"), cancel) {
+        return Err("a cópia das faixas falhou".into());
+    }
+    let out = Input::open(dst).map_err(|e| format!("abrir o reparado: {e}"))?;
+    if !out.find_stream_info() {
+        return Err("o reparado não abre".into());
+    }
+    let duration = unsafe { duration(out.ptr()) } as f64 / AV_TIME_BASE as f64;
+    let streams = out.nb_streams();
+    drop(out);
+    let keyframes = list_video_keyframes(dst).map_or(0, |(k, _)| k.len());
+    if duration <= 0.0 {
+        return Err("o reparado continua sem duração".into());
+    }
+    if streams != n {
+        return Err(format!("o reparado tem {streams} faixa(s), o original {n}"));
+    }
+    Ok(RepairCheck { duration, streams, keyframes })
+}
+
 /// Copia TODOS os streams do source para um único output (`ffmpeg -i src -c copy dst`).
 /// Era o remux pro MP4 que o WebView2 tocava; hoje só os testes o usam.
 #[cfg(any(test, feature = "app-tests"))]
@@ -260,7 +322,7 @@ pub fn remux_file(src: &str, dst: &str) -> bool {
         }
         (0..n).collect()
     };
-    remux_dispatch(src, &[keep], &[dst.to_owned()], None)
+    remux_dispatch(src, &[keep], &[dst.to_owned()], None, None)
 }
 
 /// Cada stream de áudio do source vai para um arquivo M4A separado (AAC stream
@@ -283,7 +345,7 @@ pub fn extract_audio_tracks(src: &str, outputs: &[String], audio_start_index: us
         return false;
     }
     let targets: Vec<Vec<u32>> = (0..outputs.len()).map(|j| vec![audio_idxs[j + audio_start_index]]).collect();
-    remux_dispatch(src, &targets, outputs, cancel)
+    remux_dispatch(src, &targets, outputs, None, cancel)
 }
 
 // ---------------------------------------------------------------------------

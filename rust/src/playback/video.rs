@@ -78,11 +78,7 @@ impl Dec {
         let (tb, src_w, src_h) = (st.time_base, par.width, par.height);
         let mut duration = unsafe { container_duration_us(input.ptr()) } as f64 / 1e6;
         if duration <= 0.0 {
-            // MKV sem `Duration` (gravação interrompida): a varredura deixa o
-            // cursor no EOF — sem voltar ao início, o `probe()` abaixo não acha
-            // quadro nenhum e o vídeo "não abre".
-            duration = unsafe { scan_duration_by_packets(input.ptr()) } as f64 / 1e6;
-            input.rewind();
+            duration = missing_duration(path, &input);
         }
         let mut d = Dec {
             a,
@@ -389,6 +385,23 @@ const NO_VIDEO: &str = "sem video";
 /// Quanto um quadro pode chegar atrasado (em tempo real) antes de ser descartado.
 const MAX_LAG_WALL: f64 = 0.02;
 
+/// Duração de um arquivo que não a declara (MKV de gravação interrompida, sem
+/// `Duration` nem índice). A do cache da biblioteca, que já mediu o arquivo uma vez:
+/// varrer os pacotes de novo leria o arquivo INTEIRO a cada abertura (1,8 GB ≈ 4 s num
+/// 4K de 2 h). Sem cache, varre — e volta ao início: a varredura deixa o cursor no
+/// EOF, e sem voltar o `probe()` não acharia quadro nenhum e o vídeo "não abriria".
+/// O cache guarda segundos inteiros; o fim real chega quando os quadros acabam.
+fn missing_duration(path: &str, input: &Input) -> f64 {
+    let cached = crate::player::get_cached_meta(path).0;
+    if cached > 0 {
+        log!("Player: arquivo sem duracao — usando a do cache ({cached} s), sem varrer.");
+        return f64::from(cached);
+    }
+    let d = unsafe { scan_duration_by_packets(input.ptr()) } as f64 / 1e6;
+    input.rewind();
+    d
+}
+
 /// Arquivo só de áudio: o som sai da thread de áudio como sempre; esta só faz
 /// o papel que a de vídeo tem no relógio — duração, posição e fim.
 fn run_audio_only(path: &str, rx: Receiver<VCmd>, shared: Arc<Shared>, out: Arc<dyn Fn(Out) + Send + Sync>) {
@@ -396,7 +409,7 @@ fn run_audio_only(path: &str, rx: Receiver<VCmd>, shared: Arc<Shared>, out: Arc<
         .ok()
         .map(|input| {
             let d = unsafe { container_duration_us(input.ptr()) } as f64 / 1e6;
-            if d > 0.0 { d } else { (unsafe { scan_duration_by_packets(input.ptr()) }) as f64 / 1e6 }
+            if d > 0.0 { d } else { missing_duration(path, &input) }
         })
         .unwrap_or(0.0)
         .max(0.0);

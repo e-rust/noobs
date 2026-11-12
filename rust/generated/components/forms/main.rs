@@ -74,7 +74,6 @@ pub struct FrmMain {
     pub brdLib: Breadcrumb,
     pub lblLibEmpty: Label,
     pub lyLibContent: Layout,
-    pub edLibRename: Edit,
     pub cirRippleGlow: Circle,
     pub cirRipple: Circle,
     pub pmLibRecording: PopupMenu,
@@ -173,7 +172,6 @@ pub struct FrmMainComponents {
     pub brdLib: Breadcrumb,
     pub lblLibEmpty: Label,
     pub lyLibContent: Layout,
-    pub edLibRename: Edit,
     pub cirRippleGlow: Circle,
     pub cirRipple: Circle,
     pub pmLibRecording: PopupMenu,
@@ -280,7 +278,6 @@ impl FrmMain {
             brdLib: Breadcrumb { id: handles::resolve(ui, root, "brdLib", "Breadcrumb", &mut problems) },
             lblLibEmpty: Label { id: handles::resolve(ui, root, "lblLibEmpty", "Label", &mut problems) },
             lyLibContent: Layout { id: handles::resolve(ui, root, "lyLibContent", "Layout", &mut problems) },
-            edLibRename: Edit { id: handles::resolve(ui, root, "edLibRename", "Edit", &mut problems) },
             cirRippleGlow: Circle { id: handles::resolve(ui, root, "cirRippleGlow", "Circle", &mut problems) },
             cirRipple: Circle { id: handles::resolve(ui, root, "cirRipple", "Circle", &mut problems) },
             pmLibRecording: PopupMenu { id: handles::resolve(ui, root, "pmLibRecording", "PopupMenu", &mut problems) },
@@ -378,7 +375,6 @@ impl FrmMain {
             brdLib: instance.brdLib,
             lblLibEmpty: instance.lblLibEmpty,
             lyLibContent: instance.lyLibContent,
-            edLibRename: instance.edLibRename,
             cirRippleGlow: instance.cirRippleGlow,
             cirRipple: instance.cirRipple,
             pmLibRecording: instance.pmLibRecording,
@@ -500,7 +496,6 @@ impl FrmMain {
     pub fn find_edit(&self, name: &str) -> Option<Edit> {
         match name {
             "edLibSearch" => Some(self.edLibSearch),
-            "edLibRename" => Some(self.edLibRename),
             _ => None,
         }
     }

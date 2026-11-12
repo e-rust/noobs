@@ -20,6 +20,7 @@ pub mod export;
 mod folders;
 pub mod hotkeys;
 mod library;
+pub mod repair;
 pub mod recording;
 pub mod replay;
 pub mod settings;

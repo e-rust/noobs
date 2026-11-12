@@ -49,6 +49,54 @@ fn remux_de_gravacao_interrompida_gera_arquivo_fechado() {
     assert!(probe(&dst).duration > 1.0);
 }
 
+// ---- reparo de gravação interrompida -----------------------------------------
+
+#[test]
+fn detecta_mkv_interrompido_pelo_cabecalho() {
+    need_dlls!();
+    assert_eq!(mkv_lacks_duration(&path("interrompido.mkv")), Some(true), "sem Duration: interrompido");
+    assert_eq!(mkv_lacks_duration(&path("h264_2faixas.mkv")), Some(false), "MKV fechado");
+    assert_eq!(mkv_lacks_duration(&path("h264.mp4")), Some(false), "MP4 não é conferido");
+    assert_eq!(mkv_lacks_duration("C:\\nao\\existe.mkv"), None);
+}
+
+#[test]
+fn reparo_de_mkv_interrompido_sai_com_duracao_indice_e_todos_os_pacotes() {
+    need_dlls!();
+    let src = path("interrompido.mkv");
+    // `.part`: o muxer Matroska explícito, como na troca de verdade.
+    let part = super::out("interrompido-reparado.mkv.reparo.part");
+    let c = repair_mkv(&src, &part, None).expect("reparo");
+    let dst = super::out("interrompido-reparado.mkv");
+    let _ = std::fs::remove_file(&dst);
+    std::fs::rename(&part, &dst).unwrap();
+    // Duração no cabeçalho, o índice de keyframes e nada a reparar de novo.
+    assert!(c.duration > 1.0, "duração {}", c.duration);
+    assert!(c.keyframes >= 1, "keyframes no índice: {}", c.keyframes);
+    assert_eq!(mkv_lacks_duration(&dst), Some(false));
+    // A mesma duração que a varredura acha no original, e TODOS os pacotes, iguais.
+    let (a, b) = (packets(&src), packets(&dst));
+    assert_eq!(a.len(), b.len(), "mesmo número de pacotes");
+    let n = probe(&src).streams.len();
+    assert_eq!(c.streams as usize, n);
+    for s in 0..n as i32 {
+        assert_eq!(hashes(&of_stream(&a, s)), hashes(&of_stream(&b, s)), "stream {s}: bytes iguais, na mesma ordem");
+    }
+    near(c.duration, probe(&src).duration, 0.1, "duração do reparado x varredura do original");
+    // Os nomes das faixas vêm junto.
+    let titles = |p: &str| probe(p).audio_streams().map(|s| s.title.clone()).collect::<Vec<_>>();
+    assert_eq!(titles(&dst), titles(&src));
+}
+
+#[test]
+fn reparo_recusa_o_que_nao_abre() {
+    need_dlls!();
+    let txt = super::out("nao-video-reparo.mkv");
+    std::fs::write(&txt, "x".repeat(1000)).unwrap();
+    assert!(repair_mkv(&txt, &super::out("nao-video-reparo.part"), None).is_err());
+    assert!(repair_mkv("C:\\nao\\existe.mkv", &super::out("z.part"), None).is_err());
+}
+
 #[test]
 fn remux_recusa_entrada_ou_saida_invalida() {
     need_dlls!();

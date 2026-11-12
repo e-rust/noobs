@@ -246,8 +246,7 @@
                   },
                   { "class": "Breadcrumb", "name": "brdLib", "align": "top", "height": 28, "margins": [0, 16, 0, 0], "visible": false, "items": "", "on_change": "library_crumb" },
                   { "class": "Label", "name": "lblLibEmpty", "style": "body", "align": "top", "height": 60, "h_align": "center", "visible": false, "text": "" },
-                  { "class": "Layout", "name": "lyLibContent", "align": "top", "height": 0, "on_pointer_up": "library_background", "hit_test": true },
-                  { "class": "Edit", "name": "edLibRename", "width": 154, "height": 26, "visible": false, "text": "" }
+                  { "class": "Layout", "name": "lyLibContent", "align": "top", "height": 0, "on_pointer_up": "library_background", "hit_test": true }
                 ]
               }
 

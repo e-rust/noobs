@@ -52,8 +52,6 @@ struct State {
     /// Em ordem de seleção: é a ordem da união.
     selection: Vec<String>,
     clipboard: Vec<String>,
-    /// Id em edição e se é pasta.
-    editing: Option<(String, bool)>,
     merge_busy: bool,
     /// O cartão de cada gravação/pasta na tela (id → `MediaCard`).
     cards: HashMap<String, g::MediaCard>,
@@ -223,7 +221,8 @@ fn add_group(ui: &mut Ui, parent: ComponentId, label: &str, check: Option<(bool,
     group.lblTitle.set_text(ui, label);
     match check {
         Some((all, ids)) => {
-            group.chkAll.set_checked(ui, all);
+            // Só o clique do usuário dispara o `on_change` (ver `refresh_marks`).
+            ui.without_change_events(|ui| group.chkAll.set_checked(ui, all));
             let ids2 = ids.clone();
             ui.on(group.chkAll.id, "on_change", move |ui, _, _| group_toggle(ui, &ids2));
             with(|st| st.groups.push((ids, group.chkAll)));
@@ -354,7 +353,6 @@ fn render(ui: &mut Ui) {
     }
     sync_bar(ui);
     ui.layout();
-    place_rename(ui);
 }
 
 /// O cartão de uma gravação (o frame `fraRecCard`). A miniatura vem do cache (o
@@ -385,6 +383,15 @@ fn add_rec_card(ui: &mut Ui, grid: ComponentId, it: &RecItem) {
             mc.set_image(Some(image));
         }
     }
+    // O clique no nome abre o campo de renomear do próprio card (Enter ou clicar fora
+    // grava, Esc cancela); o resto do card abre o vídeo.
+    card.set_editable_title(ui, true);
+    let id = it.id.clone();
+    ui.on(card.id, "on_rename", move |ui, _, args| {
+        if let EventArgs::Text(name) = args {
+            rename_item(ui, &id, name, false);
+        }
+    });
     let id = it.id.clone();
     ui.on(card.id, "on_click", move |ui, _, _| card_clicked(ui, &id));
     let id = it.id.clone();
@@ -437,6 +444,14 @@ fn add_folder_card(ui: &mut Ui, grid: ComponentId, id: &str, name: &str, meta: &
         ui.on(card, "on_context", move |ui, sender, args| {
             if let EventArgs::Pointer(e) = args {
                 open_context(ui, sender, "folder", &target, e.position);
+            }
+        });
+        // Pasta: o clique (no nome também) entra nela; renomear vem do menu e da pasta
+        // nova, pelo `rename()` do card.
+        let target = id.to_owned();
+        ui.on(card, "on_rename", move |ui, _, args| {
+            if let EventArgs::Text(name) = args {
+                rename_item(ui, &target, name, true);
             }
         });
         with(|st| st.cards.insert(id.to_owned(), handle));
@@ -528,7 +543,10 @@ fn refresh_marks(ui: &mut Ui) {
     }
     for (ids, b) in groups {
         let all = !ids.is_empty() && ids.iter().all(|id| selection.contains(id));
-        b.set_checked(ui, all);
+        // Sem o `on_change`: mudar o valor pelo código também o dispara (como na VCL), e o
+        // handler da caixa inverte a seleção do grupo — marcar à mão o último item do grupo
+        // virava um laço (marca todos, desmarca todos...) até o limite de recursão.
+        ui.without_change_events(|ui| b.set_checked(ui, all));
     }
     sync_bar(ui);
     ui.invalidate();
@@ -564,20 +582,19 @@ pub fn set_export_progress(source: &str, pct: Option<f64>, label: &str) {
 
 pub fn on_library(lib: &Library) {
     let lib = lib.clone();
-    with_ui(move |ui| {
-        let editing = with(|st| {
-            if st.editing.is_some() {
-                st.pending = Some(lib.clone());
-                true
-            } else {
-                st.lib = lib;
-                false
-            }
-        });
-        if !editing {
-            render(ui);
-        }
-    });
+    with_ui(move |ui| on_library_now(ui, lib));
+}
+
+/// Refazer os cartões fecharia o campo de quem está renomeando: a lista nova espera o
+/// fim da edição.
+fn on_library_now(ui: &mut Ui, lib: Library) {
+    if renaming(ui) {
+        with(|st| st.pending = Some(lib));
+        apply_pending_after_rename(ui);
+        return;
+    }
+    with(|st| st.lib = lib);
+    render(ui);
 }
 
 pub fn on_recording_added(item: &RecItem, free: i64) {
@@ -662,12 +679,7 @@ pub fn on_recording_removed(id: &str, free: i64) {
 
 pub fn on_folder_created(id: &str) {
     let id = id.to_owned();
-    with_ui(move |ui| {
-        let name = with(|st| st.lib.folders.iter().find(|f| f.id == id).map(|f| f.name.clone()));
-        if let Some(name) = name {
-            begin_edit(ui, &id, &name, true);
-        }
-    });
+    with_ui(move |ui| start_rename(ui, &id));
 }
 
 pub fn on_transcript_search(query: &str, ids: &[String]) {
@@ -722,7 +734,7 @@ fn is_folder(id: &str) -> bool {
 
 /// Começa a arrastar o cartão (com a seleção, se ele estiver nela). A lixeira acende.
 fn drag_start(ui: &mut Ui, id: &str) {
-    if with(|st| st.editing.is_some()) {
+    if renaming(ui) {
         return;
     }
     let ids = target_ids(id);
@@ -844,7 +856,8 @@ fn group_toggle(ui: &mut Ui, ids: &[String]) {
     refresh_marks(ui);
 }
 
-/// Com algo selecionado, o clique seleciona; senão, abre no player.
+/// Com algo selecionado, o clique seleciona; senão abre (o vídeo no player, o print no
+/// visualizador). O clique no nome não chega aqui: o card abre o campo de renomear.
 fn card_clicked(ui: &mut Ui, id: &str) {
     if with(|st| !st.selection.is_empty()) {
         toggle_select(ui, id);
@@ -997,67 +1010,40 @@ fn clean_name(s: &str) -> String {
     s.trim().chars().take(150).collect()
 }
 
-/// O campo do nome (`edLibRename` no `lyLibrary`, escondido até aqui) por cima do
-/// título do cartão (Enter grava, Esc cancela, sair do campo grava).
-fn begin_edit(ui: &mut Ui, id: &str, name: &str, folder: bool) {
-    let Some(edit) = FrmMain::components(ui).map(|frm| frm.edLibRename) else { return };
-    if !with(|st| st.cards.contains_key(id)) {
-        return;
-    }
-    with(|st| st.editing = Some((id.to_owned(), folder)));
-    edit.set_text(ui, name);
-    edit.set_visible(ui, true);
-    place_rename(ui);
-    // `ui.on` troca o handler: cada edição liga o id dela.
-    let id_owned = id.to_owned();
-    ui.on(edit.id, "on_key_down", move |ui, _, args| {
-        let EventArgs::Key(k) = args else { return };
-        match k.key {
-            Key::Enter => commit_edit(ui, edit, &id_owned),
-            Key::Escape => end_edit(ui, edit, false),
-            _ => {}
-        }
-    });
-    let id_owned = id.to_owned();
-    ui.on(edit.id, "on_exit", move |ui, _, _| {
-        if with(|st| st.editing.is_some()) {
-            commit_edit(ui, edit, &id_owned);
-        }
-    });
-    ui.set_focus(edit.id);
-    if let Some(e) = ui.get_mut::<Edit>(edit.id) {
-        e.select_all();
+/// Algum cartão está com o campo de renomear aberto (o do próprio `MediaCard`)?
+fn renaming(ui: &Ui) -> bool {
+    let cards: Vec<g::MediaCard> = with(|st| st.cards.values().copied().collect());
+    cards.iter().any(|c| ui.get::<MediaCard>(c.id).is_some_and(MediaCard::is_renaming))
+}
+
+/// Abre o campo de renomear do cartão `id` (pasta nova, "Renomear" do menu).
+fn start_rename(ui: &mut Ui, id: &str) {
+    if let Some(card) = with(|st| st.cards.get(id).copied()) {
+        let _ = card.rename(ui);
     }
 }
 
-/// Põe o campo do nome sobre o título do cartão em edição: o da pasta ao lado do
-/// ícone, o da gravação embaixo da miniatura (16:9). Também depois de refazer a
-/// biblioteca durante a edição (o cartão é outro, talvez em outro lugar).
-fn place_rename(ui: &mut Ui) {
-    let Some((id, folder)) = with(|st| st.editing.clone()) else { return };
-    let Some(frm) = FrmMain::components(ui) else { return };
-    let Some(card) = with(|st| st.cards.get(&id).copied()) else {
-        // O item sumiu (apagado, fora da busca): a edição acaba sem gravar.
-        end_edit(ui, frm.edLibRename, false);
-        return;
-    };
-    ui.layout();
-    let (Some(c), Some(lib)) = (ui.absolute_rect(card.id), ui.absolute_rect(frm.lyLibrary.id)) else { return };
-    let (x, y, w, h) = if folder { (52.0, 8.0, CARD_W - 60.0, 24.0) } else { (8.0, CARD_W * 9.0 / 16.0 + 4.0, CARD_W - 16.0, 26.0) };
-    let edit = frm.edLibRename;
-    edit.set_left(ui, f64::from(c.x - lib.x + x));
-    edit.set_top(ui, f64::from(c.y - lib.y + y));
-    edit.set_width(ui, f64::from(w));
-    edit.set_height(ui, f64::from(h));
-    ui.layout();
+/// A lista que chegou durante uma edição de nome: aplica quando o campo fechar (gravou,
+/// cancelou com Esc ou o clique fora).
+fn apply_pending_after_rename(ui: &mut Ui) {
+    ui.set_timeout(150, |ui| {
+        if with(|st| st.pending.is_none()) {
+            return;
+        }
+        if renaming(ui) {
+            apply_pending_after_rename(ui);
+            return;
+        }
+        if let Some(lib) = with(|st| st.pending.take()) {
+            with(|st| st.lib = lib);
+            render(ui);
+        }
+    });
 }
 
-fn commit_edit(ui: &mut Ui, edit: g::Edit, id: &str) {
-    let Some((eid, folder)) = with(|st| st.editing.clone()) else { return };
-    if eid != id {
-        return;
-    }
-    let new_name = clean_name(&edit.text(ui));
+/// O `on_rename` do cartão: o nome novo (o card já o mostra). Grava no disco.
+fn rename_item(ui: &mut Ui, id: &str, name: &str, folder: bool) {
+    let new_name = clean_name(name);
     let original = with(|st| {
         if folder {
             st.lib.folders.iter().find(|f| f.id == id).map(|f| f.name.clone())
@@ -1066,8 +1052,12 @@ fn commit_edit(ui: &mut Ui, edit: g::Edit, id: &str) {
         }
     })
     .unwrap_or_default();
+    let card = with(|st| st.cards.get(id).copied());
     if new_name.is_empty() || new_name == original || (!folder && export_blocked(&[id.to_owned()])) {
-        end_edit(ui, edit, false);
+        // Recusado (vazio, igual, em exportação): o card volta ao nome de antes.
+        if let Some(c) = card {
+            c.set_title(ui, original.as_str());
+        }
         return;
     }
     if folder {
@@ -1078,38 +1068,11 @@ fn commit_edit(ui: &mut Ui, edit: g::Edit, id: &str) {
                 r.name = new_name.clone();
             }
         });
-        if let Some(c) = with(|st| st.cards.get(id).copied()) {
+        if let Some(c) = card {
             c.set_title(ui, new_name.as_str());
         }
         bridge::handle_rename_recording(id, &new_name);
     }
-    end_edit(ui, edit, true);
-}
-
-fn end_edit(ui: &mut Ui, edit: g::Edit, renamed: bool) {
-    let pending = with(|st| {
-        st.editing = None;
-        st.pending.take()
-    });
-    // O campo some depois do evento (ele ainda está em uso agora) e devolve o foco
-    // (não fica num campo escondido); se outra edição já começou, ele fica.
-    ui.set_timeout(0, move |ui| {
-        if with(|st| st.editing.is_none()) {
-            let root = ui.root_of(edit.id);
-            if ui.focused(root) == Some(edit.id) {
-                ui.clear_focus(root);
-            }
-            edit.set_visible(ui, false);
-        }
-        match pending {
-            Some(lib) if !renamed => {
-                with(|st| st.lib = lib);
-                render(ui);
-            }
-            Some(lib) => with(|st| st.lib = lib),
-            None => {}
-        }
-    });
 }
 
 // ----- menu de contexto -----
@@ -1191,12 +1154,7 @@ fn ctx_run(ui: &mut Ui, action: &str) {
             }
         }
         "open" => bridge::handle_open_folder(&id),
-        "rename" => {
-            let name = with(|st| st.lib.folders.iter().find(|f| f.id == id).map(|f| f.name.clone()));
-            if let Some(name) = name {
-                begin_edit(ui, &id, &name, true);
-            }
-        }
+        "rename" => start_rename(ui, &id),
         "cut-folder" => cut(ui, vec![id]),
         "paste-into" => paste(ui, &id),
         "delete-folder" => delete_folder(ui, &id),
@@ -1349,6 +1307,96 @@ mod tests {
     }
 
 
+    /// Renomear é o do próprio `MediaCard`: o cartão de gravação tem `editable_title`, o
+    /// `rename()` abre o campo e o `on_rename` grava o nome novo na lista e no cartão.
+    #[test]
+    fn renomear_usa_o_campo_do_card() {
+        let mut app = app();
+        let ui = &mut app.ui;
+        ui.create_form("frmMain").unwrap();
+        with(|st| {
+            *st = State::default();
+            st.lib = sample_library(2);
+        });
+        render(ui);
+        let first = r"C:\rec\v0.mp4".to_string();
+        let card = with(|st| st.cards[&first]);
+        assert!(card.editable_title(ui), "o clique no nome do cartão de gravação renomeia");
+        assert!(!renaming(ui));
+        start_rename(ui, &first);
+        assert!(renaming(ui), "o rename() abre o campo do card");
+        // Uma lista que chega no meio espera o fim da edição (refazer fecharia o campo).
+        let mut lib = sample_library(2);
+        lib.recordings[1].name = "Chegou durante".into();
+        on_library_now(ui, lib);
+        assert!(with(|st| st.pending.is_some()), "a lista nova espera");
+        assert!(renaming(ui), "o campo continua aberto");
+        // O nome novo, pelo evento do card.
+        ui.fire(card.id, "on_rename", &EventArgs::Text("Novo nome".into()));
+        assert_eq!(with(|st| st.lib.recordings.iter().find(|r| r.id == first).map(|r| r.name.clone())), Some("Novo nome".into()));
+        assert_eq!(card.title(ui), "Novo nome");
+        // Vazio volta ao nome de antes.
+        ui.fire(card.id, "on_rename", &EventArgs::Text("  ".into()));
+        assert_eq!(card.title(ui), "Novo nome");
+        with(|st| *st = State::default());
+    }
+
+    /// Marcar à mão todos os itens de um grupo marca a caixa "selecionar todos" SEM
+    /// disparar o `on_change` dela (que inverteria a seleção: o laço "evento recursivo
+    /// demais"); o clique do usuário na caixa continua selecionando e desmarcando o grupo.
+    #[test]
+    fn caixa_do_grupo_nao_entra_em_laco() {
+        use std::cell::Cell;
+        use std::rc::Rc;
+        let mut app = app();
+        let ui = &mut app.ui;
+        ui.create_form("frmMain").unwrap();
+        with(|st| {
+            *st = State::default();
+            st.lib = sample_library(4);
+        });
+        render(ui);
+        let (ids, chk) = with(|st| st.groups[0].clone());
+        // Conta as vezes que o handler da caixa roda (e faz o que o de verdade faz).
+        let runs = Rc::new(Cell::new(0));
+        let (r, ids2) = (runs.clone(), ids.clone());
+        ui.on(chk.id, "on_change", move |ui, _, _| {
+            r.set(r.get() + 1);
+            group_toggle(ui, &ids2);
+        });
+        for id in &ids {
+            toggle_select(ui, id);
+        }
+        assert_eq!(runs.get(), 0, "o código marcou a caixa: o on_change não roda");
+        assert!(chk.checked(ui), "todos marcados à mão: a caixa marca");
+        assert!(ids.iter().all(|id| with(|st| st.selection.contains(id))), "a seleção fica como o usuário deixou");
+        // O clique de verdade na caixa (desmarca o grupo todo).
+        ui.click(chk.id);
+        assert_eq!(runs.get(), 1, "o clique roda o handler uma vez");
+        assert!(ids.iter().all(|id| with(|st| !st.selection.contains(id))), "o clique desmarca o grupo");
+        assert!(!chk.checked(ui));
+        with(|st| *st = State::default());
+    }
+
+    /// Pasta: o clique entra nela (sem `editable_title`); renomear vem do menu.
+    #[test]
+    fn pasta_renomeia_pelo_menu() {
+        let mut app = app();
+        let ui = &mut app.ui;
+        ui.create_form("frmMain").unwrap();
+        with(|st| {
+            *st = State::default();
+            st.lib = sample_library(1);
+        });
+        render(ui);
+        let pasta = with(|st| st.lib.folders[0].id.clone());
+        let card = with(|st| st.cards[&pasta]);
+        assert!(!card.editable_title(ui));
+        start_rename(ui, &pasta);
+        assert!(renaming(ui));
+        with(|st| *st = State::default());
+    }
+
     /// Os grupos são instâncias do frame `fraLibGroup` (só o que varia sai do código), e
     /// os cartões, dos frames `fraRecCard`/`fraFolderCard`.
     #[test]
@@ -1407,23 +1455,6 @@ mod tests {
         assert_eq!(ui.hit_test(root, PointF::new(r.x + 20.0, r.y + 20.0)), Some(card.id));
         assert_eq!(ui.hit_test(root, PointF::new(r.x + CARD_W + GAP / 2.0, r.y + 20.0)), Some(main.lyLibContent.id));
 
-        // Renomear mostra o campo do form sobre o título do cartão; refazer a biblioteca
-        // durante a edição leva o campo junto; Esc esconde.
-        let edit = main.edLibRename;
-        assert!(!edit.visible(ui));
-        begin_edit(ui, &first, "Vídeo 0", false);
-        assert!(edit.visible(ui));
-        assert_eq!(edit.text(ui), "Vídeo 0");
-        let over = |ui: &Ui, card: g::MediaCard| {
-            let (c, e) = (ui.absolute_rect(card.id).unwrap(), ui.absolute_rect(edit.id).unwrap());
-            ((e.x - c.x - 8.0).abs() < 0.01, (e.y - c.y - (CARD_W * 9.0 / 16.0 + 4.0)).abs() < 0.01, e.width == CARD_W - 16.0)
-        };
-        assert_eq!(over(ui, card), (true, true, true));
-        with(|st| st.lib.recordings.push(RecItem { id: r"C:\rec\novo.mp4".into(), name: "Novo".into(), date: "2025-12-01T10:00:00".into(), ..Default::default() }));
-        render(ui);
-        assert_eq!(over(ui, with(|st| st.cards[&first])), (true, true, true));
-        end_edit(ui, edit, false);
-        assert!(with(|st| st.editing.is_none()));
         with(|st| *st = State::default());
     }
 

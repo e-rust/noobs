@@ -132,6 +132,12 @@ impl Form {
     pub fn set_remember_placement(self, ui: &mut Ui, value: bool) {
         handles::write(ui, self.id, "remember_placement", value)
     }
+    pub fn gpu(self, ui: &Ui) -> String {
+        handles::text(ui, handles::read(ui, self.id, "gpu"))
+    }
+    pub fn set_gpu(self, ui: &mut Ui, value: impl Into<String>) {
+        handles::write(ui, self.id, "gpu", Into::<String>::into(value))
+    }
     pub fn left(self, ui: &Ui) -> f64 {
         handles::read(ui, self.id, "left").and_then(|v| v.to_f64().ok()).unwrap_or_default()
     }
@@ -458,6 +464,14 @@ impl Form {
     }
     pub fn move_to_monitor(self, ui: &mut Ui, monitor: i64) -> Result<(), String> {
         handles::try_call(ui, self.id, "move_to_monitor", &[monitor.into()]).map(|_| ())
+    }
+    pub fn gpu_adapter(self, ui: &mut Ui) -> Result<String, String> {
+        let v = handles::try_call(ui, self.id, "gpu_adapter", &[])?;
+        Ok(handles::text(ui, Some(v)))
+    }
+    pub fn gpu_adapters(self, ui: &mut Ui) -> Result<String, String> {
+        let v = handles::try_call(ui, self.id, "gpu_adapters", &[])?;
+        Ok(handles::text(ui, Some(v)))
     }
     pub fn show(self, ui: &mut Ui) {
         let _ = ui.show(self.id);

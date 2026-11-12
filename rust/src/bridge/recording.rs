@@ -22,6 +22,8 @@ use super::{devices, library, post_error, replay};
 pub const TIMER_RECORDING_TICK: usize = 7001;
 pub const TIMER_WARMUP: usize = 7006;
 pub const TIMER_STOP_TIMEOUT: usize = 7010;
+/// Ir para a bandeja depois que a onda do botão de gravar termina (one-shot).
+pub const TIMER_MINIMIZE_ON_RECORD: usize = 7021;
 const RECORDING_TICK_MS: u32 = 1000;
 /// Tempo para a UI renderizar antes de o motor detectar e aquecer os encoders.
 const WARMUP_DELAY_MS: u32 = 1500;
@@ -54,6 +56,16 @@ struct RecState {
     /// O Timelapse desta área quando veio de um atalho (`None` = a opção do Capturar...).
     area_timelapse: Option<bool>,
     window_was_visible_before_record: bool,
+    /// A onda do botão de gravar está na tela: ir para a bandeja espera ela sumir
+    /// (senão a janela some antes de a onda aparecer).
+    ripple_playing: bool,
+    /// O "minimizar ao gravar" esperando a onda sumir.
+    minimize_pending: bool,
+    /// Decidido no clique: a janela vai para a bandeja quando a onda for vista, mesmo com
+    /// a captura ainda montando (a montagem leva de 0,3 a 1,5 s).
+    hide_on_ripple: bool,
+    /// A janela já foi para a bandeja na onda, antes de a gravação terminar de subir.
+    hidden_early: bool,
     encoder_caps_pushed: bool,
     last_encoder_caps: Option<EncoderCaps>,
     /// A UI foi avisada de "finalizando" e ainda espera o fim.
@@ -521,6 +533,10 @@ fn start_failed(e: &str, t0: Instant) {
     // Reverte os ícones se já tinham virado "gravando" (no-op se não).
     tray::set_recording(false);
     ui::set_window_icon_recording(false);
+    // A janela foi para a bandeja na onda e a gravação não subiu: ela volta (com o erro).
+    if with_state(|s| std::mem::take(&mut s.hidden_early)) {
+        ui::restore_from_tray();
+    }
     post_error(lang::tr_with("Falha ao iniciar gravação: {{error}}", &[("error", e)]));
     push_recording_state();
     log!("HandleRecordStart: FALHOU apos {}ms: {e}", t0.elapsed().as_millis());
@@ -603,12 +619,19 @@ fn after_start(req: &RecordRequest) {
     // volta no stop.
     let visible = ui::is_window_visible();
     with_state(|s| s.window_was_visible_before_record = false);
-    if config::get_config_bool("minimizeOnRecord", true) && visible {
+    if with_state(|s| std::mem::take(&mut s.hidden_early)) {
+        // Já foi para a bandeja na onda, com a captura montando: volta no stop.
         with_state(|s| s.window_was_visible_before_record = true);
-        if config::get_config_bool("closeToTray", true) {
-            ui::hide_to_tray();
+    } else if config::get_config_bool("minimizeOnRecord", true) && visible {
+        with_state(|s| s.window_was_visible_before_record = true);
+        // A onda do botão (se o início veio dele) ainda está na tela: a janela vai para
+        // a bandeja quando ela sumir ([`ripple_finished`]); o timer é a garantia, se a
+        // animação for interrompida.
+        if with_state(|s| s.ripple_playing) {
+            with_state(|s| s.minimize_pending = true);
+            ui::set_timer(TIMER_MINIMIZE_ON_RECORD, MINIMIZE_FALLBACK_MS);
         } else {
-            ui::minimize_to_taskbar();
+            minimize_for_recording();
         }
     }
     // Indicador NA TELA (opcional, padrão desligado), excluído da gravação.
@@ -617,7 +640,60 @@ fn after_start(req: &RecordRequest) {
     }
 }
 
+/// "Minimizar ao gravar": para a bandeja (ou a barra de tarefas, sem `closeToTray`).
+fn minimize_for_recording() {
+    if config::get_config_bool("closeToTray", true) {
+        ui::hide_to_tray();
+    } else {
+        ui::minimize_to_taskbar();
+    }
+}
+
+/// Garantia do "minimizar ao gravar" com a onda tocando: se ela não avisar que sumiu.
+const MINIMIZE_FALLBACK_MS: u32 = 3000;
+
+/// A onda do botão de gravar começou (o clique): o "minimizar ao gravar" espera ela ser
+/// vista, e não espera a captura terminar de montar.
+pub fn ripple_started() {
+    let hide = config::get_config_bool("minimizeOnRecord", true) && ui::is_window_visible();
+    with_state(|s| {
+        s.ripple_playing = true;
+        s.hide_on_ripple = hide;
+    });
+}
+
+/// A onda foi vista: a janela vai para a bandeja já — com a gravação de pé (ela estava
+/// esperando) ou ainda montando a captura. Se o início foi recusado antes de montar, a
+/// janela fica.
+pub fn ripple_finished() {
+    let (pending, hide, starting) = with_state(|s| {
+        s.ripple_playing = false;
+        (std::mem::take(&mut s.minimize_pending), std::mem::take(&mut s.hide_on_ripple), s.starting)
+    });
+    if pending {
+        log!("Gravar: onda vista — a janela vai para a bandeja.");
+        finish_pending_minimize();
+    } else if hide && starting && ui::is_window_visible() {
+        log!("Gravar: onda vista — a janela vai para a bandeja (captura ainda montando).");
+        with_state(|s| s.hidden_early = true);
+        minimize_for_recording();
+    }
+}
+
+/// Fim da espera pela onda (ela sumiu ou a garantia venceu): para a bandeja, se ainda
+/// está gravando e a janela segue à vista (o usuário pode tê-la escondido no meio).
+fn finish_pending_minimize() {
+    ui::kill_timer(TIMER_MINIMIZE_ON_RECORD);
+    with_state(|s| s.minimize_pending = false);
+    if recording_active() && ui::is_window_visible() && with_state(|s| s.window_was_visible_before_record) {
+        minimize_for_recording();
+    }
+}
+
 pub fn handle_record_stop() {
+    // Parou antes de a onda acabar: a janela não vai mais para a bandeja.
+    ui::kill_timer(TIMER_MINIMIZE_ON_RECORD);
+    with_state(|s| s.minimize_pending = false);
     if with_state(|s| s.starting) {
         log!("HandleRecordStop: captura ainda montando — para assim que subir.");
         with_state(|s| s.stop_after_start = true);
@@ -977,6 +1053,13 @@ pub fn on_timer(id: usize) -> bool {
             }
         }
         TIMER_WARMUP => on_warmup(),
+        TIMER_MINIMIZE_ON_RECORD => {
+            if with_state(|s| s.minimize_pending) {
+                finish_pending_minimize();
+            } else {
+                ui::kill_timer(TIMER_MINIMIZE_ON_RECORD);
+            }
+        }
         TIMER_STOP_TIMEOUT => {
             // O sinal "stop" nunca chegou no prazo. One-shot: desarma e força.
             ui::kill_timer(TIMER_STOP_TIMEOUT);

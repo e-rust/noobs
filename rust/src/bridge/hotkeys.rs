@@ -292,9 +292,17 @@ fn take_screenshot(it: &Item) {
         post_error(lang::tr("Não foi possível capturar a tela."));
         return;
     };
-    FROZEN.with(|f| *f.borrow_mut() = Some(frozen));
-    if !area_select::start_with_hint(on_shot_selected, "Arraste para escolher a área do print  •  Esc cancela") {
-        FROZEN.with(|f| f.borrow_mut().take());
+    // A seleção mostra ESTA imagem, parada (não a tela ao vivo): o que se escolhe é o
+    // que estava na tela quando o atalho foi apertado.
+    let opened = area_select::start_frozen(
+        on_shot_selected,
+        "Arraste para escolher a área do print  •  Esc cancela",
+        &frozen.rgba,
+        frozen.area.w,
+        frozen.area.h,
+    );
+    if opened {
+        FROZEN.with(|f| *f.borrow_mut() = Some(frozen));
     }
 }
 
