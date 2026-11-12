@@ -293,26 +293,32 @@ fn take_screenshot(it: &Item) {
         return;
     };
     // A seleção mostra ESTA imagem, parada (não a tela ao vivo): o que se escolhe é o
-    // que estava na tela quando o atalho foi apertado.
-    let opened = area_select::start_frozen(
-        on_shot_selected,
-        "Arraste para escolher a área do print  •  Esc cancela",
-        &frozen.rgba,
-        frozen.area.w,
-        frozen.area.h,
-    );
+    // que estava na tela quando o atalho foi apertado. Escolhida a área, o editor
+    // (setas, Copiar, Salvar) espera o usuário.
+    let opened = area_select::start_shot_editor(on_shot_done, &frozen.rgba, frozen.area.w, frozen.area.h);
     if opened {
         FROZEN.with(|f| *f.borrow_mut() = Some(frozen));
     }
 }
 
-fn on_shot_selected(area: Option<AreaRect>) {
+/// O editor do print terminou: recorta a área do print congelado, desenha as marcas (setas e textos)
+/// nele e salva (com cópia) ou só copia. `None`: cancelado.
+fn on_shot_done(done: Option<area_select::ShotDone>) {
     let frozen = FROZEN.with(|f| f.borrow_mut().take());
-    if let (Some(frozen), Some(a)) = (frozen, area) {
-        match frozen.crop(a) {
-            Some(shot) => screenshot::deliver(shot, recording::record_dir()),
-            None => post_error(lang::tr("Não foi possível capturar a tela.")),
-        }
+    let (Some(frozen), Some(done)) = (frozen, done) else {
+        return;
+    };
+    let Some(mut shot) = frozen.crop(done.area) else {
+        post_error(lang::tr("Não foi possível capturar a tela."));
+        return;
+    };
+    let (x, y, w, h) = (shot.area.x, shot.area.y, shot.area.w as u32, shot.area.h as u32);
+    if !crate::annotate::draw_on_rgba(&mut shot.rgba, w, h, &done.marks, -x as f32, -y as f32) {
+        log!("Print: as {} marca(s) nao puderam ser desenhadas (GDI+).", done.marks.len());
+    }
+    match done.action {
+        area_select::ShotAction::Save => screenshot::deliver(shot, recording::record_dir()),
+        area_select::ShotAction::Copy => screenshot::deliver_copy(shot),
     }
 }
 

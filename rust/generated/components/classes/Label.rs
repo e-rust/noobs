@@ -90,6 +90,18 @@ impl Label {
     pub fn set_outline_width(self, ui: &mut Ui, value: f64) {
         handles::write(ui, self.id, "outline_width", value)
     }
+    pub fn line_height(self, ui: &Ui) -> f64 {
+        handles::read(ui, self.id, "line_height").and_then(|v| v.to_f64().ok()).unwrap_or_default()
+    }
+    pub fn set_line_height(self, ui: &mut Ui, value: f64) {
+        handles::write(ui, self.id, "line_height", value)
+    }
+    pub fn text_shadow(self, ui: &Ui) -> String {
+        handles::text(ui, handles::read(ui, self.id, "text_shadow"))
+    }
+    pub fn set_text_shadow(self, ui: &mut Ui, value: impl Into<String>) {
+        handles::write(ui, self.id, "text_shadow", Into::<String>::into(value))
+    }
     pub fn focus_control(self, ui: &Ui) -> String {
         handles::text(ui, handles::read(ui, self.id, "focus_control"))
     }
@@ -167,6 +179,18 @@ impl Label {
     }
     pub fn set_clip_children(self, ui: &mut Ui, value: bool) {
         handles::write(ui, self.id, "clip_children", value)
+    }
+    pub fn inherit_state(self, ui: &Ui) -> bool {
+        handles::read(ui, self.id, "inherit_state").and_then(|v| v.to_bool().ok()).unwrap_or_default()
+    }
+    pub fn set_inherit_state(self, ui: &mut Ui, value: bool) {
+        handles::write(ui, self.id, "inherit_state", value)
+    }
+    pub fn translate(self, ui: &Ui) -> bool {
+        handles::read(ui, self.id, "translate").and_then(|v| v.to_bool().ok()).unwrap_or_default()
+    }
+    pub fn set_translate(self, ui: &mut Ui, value: bool) {
+        handles::write(ui, self.id, "translate", value)
     }
     pub fn captures_wheel(self, ui: &Ui) -> bool {
         handles::read(ui, self.id, "captures_wheel").and_then(|v| v.to_bool().ok()).unwrap_or_default()
@@ -306,6 +330,30 @@ impl Label {
     pub fn set_column_span(self, ui: &mut Ui, value: i64) {
         handles::write(ui, self.id, "column_span", value)
     }
+    pub fn grid_row(self, ui: &Ui) -> i64 {
+        handles::read(ui, self.id, "grid_row").and_then(|v| v.to_i64().ok()).unwrap_or_default()
+    }
+    pub fn set_grid_row(self, ui: &mut Ui, value: i64) {
+        handles::write(ui, self.id, "grid_row", value)
+    }
+    pub fn grid_column(self, ui: &Ui) -> i64 {
+        handles::read(ui, self.id, "grid_column").and_then(|v| v.to_i64().ok()).unwrap_or_default()
+    }
+    pub fn set_grid_column(self, ui: &mut Ui, value: i64) {
+        handles::write(ui, self.id, "grid_column", value)
+    }
+    pub fn row_span(self, ui: &Ui) -> i64 {
+        handles::read(ui, self.id, "row_span").and_then(|v| v.to_i64().ok()).unwrap_or_default()
+    }
+    pub fn set_row_span(self, ui: &mut Ui, value: i64) {
+        handles::write(ui, self.id, "row_span", value)
+    }
+    pub fn grow(self, ui: &Ui) -> f64 {
+        handles::read(ui, self.id, "grow").and_then(|v| v.to_f64().ok()).unwrap_or_default()
+    }
+    pub fn set_grow(self, ui: &mut Ui, value: f64) {
+        handles::write(ui, self.id, "grow", value)
+    }
     pub fn shadow(self, ui: &Ui) -> String {
         handles::text(ui, handles::read(ui, self.id, "shadow"))
     }
@@ -414,10 +462,28 @@ impl Label {
     pub fn set_tag(self, ui: &mut Ui, value: i64) {
         handles::write(ui, self.id, "tag", value)
     }
+    pub fn tag_string(self, ui: &Ui) -> String {
+        handles::text(ui, handles::read(ui, self.id, "tag_string"))
+    }
+    pub fn set_tag_string(self, ui: &mut Ui, value: impl Into<String>) {
+        handles::write(ui, self.id, "tag_string", Into::<String>::into(value))
+    }
+    pub fn accessible_name(self, ui: &Ui) -> String {
+        handles::text(ui, handles::read(ui, self.id, "accessible_name"))
+    }
+    pub fn set_accessible_name(self, ui: &mut Ui, value: impl Into<String>) {
+        handles::write(ui, self.id, "accessible_name", Into::<String>::into(value))
+    }
     pub fn popup_menu(self, ui: &Ui) -> String {
         handles::text(ui, handles::read(ui, self.id, "popup_menu"))
     }
     pub fn set_popup_menu(self, ui: &mut Ui, value: impl Into<String>) {
         handles::write(ui, self.id, "popup_menu", Into::<String>::into(value))
+    }
+    pub fn min_content_width(self, ui: &mut Ui) -> Result<f64, String> {
+        handles::try_call(ui, self.id, "min_content_width", &[]).map(|v| v.to_f64().unwrap_or_default())
+    }
+    pub fn max_content_width(self, ui: &mut Ui) -> Result<f64, String> {
+        handles::try_call(ui, self.id, "max_content_width", &[]).map(|v| v.to_f64().unwrap_or_default())
     }
 }

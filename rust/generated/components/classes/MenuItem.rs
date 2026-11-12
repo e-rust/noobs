@@ -60,4 +60,10 @@ impl MenuItem {
     pub fn set_danger(self, ui: &mut Ui, value: bool) {
         handles::write(ui, self.id, "danger", value)
     }
+    pub fn header(self, ui: &Ui) -> bool {
+        handles::read(ui, self.id, "header").and_then(|v| v.to_bool().ok()).unwrap_or_default()
+    }
+    pub fn set_header(self, ui: &mut Ui, value: bool) {
+        handles::write(ui, self.id, "header", value)
+    }
 }

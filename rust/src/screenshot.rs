@@ -200,6 +200,26 @@ pub fn deliver(shot: Shot, dir: PathBuf) {
     }
 }
 
+/// Só copia para a área de transferência (Ctrl+C no editor do print): nenhum
+/// arquivo é gravado. Na thread, como [`deliver`] (montar o DIB de um 4K leva tempo).
+pub fn deliver_copy(shot: Shot) {
+    let spawned = std::thread::Builder::new().name("noobs-print-copy".into()).spawn(move || {
+        let copied = copy_to_clipboard(&shot);
+        let (w, h) = (shot.area.w, shot.area.h);
+        mainthread::queue(move || {
+            log!("Print: {w}x{h} copiado sem salvar (area de transferencia: {copied}).");
+            if copied {
+                crate::view::call(|v| v.toast(&lang::tr("Print copiado"), &lang::tr("Copiado para a área de transferência, sem salvar arquivo."), false, 0));
+            } else {
+                crate::bridge::post_error(lang::tr("Não foi possível copiar o print para a área de transferência."));
+            }
+        });
+    });
+    if let Err(e) = spawned {
+        log!("Print: thread nao subiu ({e}).");
+    }
+}
+
 /// `<pasta>/2026-11-10 09-15-02.png` (com ` (2)`, ` (3)`... se já existir).
 fn file_path(dir: &Path) -> PathBuf {
     file_path_at(dir, &chrono::Local::now().format("%Y-%m-%d %H-%M-%S").to_string())

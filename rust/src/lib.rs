@@ -120,6 +120,7 @@ modulos! {
     area_frame,
     screenshot,
     print_key,
+    annotate,
 }
 
 // O passeio pelas telas (NOOBS_TOUR), para comparar com a versão anterior.
