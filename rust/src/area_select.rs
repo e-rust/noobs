@@ -8,10 +8,10 @@
 //! translúcido) e uma cor-chave, que vira transparente de verdade — é ela que
 //! "fura" o escuro no retângulo escolhido, então o usuário vê a área nítida.
 //!
-//! Sem buffer do tamanho da tela: em dois monitores 4K seriam ~66 MB por
-//! quadro. O `WM_PAINT` pinta direto, só a região invalidada (o retângulo
-//! antigo e o novo), e nunca pinta o escuro por cima do furo — por isso não
-//! pisca.
+//! O `WM_PAINT` monta o quadro num buffer do tamanho da região invalidada (não da
+//! tela: em dois monitores 4K seriam ~66 MB) e copia para a tela de uma vez — o
+//! Windows nunca mostra o desenho pela metade. Mover a seleção invalida só o que
+//! muda (as faixas que entram ou saem, a moldura e o rótulo), não a área inteira.
 //!
 //! Coordenadas: pixels FÍSICOS (o processo é per-monitor DPI aware v2), na
 //! área de trabalho virtual (origem no monitor principal, pode ser negativa).
@@ -28,7 +28,7 @@ use windows::Win32::UI::HiDpi::GetDpiForSystem;
 use windows::Win32::UI::Input::KeyboardAndMouse::{GetKeyState, ReleaseCapture, SetCapture, SetFocus, VK_CONTROL, VK_ESCAPE, VK_RETURN, VK_SHIFT};
 use windows::Win32::UI::WindowsAndMessaging::*;
 
-use crate::annotate::{Arrow, Frame, Mark, Text, PALETTE, SIZE_MAX, SIZE_MIN, SIZE_STEP, WIDTH_MAX, WIDTH_MIN};
+use crate::annotate::{Arrow, Frame, Icon, Mark, Text, PALETTE, SIZE_MAX, SIZE_MIN, SIZE_STEP, WIDTH_MAX, WIDTH_MIN};
 use crate::engine::AreaRect;
 use crate::{lang, log, mainthread};
 
@@ -132,6 +132,9 @@ struct State {
     hint_key: &'static str,
     font: HFONT,
     dpi: i32,
+    /// O buffer do `WM_PAINT` ([`paint`]): o quadro é montado nele e vai à tela de uma vez.
+    /// Cresce com a maior região pintada e fica até a seleção fechar.
+    back: Option<(MemImage, i32, i32)>,
     // ---- editor do print ([`start_shot_editor`]) ----
     /// Com ele, soltar a seleção não termina: a área fica, com a barra e as setas.
     on_shot: Option<OnShot>,
@@ -154,9 +157,14 @@ struct State {
     high_surrogate: Option<u16>,
     /// A seleção de antes de um clique fora dela (sem arrasto, ela volta).
     prev_sel: Option<RECT>,
-    /// Os botões da barra, onde foram desenhados (para o clique), e a barra inteira.
-    buttons: Vec<(ShotButton, RECT)>,
-    toolbar: Option<RECT>,
+    /// A barra montada ([`layout_bar`]): o desenho e o clique usam a mesma.
+    bar: Option<Bar>,
+    /// O seletor de cores aberto, e o arrasto na faixa de matizes dele.
+    picker: bool,
+    hue_drag: bool,
+    /// O botão sob o mouse (realçado, com a dica) e a dica montada (onde e o texto).
+    hover: Option<ShotButton>,
+    tip: Option<(RECT, Vec<u16>)>,
     small_font: HFONT,
 }
 
@@ -190,11 +198,40 @@ fn drag_mark(a: Arrow, tool: Tool) -> Mark {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ShotButton {
     Tool(Tool),
-    /// Índice em [`PALETTE`].
+    /// A cor atual: abre (ou fecha) o seletor de cores.
+    ColorMenu,
+    /// No seletor: uma cor de [`PALETTE`] (o índice)...
     Color(usize),
+    /// ...ou a faixa de matizes (a cor sai do ponto clicado ou arrastado).
+    Hue,
+    /// − e + do tamanho (a espessura ou a fonte), e o número entre eles (só a dica).
+    Smaller,
+    Size,
+    Bigger,
     Copy,
     Save,
     Cancel,
+}
+
+/// A barra do editor montada: onde ela fica, os botões (com os do seletor de cores, se
+/// aberto), os separadores entre os grupos (x) e o quadro do seletor.
+#[derive(Debug, Clone, Default)]
+struct Bar {
+    rect: RECT,
+    buttons: Vec<(ShotButton, RECT)>,
+    seps: Vec<i32>,
+    picker: Option<RECT>,
+}
+
+impl Bar {
+    fn button(&self, b: ShotButton) -> Option<RECT> {
+        self.buttons.iter().find(|(k, _)| *k == b).map(|(_, r)| *r)
+    }
+
+    /// O que ela ocupa na tela (a barra e o seletor).
+    fn areas(&self) -> impl Iterator<Item = RECT> {
+        [Some(self.rect), self.picker].into_iter().flatten()
+    }
 }
 
 /// O print escolhido no editor: a área (tela) e as marcas (tela), e o que fazer.
@@ -289,13 +326,14 @@ pub fn start_frozen(on_selected: OnSelected, hint_key: &'static str, rgba: &[u8]
 }
 
 /// O editor do print: a seleção sobre a tela congelada ([`start_frozen`]), mas soltar o
-/// mouse não termina — a área fica, com a barra (Seta/Retângulo/Texto, as cores, Copiar,
-/// Salvar, Cancelar). Com a Seta, arrastar DENTRO da área desenha uma seta (do ponto
-/// inicial ao final, a ponta no final); com o Retângulo, a borda de um retângulo de canto
-/// a canto (a espessura é a mesma da seta); com o Texto, clicar começa um texto ali (ou edita o que
-/// estiver sob o clique). Arrastar FORA escolhe outra área. Roda do mouse: a espessura
-/// da seta ou o tamanho da fonte; Ctrl+Z desfaz a última marca; Ctrl+C copia; Enter
-/// salva (digitando: termina o texto; Shift+Enter, nova linha); Esc cancela.
+/// mouse não termina — a área fica, com a barra (Seta/Retângulo/Texto, a cor, o tamanho,
+/// Cancelar, Copiar e Salvar). Com a Seta, arrastar DENTRO da área desenha uma seta (do
+/// ponto inicial ao final, a ponta no final); com o Retângulo, a borda de um retângulo de
+/// canto a canto (a espessura é a mesma da seta); com o Texto, clicar começa um texto ali
+/// (ou edita o que estiver sob o clique). Arrastar FORA escolhe outra área. A cor abre um
+/// seletor (as cores prontas e a faixa de matizes). Roda do mouse (ou − e +): a espessura
+/// ou o tamanho da fonte; Ctrl+Z desfaz a última marca; Ctrl+C copia; Enter salva
+/// (digitando: termina o texto; Shift+Enter, nova linha); Esc cancela.
 /// A ferramenta, a cor e os tamanhos ficam para o próximo print.
 pub fn start_shot_editor(on_shot: OnShot, rgba: &[u8], w: i32, h: i32) -> bool {
     if is_active() {
@@ -312,11 +350,8 @@ pub fn start_shot_editor(on_shot: OnShot, rgba: &[u8], w: i32, h: i32) -> bool {
     {
         with(|s| {
             s.on_shot = Some(on_shot);
-            s.editing = false;
             reset_editor(s);
             s.prev_sel = None;
-            s.buttons.clear();
-            s.toolbar = None;
         });
         let ok = start_frozen(|_| {}, "Arraste para escolher a área do print  •  Esc cancela", rgba, w, h);
         if !ok {
@@ -334,6 +369,11 @@ fn reset_editor(s: &mut State) {
     s.drawing = None;
     s.typing = None;
     s.high_surrogate = None;
+    s.bar = None;
+    s.picker = false;
+    s.hue_drag = false;
+    s.hover = None;
+    s.tip = None;
     if s.width == 0.0 {
         s.width = crate::annotate::WIDTH_DEFAULT;
         s.font_size = crate::annotate::SIZE_DEFAULT;
@@ -414,7 +454,7 @@ pub fn start_with_hint(on_selected: OnSelected, hint_key: &'static str) -> bool 
             s.font = font;
             s.dpi = dpi;
             if s.on_shot.is_some() {
-                s.small_font = CreateFontW(-sx(dpi, 14), 0, 0, 0, FW_SEMIBOLD.0 as i32, 0, 0, 0, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH.0 as u32, w!("Segoe UI"));
+                s.small_font = CreateFontW(-sx(dpi, 13), 0, 0, 0, FW_SEMIBOLD.0 as i32, 0, 0, 0, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH.0 as u32, w!("Segoe UI"));
             }
         });
         let _ = ShowWindow(hwnd, SW_SHOW);
@@ -460,9 +500,37 @@ fn finish_shot(action: ShotAction) {
     }
 }
 
+/// Onde a marca desenha, com folga (o contorno, o cursor do texto).
+fn mark_area(m: &Mark) -> RECT {
+    inflate(m.bounds(), 4)
+}
+
+/// Onde o texto sendo digitado desenha agora.
+fn typing_area(s: &State) -> Option<RECT> {
+    s.typing.and_then(|i| s.marks.get(i)).map(mark_area)
+}
+
+/// Repinta `r` (cliente) na janela aberta.
+fn dirty(r: RECT) {
+    if let Some(h) = with(|s| s.hwnd) {
+        invalidate(h, &r);
+    }
+}
+
+/// Mexe no estado com `f` e repinta o texto sendo digitado: onde ele estava e onde ficou.
+fn change_typing<R>(f: impl FnOnce(&mut State) -> R) -> R {
+    let (before, out, after) = with(|s| {
+        let before = typing_area(s);
+        let out = f(s);
+        (before, out, typing_area(s))
+    });
+    before.into_iter().chain(after).for_each(dirty);
+    out
+}
+
 /// Termina o texto sendo digitado; vazio, ele sai.
 fn end_typing() {
-    with(|s| {
+    change_typing(|s| {
         s.high_surrogate = None;
         if let Some(i) = s.typing.take() {
             if matches!(s.marks.get(i), Some(Mark::Text(t)) if t.text.trim().is_empty()) {
@@ -472,19 +540,22 @@ fn end_typing() {
     });
 }
 
-/// Fecha a janela e solta o que ela segura (fontes, as imagens congeladas — dezenas de
-/// MB); devolve quem esperava o resultado.
+/// Fecha a janela e solta o que ela segura (fontes, as imagens congeladas e o buffer —
+/// dezenas de MB); devolve quem esperava o resultado.
 fn close() -> (Option<OnSelected>, Option<OnShot>) {
-    let (hwnd, cb, on_shot, fonts, frozen) = with(|s| {
+    let (hwnd, cb, on_shot, fonts, frozen, back) = with(|s| {
         s.editing = false;
         s.drawing = None;
         s.typing = None;
         s.marks.clear();
-        s.buttons.clear();
-        s.toolbar = None;
-        (s.hwnd.take(), s.on_selected.take(), s.on_shot.take(), [std::mem::take(&mut s.font), std::mem::take(&mut s.small_font)], s.frozen.take())
+        s.bar = None;
+        s.picker = false;
+        s.hue_drag = false;
+        s.hover = None;
+        s.tip = None;
+        (s.hwnd.take(), s.on_selected.take(), s.on_shot.take(), [std::mem::take(&mut s.font), std::mem::take(&mut s.small_font)], s.frozen.take(), s.back.take())
     });
-    drop(frozen);
+    drop((frozen, back));
     if let Some(h) = hwnd {
         unsafe {
             let _ = ReleaseCapture();
@@ -509,6 +580,10 @@ fn inflate(r: RECT, d: i32) -> RECT {
     RECT { left: r.left - d, top: r.top - d, right: r.right + d, bottom: r.bottom + d }
 }
 
+fn offset(r: RECT, dx: i32, dy: i32) -> RECT {
+    RECT { left: r.left + dx, top: r.top + dy, right: r.right + dx, bottom: r.bottom + dy }
+}
+
 /// Faixa do rótulo "1280 × 720", acima da seleção (ou abaixo, colada no topo).
 fn label_rect(sel: RECT, dpi: i32) -> RECT {
     let (w, h, gap) = (sx(dpi, 120), sx(dpi, 28), sx(dpi, 6));
@@ -516,9 +591,9 @@ fn label_rect(sel: RECT, dpi: i32) -> RECT {
     RECT { left: sel.left, top, right: sel.left + w, bottom: top + h }
 }
 
-/// Tudo o que a seleção desenha (furo + borda + rótulo), pra invalidar.
-fn painted_bounds(sel: RECT, dpi: i32) -> [RECT; 2] {
-    [inflate(sel, sx(dpi, 3)), label_rect(sel, dpi)]
+/// A espessura da borda branca em volta da seleção.
+fn border_px(dpi: i32) -> i32 {
+    sx(dpi, 2).max(1)
 }
 
 fn invalidate(hwnd: HWND, r: &RECT) {
@@ -527,208 +602,525 @@ fn invalidate(hwnd: HWND, r: &RECT) {
     }
 }
 
+/// Junta `b` em `a` (`mode`) e apaga `b`.
+unsafe fn combine(a: HRGN, b: HRGN, mode: RGN_COMBINE_MODE) {
+    let _ = CombineRgn(Some(a), Some(a), Some(b), mode);
+    let _ = DeleteObject(HGDIOBJ(b.0));
+}
+
+fn rect_rgn(r: RECT) -> HRGN {
+    unsafe { CreateRectRgn(r.left, r.top, r.right, r.bottom) }
+}
+
+/// O que muda na tela quando a seleção vai de `old` para `new`: só o que trocou de
+/// dentro para fora (ou o contrário), as duas molduras e os dois rótulos. O miolo comum
+/// fica como está — arrastar o canto de uma área grande repinta só as faixas da borda,
+/// não a área inteira a cada movimento do mouse. Quem chama apaga a região.
+fn selection_change(old: Option<RECT>, new: Option<RECT>, dpi: i32) -> HRGN {
+    let b = border_px(dpi) + 1;
+    let outer = |r: Option<RECT>| r.map(|r| rect_rgn(inflate(r, b))).unwrap_or_else(|| rect_rgn(RECT::default()));
+    unsafe {
+        let rgn = outer(old);
+        combine(rgn, outer(new), RGN_XOR);
+        for r in old.iter().chain(new.iter()) {
+            let frame = rect_rgn(inflate(*r, b));
+            // Seleção fina demais (o primeiro clique): ela toda é moldura.
+            if r.right - r.left > 2 && r.bottom - r.top > 2 {
+                combine(frame, rect_rgn(inflate(*r, -1)), RGN_DIFF);
+            }
+            combine(rgn, frame, RGN_OR);
+            combine(rgn, rect_rgn(label_rect(*r, dpi)), RGN_OR);
+        }
+        rgn
+    }
+}
+
 fn set_selection(hwnd: HWND, new_sel: Option<RECT>) {
     let (old, dpi) = with(|s| (std::mem::replace(&mut s.sel, new_sel), s.dpi));
-    for r in old.iter().chain(new_sel.iter()) {
-        for b in painted_bounds(*r, dpi) {
-            invalidate(hwnd, &b);
-        }
+    if old == new_sel {
+        return;
     }
-}
-
-/// A barra do editor do print, colada embaixo da área (em cima, ou dentro, sem espaço):
-/// Seta e Texto (a ferramenta), as cores, o tamanho (da roda do mouse) e Cancelar, Copiar
-/// e Salvar. Guarda onde cada botão ficou.
-fn paint_toolbar(hwnd: HWND, dc: HDC, sel: RECT) {
-    let (dpi, font, tool, color) = with(|s| (s.dpi, s.small_font, s.tool, s.color));
-    // O tamanho mostrado é o do que a roda muda agora: o texto digitado, ou a ferramenta.
-    let size = with(|s| match (s.typing.and_then(|i| s.marks.get(i)), tool) {
-        (Some(Mark::Text(t)), _) => t.size,
-        (_, Tool::Text) => s.font_size,
-        (_, Tool::Arrow | Tool::Rect) => s.width,
-    });
     unsafe {
-        let mut client = RECT::default();
-        let _ = GetClientRect(hwnd, &mut client);
-        let old_font = SelectObject(dc, HGDIOBJ(font.0));
-        let measure = |text: &[u16]| {
-            let mut size = SIZE::default();
-            let _ = GetTextExtentPoint32W(dc, text, &mut size);
-            size.cx
-        };
-        let px = format!("{size:.0}");
-        let label_key = if tool == Tool::Text { "Fonte {{px}} px (roda do mouse)" } else { "Espessura {{px}} px (roda do mouse)" };
-        let label: Vec<u16> = lang::tr_with(label_key, &[("px", &px)]).encode_utf16().collect();
-        let tools: [(ShotButton, Vec<u16>); 3] = [
-            (ShotButton::Tool(Tool::Arrow), lang::tr("Seta").encode_utf16().collect()),
-            (ShotButton::Tool(Tool::Rect), lang::tr("Retângulo").encode_utf16().collect()),
-            (ShotButton::Tool(Tool::Text), lang::tr("Texto").encode_utf16().collect()),
-        ];
-        let buttons: [(ShotButton, Vec<u16>); 3] = [
-            (ShotButton::Cancel, lang::tr("Cancelar (Esc)").encode_utf16().collect()),
-            (ShotButton::Copy, lang::tr("Copiar (Ctrl+C)").encode_utf16().collect()),
-            (ShotButton::Save, lang::tr("Salvar (Enter)").encode_utf16().collect()),
-        ];
-        let (pad, gap, h, margin) = (sx(dpi, 14), sx(dpi, 8), sx(dpi, 34), sx(dpi, 10));
-        let swatch = sx(dpi, 24);
-        let label_w = measure(&label);
-        let tool_widths: Vec<i32> = tools.iter().map(|(_, t)| measure(t) + 2 * pad).collect();
-        let widths: Vec<i32> = buttons.iter().map(|(_, t)| measure(t) + 2 * pad).collect();
-        let tools_w = tool_widths.iter().sum::<i32>() + gap * (tool_widths.len() as i32 - 1);
-        let swatches_w = (swatch + gap / 2) * PALETTE.len() as i32 - gap / 2;
-        let bar_w = gap + tools_w + 2 * gap + swatches_w + 2 * gap + label_w + gap + widths.iter().sum::<i32>() + gap * widths.len() as i32;
-        let bar_h = h + 2 * gap;
-        let x = (sel.right - bar_w).clamp(0, (client.right - bar_w).max(0));
-        let mut y = sel.bottom + margin;
-        if y + bar_h > client.bottom {
-            y = sel.top - margin - bar_h;
-        }
-        if y < 0 {
-            y = sel.bottom - bar_h - margin;
-        }
-        let bar = RECT { left: x, top: y, right: x + bar_w, bottom: y + bar_h };
-        let bg = CreateSolidBrush(COLORREF(0x0020_2020));
-        FillRect(dc, &bar, bg);
-        let _ = DeleteObject(HGDIOBJ(bg.0));
-        SetBkMode(dc, TRANSPARENT);
-        let fill = |r: &RECT, bgr: u32| {
-            let brush = CreateSolidBrush(COLORREF(bgr));
-            FillRect(dc, r, brush);
-            let _ = DeleteObject(HGDIOBJ(brush.0));
-        };
-        let mut placed = Vec::new();
-        let mut bx = x + gap;
-        // Um botão com texto: `bg` (BGR) de fundo.
-        let mut text_button = |kind: ShotButton, text: Vec<u16>, w: i32, bg: u32, bx: &mut i32| {
-            let br = RECT { left: *bx, top: y + gap, right: *bx + w, bottom: y + gap + h };
-            fill(&br, bg);
-            SetTextColor(dc, COLORREF(0x00FF_FFFF));
-            let (mut text, mut tr) = (text, br);
-            DrawTextW(dc, &mut text, &mut tr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-            placed.push((kind, br));
-            *bx += w + gap;
-        };
-        // A ferramenta escolhida em azul.
-        for ((kind, text), w) in tools.into_iter().zip(tool_widths) {
-            let on = kind == ShotButton::Tool(tool);
-            text_button(kind, text, w, if on { 0x00D9_6F1E } else { 0x0045_4545 }, &mut bx);
-        }
-        bx += gap;
-        // As cores: a escolhida com moldura branca; as outras, cinza.
-        let sy = y + gap + (h - swatch) / 2;
-        let mut swatches = Vec::new();
-        for (i, &argb) in PALETTE.iter().enumerate() {
-            let r = RECT { left: bx, top: sy, right: bx + swatch, bottom: sy + swatch };
-            let on = argb == color;
-            fill(&inflate(r, if on { sx(dpi, 3) } else { 1 }), if on { 0x00FF_FFFF } else { 0x0070_7070 });
-            let bgr = ((argb & 0xFF) << 16) | (argb & 0xFF00) | ((argb >> 16) & 0xFF);
-            fill(&r, bgr);
-            swatches.push((ShotButton::Color(i), r));
-            bx += swatch + gap / 2;
-        }
-        bx += 2 * gap - gap / 2;
-        SetTextColor(dc, COLORREF(0x00DD_DDDD));
-        let mut lr = RECT { left: bx, top: y + gap, right: bx + label_w, bottom: y + gap + h };
-        let mut label = label;
-        DrawTextW(dc, &mut label, &mut lr, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
-        bx = lr.right + gap;
-        for ((kind, text), w) in buttons.into_iter().zip(widths) {
-            // Salvar em verde (a ação principal); os outros, cinza.
-            text_button(kind, text, w, if kind == ShotButton::Save { 0x0032_7D2E } else { 0x0045_4545 }, &mut bx);
-        }
-        placed.extend(swatches);
-        SelectObject(dc, old_font);
-        with(|s| {
-            s.buttons = placed;
-            s.toolbar = Some(bar);
-        });
+        let rgn = selection_change(old, new_sel, dpi);
+        let _ = InvalidateRgn(hwnd, Some(rgn), false);
+        let _ = DeleteObject(HGDIOBJ(rgn.0));
     }
 }
 
+fn wide(s: &str) -> Vec<u16> {
+    s.encode_utf16().collect()
+}
+
+/// O tamanho de `text` na fonte `font` (num DC de memória: serve fora do `WM_PAINT`).
+fn text_extent(font: HFONT, text: &[u16]) -> SIZE {
+    unsafe {
+        let dc = CreateCompatibleDC(None);
+        let old = (!font.is_invalid()).then(|| SelectObject(dc, HGDIOBJ(font.0)));
+        let mut size = SIZE::default();
+        let _ = GetTextExtentPoint32W(dc, text, &mut size);
+        if let Some(o) = old {
+            SelectObject(dc, o);
+        }
+        let _ = DeleteDC(dc);
+        size
+    }
+}
+
+fn client_rect(hwnd: HWND) -> RECT {
+    let mut r = RECT::default();
+    unsafe {
+        let _ = GetClientRect(hwnd, &mut r);
+    }
+    r
+}
+
+/// O tamanho que a roda (e o − e o +) muda agora: o da fonte (digitando ou com o Texto)?
+fn sizing_text(s: &State) -> bool {
+    s.typing.is_some() || s.tool == Tool::Text
+}
+
+/// O número entre o − e o +.
+fn size_label(s: &State) -> String {
+    let size = match s.typing.and_then(|i| s.marks.get(i)) {
+        Some(Mark::Text(t)) => t.size,
+        _ if s.tool == Tool::Text => s.font_size,
+        _ => s.width,
+    };
+    format!("{size:.0} px")
+}
+
+/// Monta a barra do editor (com a área escolhida), colada embaixo da área (em cima, ou
+/// dentro, sem espaço), alinhada à direita dela: [Seta Retângulo Texto] | [cor ▾] |
+/// [− 6 px +] | [✕ Copiar Salvar]. Ícones no lugar dos nomes (o nome e o atalho vão na
+/// dica). Com o seletor de cores aberto, ele vai embaixo da barra (ou em cima).
+fn layout_bar(s: &State, client: RECT) -> Option<Bar> {
+    let sel = s.sel.filter(|_| s.editing)?;
+    let d = s.dpi;
+    let (h, gap, pad, sep, margin) = (sx(d, 30), sx(d, 3), sx(d, 12), sx(d, 9), sx(d, 8));
+    let tw = |key: &str| text_extent(s.small_font, &wide(&lang::tr(key))).cx;
+    enum It {
+        B(ShotButton, i32),
+        Sep,
+    }
+    let items = [
+        It::B(ShotButton::Tool(Tool::Arrow), h),
+        It::B(ShotButton::Tool(Tool::Rect), h),
+        It::B(ShotButton::Tool(Tool::Text), h),
+        It::Sep,
+        It::B(ShotButton::ColorMenu, h + sx(d, 12)),
+        It::Sep,
+        It::B(ShotButton::Smaller, sx(d, 24)),
+        // Largura fixa (a do maior número): a barra não muda de tamanho com a roda.
+        It::B(ShotButton::Size, text_extent(s.small_font, &wide("000 px")).cx + sx(d, 4)),
+        It::B(ShotButton::Bigger, sx(d, 24)),
+        It::Sep,
+        It::B(ShotButton::Cancel, h),
+        It::B(ShotButton::Copy, tw("Copiar") + 2 * pad),
+        It::B(ShotButton::Save, tw("Salvar") + 2 * pad),
+    ];
+    let (mut x, mut rel, mut seps) = (gap, Vec::new(), Vec::new());
+    for it in items {
+        match it {
+            It::B(b, w) => {
+                rel.push((b, x, w));
+                x += w + gap;
+            }
+            It::Sep => {
+                seps.push(x + (sep - gap) / 2);
+                x += sep;
+            }
+        }
+    }
+    let (bar_w, bar_h) = (x, h + 2 * gap);
+    let bx = (sel.right - bar_w).clamp(0, (client.right - bar_w).max(0));
+    let mut by = sel.bottom + margin;
+    if by + bar_h > client.bottom {
+        by = sel.top - margin - bar_h;
+    }
+    if by < 0 {
+        by = sel.bottom - bar_h - margin;
+    }
+    let rect = RECT { left: bx, top: by, right: bx + bar_w, bottom: by + bar_h };
+    let mut buttons: Vec<(ShotButton, RECT)> = rel.into_iter().map(|(b, x, w)| (b, RECT { left: bx + x, top: by + gap, right: bx + x + w, bottom: by + gap + h })).collect();
+    let seps = seps.into_iter().map(|x| bx + x).collect();
+    let mut picker = None;
+    if s.picker {
+        // Duas linhas de seis cores e a faixa de matizes embaixo.
+        let (sw, g, p, hue_h, cols) = (sx(d, 22), sx(d, 6), sx(d, 8), sx(d, 18), 6);
+        let pw = 2 * p + cols * sw + (cols - 1) * g;
+        let rows = PALETTE.len().div_ceil(cols as usize) as i32;
+        let ph = 2 * p + rows * (sw + g) + hue_h;
+        let anchor = buttons.iter().find(|(b, _)| *b == ShotButton::ColorMenu).map(|(_, r)| *r).unwrap_or(rect);
+        let px = anchor.left.clamp(0, (client.right - pw).max(0));
+        let py = if rect.bottom + g + ph <= client.bottom { rect.bottom + g } else { rect.top - g - ph };
+        for i in 0..PALETTE.len() {
+            let (row, col) = (i as i32 / cols, i as i32 % cols);
+            let (l, t) = (px + p + col * (sw + g), py + p + row * (sw + g));
+            buttons.push((ShotButton::Color(i), RECT { left: l, top: t, right: l + sw, bottom: t + sw }));
+        }
+        let ht = py + p + rows * (sw + g);
+        buttons.push((ShotButton::Hue, RECT { left: px + p, top: ht, right: px + pw - p, bottom: ht + hue_h }));
+        picker = Some(RECT { left: px, top: py, right: px + pw, bottom: py + ph });
+    }
+    Some(Bar { rect, buttons, seps, picker })
+}
+
+/// O nome (e o atalho) do botão, na dica.
+fn tip_key(s: &State, b: ShotButton) -> Option<&'static str> {
+    Some(match b {
+        ShotButton::Tool(Tool::Arrow) => "Seta",
+        ShotButton::Tool(Tool::Rect) => "Retângulo",
+        ShotButton::Tool(Tool::Text) => "Texto",
+        ShotButton::ColorMenu => "Cor",
+        ShotButton::Smaller | ShotButton::Size | ShotButton::Bigger => {
+            if sizing_text(s) {
+                "Tamanho da fonte (roda do mouse)"
+            } else {
+                "Espessura (roda do mouse)"
+            }
+        }
+        ShotButton::Cancel => "Cancelar (Esc)",
+        ShotButton::Copy => "Copiar (Ctrl+C)",
+        ShotButton::Save => "Salvar (Enter)",
+        ShotButton::Color(_) | ShotButton::Hue => return None,
+    })
+}
+
+/// A dica do botão sob o mouse: centrada nele, em cima da barra (ou embaixo, sem espaço).
+/// Com o seletor aberto, nenhuma (ele fica no caminho).
+fn layout_tip(s: &State, client: RECT) -> Option<(RECT, Vec<u16>)> {
+    let b = s.hover.filter(|_| !s.picker)?;
+    let bar = s.bar.as_ref()?;
+    let br = bar.button(b)?;
+    let text = wide(&lang::tr(tip_key(s, b)?));
+    let ext = text_extent(s.small_font, &text);
+    let (px, py, gap) = (sx(s.dpi, 8), sx(s.dpi, 4), sx(s.dpi, 6));
+    let (w, h) = (ext.cx + 2 * px, ext.cy + 2 * py);
+    let x = ((br.left + br.right) / 2 - w / 2).clamp(0, (client.right - w).max(0));
+    let y = if bar.rect.top - gap - h >= 0 { bar.rect.top - gap - h } else { bar.rect.bottom + gap };
+    Some((RECT { left: x, top: y, right: x + w, bottom: y + h }, text))
+}
+
+/// Remonta a barra, o seletor e a dica pelo estado atual e repinta onde estavam e onde
+/// ficaram — chamada depois de qualquer mudança que apareça neles.
+fn refresh_bar(hwnd: HWND) {
+    let client = client_rect(hwnd);
+    let (old, new) = with(|s| {
+        let areas = |s: &State| s.bar.iter().flat_map(|b| b.areas()).chain(s.tip.as_ref().map(|t| t.0)).collect::<Vec<_>>();
+        let old = areas(s);
+        s.bar = layout_bar(s, client);
+        if s.bar.is_none() {
+            s.picker = false;
+            s.hover = None;
+        }
+        s.tip = layout_tip(s, client);
+        (old, areas(s))
+    });
+    for r in old.iter().chain(&new) {
+        invalidate(hwnd, r);
+    }
+}
+
+/// O botão sob o mouse mudou: o realce e a dica acompanham.
+fn set_hover(hwnd: HWND, b: Option<ShotButton>) {
+    if with(|s| std::mem::replace(&mut s.hover, b)) != b {
+        refresh_bar(hwnd);
+    }
+}
+
+/// ARGB → o `COLORREF` do GDI (0x00BBGGRR).
+fn bgr(argb: u32) -> u32 {
+    ((argb & 0xFF) << 16) | (argb & 0xFF00) | ((argb >> 16) & 0xFF)
+}
+
+unsafe fn fill(dc: HDC, r: &RECT, bgr: u32) {
+    let brush = CreateSolidBrush(COLORREF(bgr));
+    FillRect(dc, r, brush);
+    let _ = DeleteObject(HGDIOBJ(brush.0));
+}
+
+unsafe fn frame(dc: HDC, r: &RECT, bgr: u32) {
+    let brush = CreateSolidBrush(COLORREF(bgr));
+    FrameRect(dc, r, brush);
+    let _ = DeleteObject(HGDIOBJ(brush.0));
+}
+
+/// A cor da faixa de matizes no x `x` (cliente).
+fn hue_at(r: RECT, x: i32) -> u32 {
+    let t = (x - r.left) as f32 / (r.right - r.left - 1).max(1) as f32;
+    crate::annotate::hsv(t.clamp(0.0, 1.0) * 360.0, 0.85, 0.95)
+}
+
+const BAR_BG: u32 = 0x0020_2020;
+const HOVER_BG: u32 = 0x0045_4545;
+const TOOL_ON: u32 = 0x00D9_6F1E;
+const WHITE: u32 = 0xFFFF_FFFF;
+
+/// A barra (e o seletor e a dica) em `dc`, na posição montada por [`layout_bar`].
+/// `org`: o canto do cliente que o (0, 0) de `dc` representa (para o GDI+, que não segue
+/// a origem do GDI).
+unsafe fn paint_bar(dc: HDC, org: (i32, i32)) {
+    let Some(bar) = with(|s| s.bar.clone()) else { return };
+    let (dpi, font, tool, color, hover, picker, tip, size) = with(|s| (s.dpi, s.small_font, s.tool, s.color, s.hover, s.picker, s.tip.clone(), size_label(s)));
+    fill(dc, &bar.rect, BAR_BG);
+    frame(dc, &bar.rect, 0x0040_4040);
+    let inset = sx(dpi, 8);
+    for x in &bar.seps {
+        fill(dc, &RECT { left: *x, top: bar.rect.top + inset, right: *x + sx(dpi, 1).max(1), bottom: bar.rect.bottom - inset }, 0x0050_5050);
+    }
+    let old_font = (!font.is_invalid()).then(|| SelectObject(dc, HGDIOBJ(font.0)));
+    SetBkMode(dc, TRANSPARENT);
+    let text = |r: &RECT, s: &str, bgr: u32| {
+        SetTextColor(dc, COLORREF(bgr));
+        let (mut t, mut tr) = (wide(s), *r);
+        DrawTextW(dc, &mut t, &mut tr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    };
+    // Os ícones vão depois, pelo GDI+ (antialiasing).
+    let mut icons: Vec<(Icon, RECT, u32)> = Vec::new();
+    for (b, r) in &bar.buttons {
+        let hov = hover == Some(*b);
+        match *b {
+            ShotButton::Tool(t) => {
+                if t == tool {
+                    fill(dc, r, TOOL_ON);
+                } else if hov {
+                    fill(dc, r, HOVER_BG);
+                }
+                let icon = match t {
+                    Tool::Arrow => Icon::Arrow,
+                    Tool::Rect => Icon::Rect,
+                    Tool::Text => Icon::Text,
+                };
+                icons.push((icon, *r, WHITE));
+            }
+            ShotButton::ColorMenu => {
+                if hov || picker {
+                    fill(dc, r, HOVER_BG);
+                }
+                // A cor atual numa amostra, e o ▾ do seletor.
+                let m = sx(dpi, 7);
+                let side = (r.bottom - r.top) - 2 * m;
+                let sw = RECT { left: r.left + m, top: r.top + m, right: r.left + m + side, bottom: r.top + m + side };
+                fill(dc, &inflate(sw, 1), 0x00A0_A0A0);
+                fill(dc, &sw, bgr(color));
+                icons.push((Icon::Caret, RECT { left: sw.right, ..*r }, 0xFFDD_DDDD));
+            }
+            ShotButton::Smaller | ShotButton::Bigger | ShotButton::Cancel => {
+                if hov {
+                    fill(dc, r, HOVER_BG);
+                }
+                let icon = match *b {
+                    ShotButton::Smaller => Icon::Minus,
+                    ShotButton::Bigger => Icon::Plus,
+                    _ => Icon::Close,
+                };
+                icons.push((icon, *r, WHITE));
+            }
+            ShotButton::Size => text(r, &size, 0x00DD_DDDD),
+            ShotButton::Copy => {
+                fill(dc, r, if hov { 0x0058_5858 } else { 0x0040_4040 });
+                text(r, &lang::tr("Copiar"), 0x00FF_FFFF);
+            }
+            ShotButton::Save => {
+                // A ação principal, em verde.
+                fill(dc, r, if hov { 0x0040_9A3B } else { 0x0032_7D2E });
+                text(r, &lang::tr("Salvar"), 0x00FF_FFFF);
+            }
+            ShotButton::Color(_) | ShotButton::Hue => {}
+        }
+    }
+    if let Some(pr) = bar.picker {
+        fill(dc, &pr, BAR_BG);
+        frame(dc, &pr, 0x0050_5050);
+        for (b, r) in &bar.buttons {
+            match *b {
+                ShotButton::Color(i) => {
+                    // A escolhida com moldura branca; as outras, um fio cinza.
+                    let on = PALETTE[i] == color;
+                    let hov = hover == Some(*b);
+                    fill(dc, &inflate(*r, if on || hov { sx(dpi, 2) } else { 1 }), if on { 0x00FF_FFFF } else if hov { 0x00A0_A0A0 } else { 0x0060_6060 });
+                    fill(dc, r, bgr(PALETTE[i]));
+                }
+                ShotButton::Hue => {
+                    for x in r.left..r.right {
+                        fill(dc, &RECT { left: x, right: x + 1, ..*r }, bgr(hue_at(*r, x)));
+                    }
+                    frame(dc, &inflate(*r, 1), 0x0060_6060);
+                }
+                _ => {}
+            }
+        }
+    }
+    if let Some((tr, t)) = tip {
+        fill(dc, &tr, 0x0010_1010);
+        frame(dc, &tr, 0x0060_6060);
+        SetTextColor(dc, COLORREF(0x00FF_FFFF));
+        let (mut t, mut r) = (t, tr);
+        DrawTextW(dc, &mut t, &mut r, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    }
+    if let Some(o) = old_font {
+        SelectObject(dc, o);
+    }
+    gdiplus(dc, org, || {
+        for (icon, r, c) in icons {
+            crate::annotate::draw_icon(dc, icon, offset(r, -org.0, -org.1), c);
+        }
+    });
+}
+
+/// Roda `f` (desenho do GDI+) com a origem do `dc` no (0, 0) do buffer: quem desenha
+/// desconta `org` à mão. Depois, a origem do cliente volta.
+unsafe fn gdiplus(dc: HDC, org: (i32, i32), f: impl FnOnce()) {
+    let _ = SetViewportOrgEx(dc, 0, 0, None);
+    f();
+    let _ = SetViewportOrgEx(dc, -org.0, -org.1, None);
+}
+
+impl MemImage {
+    /// Uma imagem em branco do formato da tela (o buffer do `WM_PAINT`).
+    fn blank(w: i32, h: i32) -> Option<MemImage> {
+        unsafe {
+            let screen = GetDC(None);
+            let dc = CreateCompatibleDC(Some(screen));
+            let bmp = CreateCompatibleBitmap(screen, w, h);
+            ReleaseDC(None, screen);
+            if dc.is_invalid() || bmp.is_invalid() {
+                if !bmp.is_invalid() {
+                    let _ = DeleteObject(HGDIOBJ(bmp.0));
+                }
+                if !dc.is_invalid() {
+                    let _ = DeleteDC(dc);
+                }
+                return None;
+            }
+            let old = SelectObject(dc, HGDIOBJ(bmp.0));
+            Some(MemImage { dc, bmp, old })
+        }
+    }
+}
+
+/// O DC do buffer do `WM_PAINT`, de pelo menos `w`×`h` (cresce, não encolhe).
+fn back_buffer(w: i32, h: i32) -> Option<HDC> {
+    with(|s| {
+        let fits = s.back.as_ref().is_some_and(|(_, bw, bh)| *bw >= w && *bh >= h);
+        if !fits {
+            let (bw, bh) = s.back.as_ref().map_or((w, h), |(_, bw, bh)| ((*bw).max(w), (*bh).max(h)));
+            s.back = None;
+            s.back = MemImage::blank(bw, bh).map(|img| (img, bw, bh));
+        }
+        s.back.as_ref().map(|(img, _, _)| img.dc)
+    })
+}
+
+/// O `WM_PAINT` em buffer duplo: monta só a região a pintar (o recorte do buffer é a
+/// região, então as cópias grandes tocam só nela) e copia para a tela de uma vez. Sem
+/// isso, o Windows mostrava o meio do desenho (o escuro já por cima, a imagem nítida
+/// ainda não) — a borda "atrasada" ao arrastar.
 fn paint(hwnd: HWND) {
+    unsafe {
+        // A região antes do BeginPaint, que a esvazia.
+        let rgn = CreateRectRgn(0, 0, 0, 0);
+        let kind = GetUpdateRgn(hwnd, rgn, false);
+        let mut ps = PAINTSTRUCT::default();
+        let screen = BeginPaint(hwnd, &mut ps);
+        let rc = ps.rcPaint;
+        let (w, h) = (rc.right - rc.left, rc.bottom - rc.top);
+        if w > 0 && h > 0 {
+            match back_buffer(w, h) {
+                Some(buf) => {
+                    if kind == NULLREGION || kind == RGN_ERROR {
+                        let _ = SetRectRgn(rgn, rc.left, rc.top, rc.right, rc.bottom);
+                    }
+                    let _ = OffsetRgn(rgn, -rc.left, -rc.top);
+                    let _ = SelectClipRgn(buf, Some(rgn));
+                    compose(buf, (rc.left, rc.top), rc);
+                    let _ = SelectClipRgn(buf, None);
+                    let _ = BitBlt(screen, rc.left, rc.top, w, h, Some(buf), 0, 0, SRCCOPY);
+                }
+                // Sem memória para o buffer: direto na tela, como antes.
+                None => compose(screen, (0, 0), rc),
+            }
+        }
+        let _ = DeleteObject(HGDIOBJ(rgn.0));
+        let _ = EndPaint(hwnd, &ps);
+    }
+}
+
+/// Desenha o quadro na área `rc` (cliente) de `dc`, cujo (0, 0) é o ponto `org` do
+/// cliente: o escuro, a área nítida com as marcas, a borda, o rótulo do tamanho e a
+/// barra do editor (ou a instrução, antes do 1º clique).
+unsafe fn compose(dc: HDC, org: (i32, i32), rc: RECT) {
+    let _ = SetViewportOrgEx(dc, -org.0, -org.1, None);
     let (sel, dpi, font, hint_rect, hint_visible) = with(|s| (s.sel, s.dpi, s.font, s.hint_rect, s.hint_visible));
     // Congelada: (escura, nítida) — os DCs das imagens, desenhados no lugar do preto e do furo.
     let frozen = with(|s| s.frozen.as_ref().map(|f| (f.dim.dc, f.bright.dc)));
-    unsafe {
-        let mut ps = PAINTSTRUCT::default();
-        let dc = BeginPaint(hwnd, &mut ps);
-        let black = CreateSolidBrush(COLORREF(0));
-        let key = CreateSolidBrush(KEY);
-        let white = CreateSolidBrush(COLORREF(0x00FF_FFFF));
-        let border = sx(dpi, 2).max(1);
+    let border = border_px(dpi);
 
-        // 1. Escuro, SEM passar por cima do furo + borda (senão pisca).
-        let saved = SaveDC(dc);
-        if let Some(r) = sel {
-            let o = inflate(r, border);
-            ExcludeClipRect(dc, o.left, o.top, o.right, o.bottom);
+    // 1. Escuro, fora do furo + borda.
+    let saved = SaveDC(dc);
+    if let Some(r) = sel {
+        let o = inflate(r, border);
+        ExcludeClipRect(dc, o.left, o.top, o.right, o.bottom);
+    }
+    match frozen {
+        Some((dim, _)) => {
+            let _ = BitBlt(dc, rc.left, rc.top, rc.right - rc.left, rc.bottom - rc.top, Some(dim), rc.left, rc.top, SRCCOPY);
         }
-        let rc = ps.rcPaint;
-        match frozen {
-            Some((dim, _)) => {
-                let _ = BitBlt(dc, rc.left, rc.top, rc.right - rc.left, rc.bottom - rc.top, Some(dim), rc.left, rc.top, SRCCOPY);
-            }
-            None => {
-                FillRect(dc, &rc, black);
-            }
-        }
-        let _ = RestoreDC(dc, saved);
+        None => fill(dc, &rc, 0),
+    }
+    let _ = RestoreDC(dc, saved);
 
-        if let Some(r) = sel {
-            // 2. Furo (cor-chave = transparente; congelada: a imagem nítida) e borda
-            // branca por FORA dele.
+    if let Some(r) = sel {
+        // 2. Furo (cor-chave = transparente; congelada: a imagem nítida), só onde a área
+        // a pintar o cruza, e a borda branca por FORA dele.
+        let mut part = RECT::default();
+        if IntersectRect(&mut part, &r, &rc).as_bool() {
             match frozen {
                 Some((_, bright)) => {
-                    let _ = BitBlt(dc, r.left, r.top, r.right - r.left, r.bottom - r.top, Some(bright), r.left, r.top, SRCCOPY);
+                    let _ = BitBlt(dc, part.left, part.top, part.right - part.left, part.bottom - part.top, Some(bright), part.left, part.top, SRCCOPY);
                 }
-                None => {
-                    FillRect(dc, &r, key);
-                }
+                None => fill(dc, &part, KEY.0),
             }
             // As marcas do editor do print, só dentro da área (o que vai para o print),
             // com o cursor no texto sendo digitado.
             let (marks, caret) = with(|s| (s.marks.iter().cloned().chain(s.drawing.map(|a| drag_mark(a, s.tool))).collect::<Vec<_>>(), s.typing));
-            crate::annotate::draw_on_hdc(dc, &marks, r, caret);
-            let o = inflate(r, border);
-            for side in [
-                RECT { left: o.left, top: o.top, right: o.right, bottom: r.top },
-                RECT { left: o.left, top: r.bottom, right: o.right, bottom: o.bottom },
-                RECT { left: o.left, top: r.top, right: r.left, bottom: r.bottom },
-                RECT { left: r.right, top: r.top, right: o.right, bottom: r.bottom },
-            ] {
-                FillRect(dc, &side, white);
+            if !marks.is_empty() {
+                gdiplus(dc, org, || crate::annotate::draw_on_hdc(dc, &marks, r, caret, org));
             }
-            // 3. Tamanho, em px físicos — é o tamanho do vídeo (arredondado
-            // pro múltiplo de 16 na gravação).
-            let lr = label_rect(r, dpi);
-            FillRect(dc, &lr, black);
-            let old_font = SelectObject(dc, HGDIOBJ(font.0));
-            SetBkMode(dc, TRANSPARENT);
-            SetTextColor(dc, COLORREF(0x00FF_FFFF));
-            let mut text: Vec<u16> = format!("{} × {}", r.right - r.left, r.bottom - r.top).encode_utf16().collect();
-            let mut lr2 = lr;
-            DrawTextW(dc, &mut text, &mut lr2, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-            SelectObject(dc, old_font);
-            // 4. A barra do editor do print (a área já escolhida).
-            if with(|s| s.editing) {
-                paint_toolbar(hwnd, dc, r);
-            }
-        } else if hint_visible {
-            // Instrução no meio do monitor do cursor, até o 1º clique.
-            let old_font = SelectObject(dc, HGDIOBJ(font.0));
-            SetBkMode(dc, TRANSPARENT);
-            SetTextColor(dc, COLORREF(0x00FF_FFFF));
-            let mut text: Vec<u16> = lang::tr(with(|s| s.hint_key)).encode_utf16().collect();
-            let mut hr = hint_rect;
-            DrawTextW(dc, &mut text, &mut hr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-            SelectObject(dc, old_font);
         }
-
-        let _ = DeleteObject(HGDIOBJ(black.0));
-        let _ = DeleteObject(HGDIOBJ(key.0));
-        let _ = DeleteObject(HGDIOBJ(white.0));
-        let _ = EndPaint(hwnd, &ps);
+        let o = inflate(r, border);
+        for side in [
+            RECT { left: o.left, top: o.top, right: o.right, bottom: r.top },
+            RECT { left: o.left, top: r.bottom, right: o.right, bottom: o.bottom },
+            RECT { left: o.left, top: r.top, right: r.left, bottom: r.bottom },
+            RECT { left: r.right, top: r.top, right: o.right, bottom: r.bottom },
+        ] {
+            fill(dc, &side, 0x00FF_FFFF);
+        }
+        // 3. Tamanho, em px físicos — é o tamanho do vídeo (arredondado
+        // pro múltiplo de 16 na gravação).
+        let lr = label_rect(r, dpi);
+        fill(dc, &lr, 0);
+        let old_font = SelectObject(dc, HGDIOBJ(font.0));
+        SetBkMode(dc, TRANSPARENT);
+        SetTextColor(dc, COLORREF(0x00FF_FFFF));
+        let mut text = wide(&format!("{} × {}", r.right - r.left, r.bottom - r.top));
+        let mut lr2 = lr;
+        DrawTextW(dc, &mut text, &mut lr2, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        SelectObject(dc, old_font);
+        // 4. A barra do editor do print (a área já escolhida).
+        paint_bar(dc, org);
+    } else if hint_visible {
+        // Instrução no meio do monitor do cursor, até o 1º clique.
+        let old_font = SelectObject(dc, HGDIOBJ(font.0));
+        SetBkMode(dc, TRANSPARENT);
+        SetTextColor(dc, COLORREF(0x00FF_FFFF));
+        let mut text = wide(&lang::tr(with(|s| s.hint_key)));
+        let mut hr = hint_rect;
+        DrawTextW(dc, &mut text, &mut hr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        SelectObject(dc, old_font);
     }
+    let _ = SetViewportOrgEx(dc, 0, 0, None);
 }
 
 fn point_from(lparam: LPARAM) -> POINT {
@@ -740,18 +1132,35 @@ fn in_rect(r: &RECT, p: POINT) -> bool {
     p.x >= r.left && p.x < r.right && p.y >= r.top && p.y < r.bottom
 }
 
-/// O botão da barra do editor sob `p`.
+/// O botão da barra (ou do seletor aberto) sob `p`.
 fn button_at(p: POINT) -> Option<ShotButton> {
-    with(|s| if s.editing { s.buttons.iter().find(|(_, r)| in_rect(r, p)).map(|(b, _)| *b) } else { None })
+    with(|s| s.bar.as_ref().and_then(|b| b.buttons.iter().find(|(_, r)| in_rect(r, p)).map(|(b, _)| *b)))
 }
 
-fn invalidate_all(hwnd: HWND) {
+/// `p` está na barra ou no seletor (num botão ou no fundo)?
+fn on_bar(p: POINT) -> bool {
+    with(|s| s.bar.as_ref().is_some_and(|b| b.areas().any(|r| in_rect(&r, p))))
+}
+
+/// Pinta já o que foi invalidado (o arrasto acompanha o mouse sem esperar a fila vazia).
+fn paint_now(hwnd: HWND) {
     unsafe {
-        let _ = InvalidateRect(Some(hwnd), None, false);
+        let _ = UpdateWindow(hwnd);
     }
 }
 
-fn run_button(hwnd: HWND, b: ShotButton) {
+/// A cor das próximas marcas — e a do texto sendo digitado, que continua.
+fn set_color(hwnd: HWND, c: u32) {
+    change_typing(|s| {
+        s.color = c;
+        if let Some(Mark::Text(t)) = s.typing.and_then(|i| s.marks.get_mut(i)) {
+            t.color = c;
+        }
+    });
+    refresh_bar(hwnd);
+}
+
+fn run_button(hwnd: HWND, b: ShotButton, p: POINT) {
     match b {
         ShotButton::Cancel => finish(None),
         ShotButton::Copy => finish_shot(ShotAction::Copy),
@@ -759,27 +1168,36 @@ fn run_button(hwnd: HWND, b: ShotButton) {
         ShotButton::Tool(t) => {
             end_typing();
             with(|s| s.tool = t);
-            invalidate_all(hwnd);
+            refresh_bar(hwnd);
+        }
+        ShotButton::ColorMenu => {
+            with(|s| s.picker = !s.picker);
+            refresh_bar(hwnd);
         }
         ShotButton::Color(i) => {
-            // A cor das próximas marcas — e a do texto sendo digitado, que continua.
-            let c = PALETTE[i];
-            with(|s| {
-                s.color = c;
-                if let Some(Mark::Text(t)) = s.typing.and_then(|i| s.marks.get_mut(i)) {
-                    t.color = c;
-                }
-            });
-            invalidate_all(hwnd);
+            with(|s| s.picker = false);
+            set_color(hwnd, PALETTE[i]);
         }
+        ShotButton::Hue => {
+            // Arrastar na faixa escolhe a matiz; soltar fecha o seletor.
+            let Some(r) = with(|s| s.bar.as_ref().and_then(|b| b.button(ShotButton::Hue))) else { return };
+            with(|s| s.hue_drag = true);
+            set_color(hwnd, hue_at(r, p.x));
+            unsafe {
+                SetCapture(hwnd);
+            }
+        }
+        ShotButton::Smaller => wheel_steps(hwnd, -1),
+        ShotButton::Bigger => wheel_steps(hwnd, 1),
+        ShotButton::Size => {}
     }
 }
 
-/// A roda do mouse: no texto sendo digitado (ou com a ferramenta Texto), o tamanho da
-/// fonte, 2 px por dente; com a Seta, a espessura, 1 px por dente (a seta sendo arrastada
-/// acompanha).
+/// A roda do mouse (e o − e o +): no texto sendo digitado (ou com a ferramenta Texto), o
+/// tamanho da fonte, 2 px por dente; com a Seta e o Retângulo, a espessura, 1 px por dente
+/// (a marca sendo arrastada acompanha).
 fn wheel_steps(hwnd: HWND, steps: i32) {
-    let text_size = with(|s| {
+    let text_size = change_typing(|s| {
         if let Some(Mark::Text(t)) = s.typing.and_then(|i| s.marks.get_mut(i)) {
             t.size = (t.size + steps as f32 * SIZE_STEP).clamp(SIZE_MIN, SIZE_MAX);
             s.font_size = t.size;
@@ -791,33 +1209,28 @@ fn wheel_steps(hwnd: HWND, steps: i32) {
             false
         }
     });
-    if text_size {
-        invalidate_all(hwnd);
-        return;
-    }
-    let (old, new, toolbar) = with(|s| {
-        s.width = (s.width + steps as f32).clamp(WIDTH_MIN, WIDTH_MAX);
-        let old = s.drawing;
-        if let Some(d) = s.drawing.as_mut() {
-            d.width = s.width;
+    if !text_size {
+        let (old, new) = with(|s| {
+            s.width = (s.width + steps as f32).clamp(WIDTH_MIN, WIDTH_MAX);
+            let old = s.drawing;
+            if let Some(d) = s.drawing.as_mut() {
+                d.width = s.width;
+            }
+            (old, s.drawing)
+        });
+        for r in [old.map(|a| a.bounds()), new.map(|a| a.bounds())].into_iter().flatten() {
+            invalidate(hwnd, &r);
         }
-        (old, s.drawing, s.toolbar)
-    });
-    // A barra muda de largura com o número (e se alinha à direita da área): a faixa inteira.
-    let toolbar = toolbar.map(|t| RECT { left: 0, right: i32::MAX / 2, ..t });
-    for r in [old.map(|a| a.bounds()), new.map(|a| a.bounds()), toolbar].into_iter().flatten() {
-        invalidate(hwnd, &r);
     }
+    refresh_bar(hwnd);
 }
 
 /// Clique com a ferramenta Texto dentro da área: edita o texto sob o clique (o mais de
 /// cima) ou começa um novo ali, com a linha centrada no clique.
 fn start_text(hwnd: HWND, p: POINT) {
     end_typing();
-    let hit = with(|s| {
-        s.marks.iter().rposition(|m| matches!(m, Mark::Text(_)) && in_rect(&m.bounds(), p))
-    });
-    with(|s| match hit {
+    let hit = with(|s| s.marks.iter().rposition(|m| matches!(m, Mark::Text(_)) && in_rect(&m.bounds(), p)));
+    change_typing(|s| match hit {
         Some(i) => {
             if let Some(Mark::Text(t)) = s.marks.get(i) {
                 s.color = t.color;
@@ -832,12 +1245,12 @@ fn start_text(hwnd: HWND, p: POINT) {
             s.typing = Some(s.marks.len() - 1);
         }
     });
-    invalidate_all(hwnd);
+    refresh_bar(hwnd);
 }
 
 /// Um caractere digitado (`WM_CHAR`) no texto em edição. `false`: não há texto em edição.
-fn type_char(hwnd: HWND, unit: u16) -> bool {
-    let typed = with(|s| {
+fn type_char(unit: u16) -> bool {
+    change_typing(|s| {
         let Some(i) = s.typing else { return false };
         let pending = s.high_surrogate.take();
         let Some(Mark::Text(t)) = s.marks.get_mut(i) else { return false };
@@ -860,11 +1273,7 @@ fn type_char(hwnd: HWND, unit: u16) -> bool {
             }
         }
         true
-    });
-    if typed {
-        invalidate_all(hwnd);
-    }
-    typed
+    })
 }
 
 extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
@@ -876,15 +1285,15 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM
         }
         WM_ERASEBKGND => LRESULT(1),
         WM_SETCURSOR => {
-            // No editor, a mãozinha sobre os botões da barra e o I do texto dentro da
-            // área (com a ferramenta Texto); no resto, a cruz.
+            // No editor, a mãozinha sobre os botões, a seta no fundo da barra e o I do
+            // texto dentro da área (com a ferramenta Texto); no resto, a cruz.
             let mut p = POINT::default();
             let known = editor && unsafe { GetCursorPos(&mut p).is_ok() && ScreenToClient(hwnd, &mut p).as_bool() };
-            let over_button = known && button_at(p).is_some();
-            let over_text = known && with(|s| s.editing && s.tool == Tool::Text && s.sel.is_some_and(|r| in_rect(&r, p)));
-            let cursor = if over_button {
+            let cursor = if known && button_at(p).is_some_and(|b| b != ShotButton::Size) {
                 IDC_HAND
-            } else if over_text {
+            } else if known && on_bar(p) {
+                IDC_ARROW
+            } else if known && with(|s| s.editing && s.tool == Tool::Text && s.sel.is_some_and(|r| in_rect(&r, p))) {
                 IDC_IBEAM
             } else {
                 IDC_CROSS
@@ -898,17 +1307,29 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM
             // Arrasto já começou: um 2º "aperto" (visto no teste: chega um
             // logo depois do 1º, quando a janela é ativada pelo clique) não
             // pode reiniciar a seleção — o ponto de partida é o primeiro.
-            if with(|s| s.anchor.is_some() || s.drawing.is_some()) {
+            if with(|s| s.anchor.is_some() || s.drawing.is_some() || s.hue_drag) {
                 return LRESULT(0);
             }
             let p = point_from(lparam);
             if editor {
-                if let Some(b) = button_at(p) {
-                    run_button(hwnd, b);
+                // Seletor de cores aberto e clique fora dele: fecha. Um botão da barra
+                // funciona direto (menos o da cor, que era o que fechava); fora da barra,
+                // o clique só fechou o seletor.
+                let picker = with(|s| s.bar.as_ref().and_then(|b| b.picker));
+                if picker.is_some_and(|r| !in_rect(&r, p)) {
+                    with(|s| s.picker = false);
+                    refresh_bar(hwnd);
+                    if let Some(b) = button_at(p).filter(|b| *b != ShotButton::ColorMenu) {
+                        run_button(hwnd, b, p);
+                    }
                     return LRESULT(0);
                 }
-                // No fundo da barra (entre os botões): nada.
-                if with(|s| s.editing && s.toolbar.is_some_and(|t| in_rect(&t, p))) {
+                if let Some(b) = button_at(p) {
+                    run_button(hwnd, b, p);
+                    return LRESULT(0);
+                }
+                // No fundo da barra ou do seletor: nada.
+                if on_bar(p) {
                     return LRESULT(0);
                 }
                 let (editing, sel, width, color, tool) = with(|s| (s.editing, s.sel, s.width, s.color, s.tool));
@@ -924,6 +1345,7 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM
                     unsafe {
                         SetCapture(hwnd);
                     }
+                    refresh_bar(hwnd);
                     return LRESULT(0);
                 }
                 // Fora: outra área (a de antes volta se for só um clique). A barra sai.
@@ -931,10 +1353,8 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM
                 with(|s| {
                     s.prev_sel = s.sel;
                     s.editing = false;
-                    s.buttons.clear();
-                    s.toolbar = None;
                 });
-                invalidate_all(hwnd);
+                refresh_bar(hwnd);
             }
             let origin = with(|s| s.origin);
             log!("AreaSelect: arrasto comeca em ({}, {}).", p.x + origin.0, p.y + origin.1);
@@ -953,21 +1373,40 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM
         }
         WM_MOUSEMOVE => {
             let p = point_from(lparam);
+            if with(|s| s.hue_drag) {
+                if let Some(r) = with(|s| s.bar.as_ref().and_then(|b| b.button(ShotButton::Hue))) {
+                    set_color(hwnd, hue_at(r, p.x));
+                    paint_now(hwnd);
+                }
+                return LRESULT(0);
+            }
             if let Some(mut a) = with(|s| s.drawing) {
                 let old = a.bounds();
                 (a.x2, a.y2) = (p.x as f32, p.y as f32);
                 with(|s| s.drawing = Some(a));
                 invalidate(hwnd, &old);
                 invalidate(hwnd, &a.bounds());
+                paint_now(hwnd);
                 return LRESULT(0);
             }
             if let Some(a) = with(|s| s.anchor) {
                 set_selection(hwnd, Some(norm(a, p)));
+                paint_now(hwnd);
+            } else if editor {
+                set_hover(hwnd, button_at(p));
             }
             LRESULT(0)
         }
         WM_LBUTTONUP => {
             let p = point_from(lparam);
+            if with(|s| std::mem::replace(&mut s.hue_drag, false)) {
+                unsafe {
+                    let _ = ReleaseCapture();
+                }
+                with(|s| s.picker = false);
+                refresh_bar(hwnd);
+                return LRESULT(0);
+            }
             if let Some(mut a) = with(|s| s.drawing.take()) {
                 unsafe {
                     let _ = ReleaseCapture();
@@ -993,13 +1432,13 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM
                 let (w, h) = (r.right - r.left, r.bottom - r.top);
                 if w >= MIN_SIZE && h >= MIN_SIZE {
                     if editor {
-                        // A área do print fica, com a barra; as setas vêm depois.
+                        // A área do print fica, com a barra; as marcas vêm depois.
                         with(|s| {
                             s.editing = true;
                             s.prev_sel = None;
                         });
                         set_selection(hwnd, Some(r));
-                        invalidate_all(hwnd);
+                        refresh_bar(hwnd);
                     } else {
                         finish(Some(AreaRect { x: r.left + origin.0, y: r.top + origin.1, w, h }));
                     }
@@ -1008,7 +1447,7 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM
                     let prev = with(|s| s.prev_sel.take());
                     set_selection(hwnd, prev);
                     with(|s| s.editing = prev.is_some());
-                    invalidate_all(hwnd);
+                    refresh_bar(hwnd);
                 } else {
                     // Clique sem arrasto: volta a esperar.
                     set_selection(hwnd, None);
@@ -1029,30 +1468,34 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM
             LRESULT(0)
         }
         WM_CHAR if editor => {
-            type_char(hwnd, wparam.0 as u16);
+            type_char(wparam.0 as u16);
             LRESULT(0)
         }
         WM_KEYDOWN => {
             let vk = wparam.0 as u16;
             let ctrl = unsafe { GetKeyState(VK_CONTROL.0 as i32) } < 0;
             let shift = unsafe { GetKeyState(VK_SHIFT.0 as i32) } < 0;
-            let (editing, typing) = with(|s| (s.editing, s.typing.is_some()));
-            if editor && typing && vk == VK_ESCAPE.0 {
+            let (editing, typing, picker) = with(|s| (s.editing, s.typing.is_some(), s.picker));
+            if editor && picker && vk == VK_ESCAPE.0 {
+                // Com o seletor de cores aberto, o Esc só fecha ele.
+                with(|s| s.picker = false);
+                refresh_bar(hwnd);
+            } else if editor && typing && vk == VK_ESCAPE.0 {
                 // Digitando, o Esc só termina o texto (o print continua).
                 end_typing();
-                invalidate_all(hwnd);
+                refresh_bar(hwnd);
             } else if editor && typing && vk == VK_RETURN.0 {
                 // Shift+Enter: nova linha; Enter: termina o texto (não salva ainda).
                 if shift {
-                    with(|s| {
+                    change_typing(|s| {
                         if let Some(Mark::Text(t)) = s.typing.and_then(|i| s.marks.get_mut(i)) {
                             t.text.push('\n');
                         }
                     });
                 } else {
                     end_typing();
+                    refresh_bar(hwnd);
                 }
-                invalidate_all(hwnd);
             } else if vk == VK_ESCAPE.0 {
                 finish(None);
             } else if editor && editing && vk == VK_RETURN.0 {
@@ -1062,8 +1505,10 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM
             } else if editor && ctrl && vk == u16::from(b'Z') {
                 // Desfaz a última marca (digitando: o texto em edição termina antes).
                 end_typing();
-                with(|s| s.marks.pop());
-                invalidate_all(hwnd);
+                if let Some(m) = with(|s| s.marks.pop()) {
+                    invalidate(hwnd, &mark_area(&m));
+                }
+                refresh_bar(hwnd);
             } else if editor && typing {
                 // As outras teclas viram WM_CHAR (TranslateMessage); nada de atalho aqui.
                 return LRESULT(0);
@@ -1174,8 +1619,12 @@ mod tests {
         send(hwnd, WM_KEYDOWN, vk.0 as usize, LPARAM(0));
     }
 
+    /// Clica no botão `b` da barra (as cores e a faixa de matizes: abre o seletor antes).
     fn click(hwnd: HWND, b: ShotButton) {
-        paint_bar(hwnd);
+        show_bar(hwnd);
+        if matches!(b, ShotButton::Color(_) | ShotButton::Hue) && !with(|s| s.picker) {
+            click(hwnd, ShotButton::ColorMenu);
+        }
         let (x, y) = center(b);
         send(hwnd, WM_LBUTTONDOWN, 1, lp(x, y));
         send(hwnd, WM_LBUTTONUP, 0, lp(x, y));
@@ -1285,15 +1734,14 @@ mod tests {
         assert_eq!(with(|s| (s.tool, s.color, s.font_size, s.marks.len())), (Tool::Text, PALETTE[1], crate::annotate::SIZE_DEFAULT - 4.0, 0));
     }
 
-    /// A barra é desenhada no `WM_PAINT` (que a janela escondida não recebe): aqui, num DC de memória.
-    fn paint_bar(hwnd: HWND) {
-        let sel = with(|s| s.sel).expect("área");
-        let img = MemImage::from_rgba(&vec![0u8; 1200 * 900 * 4], 1200, 900, 1.0).expect("dc");
-        paint_toolbar(hwnd, img.dc, sel);
+    /// A barra montada (o que a janela de verdade faz ao escolher a área).
+    fn show_bar(hwnd: HWND) {
+        assert!(with(|s| s.sel).is_some(), "área");
+        refresh_bar(hwnd);
     }
 
     fn center(b: ShotButton) -> (i32, i32) {
-        let r = with(|s| s.buttons.iter().find(|(k, _)| *k == b).map(|(_, r)| *r)).expect("botão");
+        let r = with(|s| s.bar.as_ref().and_then(|bar| bar.button(b))).expect("botão");
         ((r.left + r.right) / 2, (r.top + r.bottom) / 2)
     }
 
@@ -1332,7 +1780,7 @@ mod tests {
         assert_eq!(with(|s| s.marks.clone()), vec![arrow(150.0, 150.0, 320.0, 230.0, 9.0)]);
         assert_eq!(with(|s| s.sel), Some(RECT { left: 100, top: 100, right: 500, bottom: 400 }), "desenhar não mexe na área");
 
-        paint_bar(hwnd);
+        show_bar(hwnd);
         let (x, y) = center(ShotButton::Save);
         send(hwnd, WM_LBUTTONDOWN, 1, lp(x, y));
         let done = take_done();
@@ -1361,8 +1809,8 @@ mod tests {
         assert_eq!(with(|s| s.marks.len()), 1, "a seta continua");
 
         // O fundo da barra não começa outra seleção.
-        paint_bar(hwnd);
-        let bar = with(|s| s.toolbar).expect("barra");
+        show_bar(hwnd);
+        let bar = with(|s| s.bar.as_ref().map(|b| b.rect)).expect("barra");
         send(hwnd, WM_LBUTTONDOWN, 1, lp(bar.left + 2, bar.top + 2));
         send(hwnd, WM_LBUTTONUP, 0, lp(bar.left + 2, bar.top + 2));
         assert_eq!(with(|s| s.sel), Some(RECT { left: 50, top: 60, right: 700, bottom: 600 }));
@@ -1388,4 +1836,129 @@ mod tests {
         let done = take_done();
         assert!(done.len() == 1 && done[0].is_none(), "cancelado: {done:?}");
     }
+
+    /// A cor: a barra mostra só a atual; clicar nela abre o seletor (as cores prontas e a
+    /// faixa de matizes). Escolher fecha; Esc e clicar fora também fecham, sem cancelar o
+    /// print nem desenhar; a faixa dá a cor do ponto (o arrasto acompanha).
+    #[test]
+    fn editor_seletor_de_cores() {
+        let _t = crate::testkit::begin();
+        take_done();
+        let hwnd = open_editor();
+        drag(hwnd, (100, 100), (700, 500));
+        show_bar(hwnd);
+        let colors = |s: &State| s.bar.as_ref().map_or(0, |b| b.buttons.iter().filter(|(k, _)| matches!(k, ShotButton::Color(_))).count());
+        assert_eq!(with(|s| colors(s)), 0, "fechado: só a cor atual");
+        click(hwnd, ShotButton::ColorMenu);
+        assert_eq!(with(|s| (s.picker, colors(s))), (true, PALETTE.len()));
+        click(hwnd, ShotButton::Color(7));
+        assert_eq!(with(|s| (s.color, s.picker)), (PALETTE[7], false));
+
+        // Esc com o seletor aberto: só fecha ele.
+        click(hwnd, ShotButton::ColorMenu);
+        key(hwnd, VK_ESCAPE);
+        assert!(with(|s| !s.picker && s.on_shot.is_some()), "o print continua");
+
+        // Arrastar na área com o seletor aberto: só fecha (nada desenhado, a área fica).
+        click(hwnd, ShotButton::ColorMenu);
+        drag(hwnd, (200, 200), (400, 300));
+        assert!(with(|s| !s.picker && s.marks.is_empty()));
+        assert_eq!(with(|s| s.sel), Some(RECT { left: 100, top: 100, right: 700, bottom: 500 }));
+
+        // A faixa de matizes: o começo é vermelho; arrastado até o meio, ciano.
+        click(hwnd, ShotButton::ColorMenu);
+        let hue = with(|s| s.bar.as_ref().and_then(|b| b.button(ShotButton::Hue))).expect("faixa");
+        let (y, mid) = ((hue.top + hue.bottom) / 2, (hue.left + hue.right - 1) / 2);
+        send(hwnd, WM_LBUTTONDOWN, 1, lp(hue.left, y));
+        assert_eq!(with(|s| s.color), crate::annotate::hsv(0.0, 0.85, 0.95));
+        send(hwnd, WM_MOUSEMOVE, 1, lp(mid, y));
+        send(hwnd, WM_LBUTTONUP, 0, lp(mid, y));
+        let c = with(|s| s.color);
+        assert!((c >> 16) & 0xFF < 0x40 && (c & 0xFF) > 0xC0 && (c >> 8) & 0xFF > 0xC0, "ciano: {c:08X}");
+        assert!(!with(|s| s.picker), "soltar fecha o seletor");
+        key(hwnd, VK_ESCAPE);
+        take_done();
+    }
+
+    /// O − e o + mudam o tamanho como a roda (a espessura; com o Texto, a fonte), e a barra
+    /// não muda de largura com o número.
+    #[test]
+    fn editor_menos_e_mais() {
+        let _t = crate::testkit::begin();
+        take_done();
+        let hwnd = open_editor();
+        drag(hwnd, (100, 100), (700, 500));
+        show_bar(hwnd);
+        let bar = || with(|s| s.bar.as_ref().map(|b| b.rect)).expect("barra");
+        let before = bar();
+        for _ in 0..3 {
+            click(hwnd, ShotButton::Bigger);
+        }
+        click(hwnd, ShotButton::Smaller);
+        assert_eq!(with(|s| s.width), crate::annotate::WIDTH_DEFAULT + 2.0);
+        click(hwnd, ShotButton::Tool(Tool::Text));
+        click(hwnd, ShotButton::Bigger);
+        assert_eq!(with(|s| s.font_size), crate::annotate::SIZE_DEFAULT + crate::annotate::SIZE_STEP);
+        assert_eq!(bar(), before, "a barra fica do mesmo tamanho");
+        key(hwnd, VK_ESCAPE);
+        take_done();
+    }
+
+    /// O quadro montado no buffer: fora da área, a imagem escurecida; dentro, a nítida;
+    /// em volta, a borda branca — e o buffer começando no meio do cliente (`org`) não
+    /// desloca nada.
+    #[test]
+    fn quadro_no_buffer_com_origem() {
+        let _t = crate::testkit::begin();
+        let rgba = vec![200u8; 400 * 300 * 4];
+        let frozen = Frozen { bright: MemImage::from_rgba(&rgba, 400, 300, 1.0).expect("nítida"), dim: MemImage::from_rgba(&rgba, 400, 300, 0.5).expect("escura") };
+        with(|s| {
+            s.frozen = Some(frozen);
+            s.sel = Some(RECT { left: 100, top: 100, right: 300, bottom: 250 });
+            s.dpi = 96;
+            s.editing = false;
+            s.bar = None;
+            s.marks.clear();
+            s.drawing = None;
+            s.hint_visible = false;
+        });
+        let buf = MemImage::blank(250, 200).expect("buffer");
+        unsafe {
+            compose(buf.dc, (50, 50), RECT { left: 50, top: 50, right: 300, bottom: 250 });
+        }
+        let px = |x: i32, y: i32| unsafe { GetPixel(buf.dc, x - 50, y - 50) }.0 & 0xFF;
+        assert_eq!(px(150, 150), 200, "dentro: nítida");
+        assert!((px(60, 60) as i32 - 100).abs() <= 1, "fora: escurecida ({})", px(60, 60));
+        assert_eq!(px(99, 150), 255, "a borda");
+        with(|s| {
+            s.frozen = None;
+            s.sel = None;
+        });
+    }
+
+    /// Arrastar o canto: a região a repintar é a faixa que entrou, as molduras e os
+    /// rótulos — não o miolo da área, que não muda.
+    #[test]
+    fn mover_a_selecao_repinta_so_o_que_muda() {
+        let old = RECT { left: 100, top: 100, right: 500, bottom: 400 };
+        let new = RECT { right: 520, ..old };
+        let rgn = selection_change(Some(old), Some(new), 96);
+        let has = |x: i32, y: i32| unsafe { PtInRegion(rgn, x, y).as_bool() };
+        assert!(!has(300, 250), "o miolo fica");
+        assert!(has(510, 250), "a faixa nova");
+        assert!(has(500, 250) && has(521, 250), "as molduras");
+        assert!(has(150, 80), "o rótulo");
+        assert!(!has(50, 250), "longe, nada");
+        unsafe {
+            let _ = DeleteObject(HGDIOBJ(rgn.0));
+        }
+        // O primeiro clique (a área é um ponto): o ponto e a moldura em volta.
+        let p = RECT { left: 10, top: 10, right: 10, bottom: 10 };
+        let rgn = selection_change(None, Some(p), 96);
+        assert!(unsafe { PtInRegion(rgn, 10, 10).as_bool() && PtInRegion(rgn, 8, 8).as_bool() });
+        unsafe {
+            let _ = DeleteObject(HGDIOBJ(rgn.0));
+        }
+    }
 }
+

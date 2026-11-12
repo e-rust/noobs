@@ -16,9 +16,8 @@
 use std::cell::RefCell;
 use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicU32, Ordering};
 
-use windows::core::{w, BOOL, HSTRING, PCWSTR};
+use windows::core::{w, HSTRING, PCWSTR};
 use windows::Win32::Foundation::{CloseHandle, HINSTANCE, HWND, LPARAM, LRESULT, RECT, WPARAM};
-use windows::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_USE_IMMERSIVE_DARK_MODE};
 use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CoUninitialize, CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::System::Threading::{AttachThreadInput, GetCurrentThreadId};
@@ -61,7 +60,9 @@ struct WinState {
     icon_applied: bool,
     /// /autostart sem bandeja: a 1ª exibição é minimizada.
     start_minimized: bool,
-    dark: bool,
+    /// Um `restore_from_tray` chegou antes de a janela existir: o `on_window_created`
+    /// termina a exibição.
+    show_pending: bool,
     /// Overlay de "gravando" no botão da taskbar.
     taskbar: Option<ITaskbarList3>,
     taskbar_tried: bool,
@@ -161,27 +162,6 @@ pub fn main_window() -> HWND {
 // ---------------------------------------------------------------------------
 // API pública usada pelo bridge
 // ---------------------------------------------------------------------------
-
-/// Barra de título escura/clara (`DWMWA_USE_IMMERSIVE_DARK_MODE`). Guardada:
-/// a janela que ainda não existe recebe ao aparecer.
-pub fn set_dark_mode(enable: bool) {
-    wstate(|s| s.dark = enable);
-    if let Some(hwnd) = visible_hwnd() {
-        apply_dark_mode(hwnd, enable);
-    }
-}
-
-fn apply_dark_mode(hwnd: HWND, enable: bool) {
-    let value = BOOL::from(enable);
-    unsafe {
-        let _ = DwmSetWindowAttribute(
-            hwnd,
-            DWMWA_USE_IMMERSIVE_DARK_MODE,
-            &value as *const BOOL as *const _,
-            std::mem::size_of::<BOOL>() as u32,
-        );
-    }
-}
 
 /// Abre URL no navegador padrão (o chamador já filtrou o esquema).
 pub fn shell_open(url: &str) {
@@ -367,7 +347,7 @@ pub fn remove_tray_icon() {
 pub fn restore_from_tray() {
     // O winit só cria o HWND dentro do laço de eventos: posição, tamanho,
     // maximizar e foco vão quando ele existir (Win32 direto).
-    with_ui(|ui| finish_show(ui, 0));
+    with_ui(finish_show);
     if !config::get_config_bool("closeToTray", true) {
         tray::remove();
     }
@@ -376,15 +356,22 @@ pub fn restore_from_tray() {
     }
 }
 
+/// A janela do sistema nasceu (`on_window_created` do frmMain): a exibição que esperava
+/// por ela termina aqui; sem nenhuma, só o ícone.
+pub fn on_window_created(ui: &mut Ui) {
+    if wstate(|s| std::mem::take(&mut s.show_pending)) {
+        finish_show(ui);
+    } else {
+        on_visible_hwnd();
+    }
+}
+
 /// Segunda metade do [`restore_from_tray`], com o HWND já criado. O winit cria
-/// a janela num evento do laço que pode vir depois do 1º tique: tenta de novo.
-fn finish_show(ui: &mut Ui, attempt: u32) {
+/// a janela num evento do laço que pode vir depois: aí fica pendente e o
+/// [`on_window_created`] termina.
+fn finish_show(_ui: &mut Ui) {
     let Some(hwnd) = visible_hwnd() else {
-        if attempt < 60 {
-            ui.set_timeout(16, move |ui| finish_show(ui, attempt + 1));
-        } else {
-            log::log("UI: janela sem HWND depois de mostrar.");
-        }
+        wstate(|s| s.show_pending = true);
         return;
     };
     on_visible_hwnd();
@@ -430,14 +417,12 @@ fn bring_to_front(hwnd: HWND) {
     }
 }
 
-/// O HWND do aylis só existe depois que o laço começa: ícone do exe e barra de
-/// título no tema entram aqui.
+/// O HWND do aylis só existe depois que o laço começa: o ícone do exe entra aqui (a
+/// barra de título escura vem do Aylis, pelo `dark` do tema).
 fn on_visible_hwnd() {
     let Some(hwnd) = visible_hwnd() else { return };
     VISIBLE_HWND.store(hwnd.0 as isize, Ordering::SeqCst);
-    let (dark, icon_done) = wstate(|s| (s.dark, std::mem::replace(&mut s.icon_applied, true)));
-    apply_dark_mode(hwnd, dark);
-    if !icon_done {
+    if !wstate(|s| std::mem::replace(&mut s.icon_applied, true)) {
         let icon = win::main_icon();
         if !icon.0.is_null() {
             unsafe {

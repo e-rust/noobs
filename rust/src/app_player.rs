@@ -101,8 +101,8 @@ struct State {
     cap_notify: bool,
     /// O menu de velocidade aberto (em cima do botão).
     speed_open: bool,
-    /// Quando começou o pulso de pausa (e o timer que o anima).
-    flash: Option<(Instant, u64)>,
+    /// Quando começou o pulso de pausa (anda no `tmrFlash`).
+    flash: Option<Instant>,
 }
 
 thread_local! {
@@ -450,36 +450,29 @@ fn set_playing_ui(ui: &mut Ui, playing: bool) {
 
 /// O pulso do indicador central na pausa: sobe em 15 %, segura até 58 %, some.
 fn start_flash(ui: &mut Ui) {
-    if let Some((_, job)) = with(|st| st.flash.take()) {
-        ui.clear_timeout(job);
-    }
+    with(|st| st.flash = Some(Instant::now()));
     if let Some(frm) = FrmPlayer::components(ui) {
+        frm.pnlPauseFlash.set_opacity(ui, 0.0);
         frm.pnlPauseFlash.set_visible(ui, true);
+        frm.tmrFlash.set_enabled(ui, true);
     }
-    let job = ui.set_timeout(0, flash_step);
-    with(|st| st.flash = Some((Instant::now(), job)));
 }
 
-fn flash_step(ui: &mut Ui) {
-    let Some((at, _)) = with(|st| st.flash) else { return };
+/// Um quadro do pulso (`tmrFlash`).
+pub fn flash_frame(ui: &mut Ui) {
+    let Some(frm) = FrmPlayer::components(ui) else { return };
+    let Some(at) = with(|st| st.flash) else {
+        frm.tmrFlash.set_enabled(ui, false);
+        return;
+    };
     let k = (at.elapsed().as_secs_f64() * 1000.0 / FLASH_MS).min(1.0);
     let op = if k < 0.15 { k / 0.15 * 0.95 } else if k < 0.58 { 0.95 } else { (1.0 - k) / 0.42 * 0.95 };
-    if let Some(frm) = FrmPlayer::components(ui) {
-        frm.pnlPauseFlash.set_opacity(ui, op);
-    }
+    frm.pnlPauseFlash.set_opacity(ui, op);
     if k >= 1.0 {
-        if let Some(frm) = FrmPlayer::components(ui) {
-            frm.pnlPauseFlash.set_visible(ui, false);
-        }
+        frm.pnlPauseFlash.set_visible(ui, false);
+        frm.tmrFlash.set_enabled(ui, false);
         with(|st| st.flash = None);
-        return;
     }
-    let job = ui.set_timeout(16, flash_step);
-    with(|st| {
-        if let Some(f) = st.flash.as_mut() {
-            f.1 = job;
-        }
-    });
 }
 
 fn set_controls_visible(ui: &mut Ui, on: bool) {

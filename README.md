@@ -120,22 +120,19 @@ IDE do Aylis; o código fica em `rust\`.
 
 O `rust\Cargo.toml` acha o Aylis em `.aylis\sdk`, uma junção até a instalação do
 Aylis desta máquina (fora do git). Quem cria é o próprio Aylis, ao abrir o projeto
-na IDE ou rodar o `aylis-tool`, e também o `scripts\build.bat`, pela pasta que o
-instalador do Aylis grava no registro (`HKCU\Software\Aylis`, `SdkDir`). O Aylis
-pode estar instalado em qualquer lugar.
+na IDE ou rodar o `aylis-tool`. O Aylis pode estar instalado em qualquer lugar.
 
-- `scripts\build.bat` compila com o compilador do Aylis (`aylis-tool build`:
-  gera o código dos forms, verifica o projeto e compila) e põe o `NoOBS.exe`
-  em `runtime\`, de onde ele roda (`scripts\build.bat debug` compila mais
-  rápido, sem otimização).
-- `aylis-tool publish NoOBS.aylisproj --installer` (ou Publicar na IDE do
-  Aylis) gera o instalador em `dist\`, com a versão e as opções do
+- Compilar na IDE do Aylis (ou o `build` do MCP dela) gera o código dos forms,
+  verifica o projeto, compila e põe o `NoOBS.exe` em `runtime\`, de onde ele
+  roda (o `output` do `NoOBS.aylisproj`). Na linha de comando, o mesmo:
+  `aylis-tool build NoOBS.aylisproj --release`.
+- Publicar na IDE do Aylis (ou `aylis-tool publish NoOBS.aylisproj
+  --installer`) gera o instalador em `dist\`, com a versão e as opções do
   `NoOBS.aylisproj` (`publish`).
 
 O `runtime\` precisa das DLLs do FFmpeg (`avcodec-61`, `avformat-61`,
 `avutil-59`, `swscale-8`, `swresample-5`, `libx264-164`, `zlib`, `srt`,
-`librist`); o `build.bat` avisa quando faltam. O instalador leva o exe e as
-DLLs do `runtime\`.
+`librist`). O instalador leva o exe e as DLLs do `runtime\`.
 
 ---
 

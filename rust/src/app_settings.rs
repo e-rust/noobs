@@ -33,7 +33,9 @@ const REPLAY_MB_OPTIONS: [i64; 16] = [512, 1024, 2048, 3072, 4096, 5120, 6144, 7
 const REPLAY_DEFAULT_SEC: i64 = 300;
 const REPLAY_DEFAULT_MB: i64 = 2048;
 const CORNERS: [&str; 4] = ["top-left", "top-right", "bottom-left", "bottom-right"];
-const CODECS: [&str; 6] = ["auto", "h264-hw", "h264-sw", "av1-hw", "av1-sw", "hevc-hw"];
+/// Na ordem do combo: os de hardware juntos e depois os de software (cada grupo com a sua
+/// cabeça na lista, por `codec_groups`).
+const CODECS: [&str; 6] = ["auto", "h264-hw", "hevc-hw", "av1-hw", "h264-sw", "av1-sw"];
 const LIBRARY_MODES: [&str; 3] = ["auto", "always", "off"];
 const TABS: [&str; 11] = ["general", "onrecord", "files", "recording", "audio", "replay", "hotkeys", "devices", "transcribe", "updates", "about"];
 /// O form da aba (o `fraX` que o frame da página mostra); uma aba desconhecida é a Geral.
@@ -418,6 +420,25 @@ fn codec_options() -> Vec<(String, bool)> {
             (text, avail)
         })
         .collect()
+}
+
+/// O grupo de cada codec no combo (`groups`, na ordem de `CODECS`): o automático fica sem.
+fn codec_groups() -> String {
+    let (hw, sw) = (lang::tr("Hardware"), lang::tr("Software"));
+    CODECS
+        .iter()
+        .map(|c| match *c {
+            "auto" => "",
+            c if c.ends_with("-hw") => hw.as_str(),
+            _ => sw.as_str(),
+        })
+        .collect::<Vec<_>>()
+        .join(";")
+}
+
+/// As posições dos codecs que esta máquina não tem (`disabled_items`).
+fn codec_disabled(options: &[(String, bool)]) -> String {
+    options.iter().enumerate().filter(|(_, (_, ok))| !ok).map(|(i, _)| i.to_string()).collect::<Vec<_>>().join(";")
 }
 
 fn fps_hint(v: i32) -> String {
@@ -2425,7 +2446,10 @@ fn load_video(ui: &mut Ui) {
     };
     frm.imgGpu.set_image(ui, logo.unwrap_or(""));
     frm.imgGpu.set_visible(ui, logo.is_some());
-    let labels: Vec<String> = codec_options().into_iter().map(|(t, _)| t).collect();
+    let options = codec_options();
+    let labels: Vec<String> = options.iter().map(|(t, _)| t.clone()).collect();
+    frm.cmbCodec.set_groups(ui, codec_groups());
+    frm.cmbCodec.set_disabled_items(ui, codec_disabled(&options));
     fitems(ui, Some(frm.cmbCodec), &labels, ci);
     let dim = match codec.as_str() {
         "h264-hw" => 4096,

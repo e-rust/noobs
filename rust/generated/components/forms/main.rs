@@ -94,6 +94,8 @@ pub struct FrmMain {
     pub miEmptyPaste: MenuItem,
     pub miEmptySep: MenuItem,
     pub miEmptyUp: MenuItem,
+    pub tmrRipple: FrameTimer,
+    pub tmrCountdown: FrameTimer,
     pub data: super::main::Data,
 }
 
@@ -192,6 +194,8 @@ pub struct FrmMainComponents {
     pub miEmptyPaste: MenuItem,
     pub miEmptySep: MenuItem,
     pub miEmptyUp: MenuItem,
+    pub tmrRipple: FrameTimer,
+    pub tmrCountdown: FrameTimer,
 }
 
 impl std::ops::Deref for FrmMain {
@@ -298,6 +302,8 @@ impl FrmMain {
             miEmptyPaste: MenuItem { id: handles::resolve(ui, root, "miEmptyPaste", "MenuItem", &mut problems) },
             miEmptySep: MenuItem { id: handles::resolve(ui, root, "miEmptySep", "MenuItem", &mut problems) },
             miEmptyUp: MenuItem { id: handles::resolve(ui, root, "miEmptyUp", "MenuItem", &mut problems) },
+            tmrRipple: FrameTimer { id: handles::resolve(ui, root, "tmrRipple", "FrameTimer", &mut problems) },
+            tmrCountdown: FrameTimer { id: handles::resolve(ui, root, "tmrCountdown", "FrameTimer", &mut problems) },
             data: Default::default(),
         };
         if !problems.is_empty() {
@@ -395,6 +401,8 @@ impl FrmMain {
             miEmptyPaste: instance.miEmptyPaste,
             miEmptySep: instance.miEmptySep,
             miEmptyUp: instance.miEmptyUp,
+            tmrRipple: instance.tmrRipple,
+            tmrCountdown: instance.tmrCountdown,
         }));
         Ok(Box::new(instance))
     }
@@ -420,6 +428,10 @@ impl FrmMain {
         if let Err(e) = ui.set_name(root, &name).and_then(|_| ui.set_parent(root, Some(parent))) {
             ui.free(root);
             return Err(e);
+        }
+        // Como o componente Frame: sem `fill` próprio, transparente (G05).
+        if matches!(ui.get_prop(root, "fill"), Ok(aylis::prelude::PropValue::Null)) {
+            let _ = ui.set_prop(root, "fill", aylis::prelude::Color::TRANSPARENT);
         }
         ui.form_components(root).ok_or(aylis::prelude::Error::InvalidId)
     }
@@ -517,6 +529,20 @@ impl FrmMain {
     /// O FlowLayout que disparou o evento (`None` se o `sender` não é um FlowLayout deste form).
     pub fn sender_as_flow_layout(&self, ui: &Ui, sender: ComponentId) -> Option<FlowLayout> {
         self.find_flow_layout(ui.name(sender)?)
+    }
+
+    /// O FrameTimer deste form com o nome (`None` se não há um FrameTimer com ele).
+    pub fn find_frame_timer(&self, name: &str) -> Option<FrameTimer> {
+        match name {
+            "tmrRipple" => Some(self.tmrRipple),
+            "tmrCountdown" => Some(self.tmrCountdown),
+            _ => None,
+        }
+    }
+
+    /// O FrameTimer que disparou o evento (`None` se o `sender` não é um FrameTimer deste form).
+    pub fn sender_as_frame_timer(&self, ui: &Ui, sender: ComponentId) -> Option<FrameTimer> {
+        self.find_frame_timer(ui.name(sender)?)
     }
 
     /// O Label deste form com o nome (`None` se não há um Label com ele).

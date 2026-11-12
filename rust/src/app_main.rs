@@ -65,10 +65,21 @@ struct State {
     countdown_sec: u32,
     countdown_end: Option<Instant>,
     countdown_total: f32,
-    countdown_job: Option<u64>,
-    /// A onda vermelha: se o anel e o brilho já subiram para cima de tudo, e o tique.
+    /// A onda vermelha: se o anel e o brilho já subiram para cima de tudo, e a que está
+    /// tocando (anda no `tmrRipple`).
     ripple_raised: bool,
-    ripple_job: Option<u64>,
+    ripple: Option<Ripple>,
+}
+
+/// A onda em andamento: o anel, o brilho, o centro e o raio final, o tempo já mostrado e
+/// se o "já foi vista" ([`RIPPLE_GONE`]) foi avisado.
+#[derive(Clone, Copy)]
+struct Ripple {
+    ring: Circle,
+    glow: Circle,
+    geo: (f32, f32, f32),
+    played: f32,
+    gone: bool,
 }
 
 thread_local! {
@@ -764,9 +775,6 @@ pub fn start_ripple(ui: &mut Ui) {
     let Some(f) = ui.bounds(form) else { return };
     let (cx, cy) = (b.x + b.width / 2.0, b.y + b.height / 2.0);
     let max_r = (cx.max(f.width - cx).powi(2) + cy.max(f.height - cy).powi(2)).sqrt();
-    if let Some(job) = with(|s| s.ripple_job.take()) {
-        ui.clear_timeout(job);
-    }
     // O anel e o brilho: círculos só de contorno e sem clique, no form (`cirRipple`,
     // `cirRippleGlow`). Na 1ª onda vão para o fim da lista do form, por cima de tudo,
     // inclusive das telas que entram nele depois (Configurações, seletor...).
@@ -777,45 +785,69 @@ pub fn start_ripple(ui: &mut Ui) {
     }
     // O "minimizar ao gravar" espera a onda sumir (senão a janela some antes dela).
     bridge::recording::ripple_started();
-    let (last, played) = (Instant::now(), 0.0f32);
-    fn step(ui: &mut Ui, ring: Circle, glow: Circle, (cx, cy, max_r): (f32, f32, f32), e: f32) {
-        let s = e * (max_r / 94.0 + 1.0);
-        for (c, w) in [(ring, 4.0 * s), (glow, 24.0 * s)] {
-            let r = 98.0 * s;
-            c.set_stroke_width(ui, w.max(0.5) as f64);
-            c.set_opacity(ui, (1.0 - e) as f64);
-            if let Some(cb) = ui.control_mut(c.id) {
-                cb.set_rect(cx - r, cy - r, 2.0 * r, 2.0 * r).set_visible(s > 0.0);
-            }
+    let r = Ripple { ring, glow, geo: (cx, cy, max_r), played: 0.0, gone: false };
+    ripple_draw(ui, &r, 0.0);
+    with(|s| s.ripple = Some(r));
+    // Cada quadro do monitor anda a onda ([`ripple_frame`]).
+    frm.tmrRipple.set_enabled(ui, true);
+}
+
+fn ripple_draw(ui: &mut Ui, r: &Ripple, e: f32) {
+    let (cx, cy, max_r) = r.geo;
+    let s = e * (max_r / 94.0 + 1.0);
+    for (c, w) in [(r.ring, 4.0 * s), (r.glow, 24.0 * s)] {
+        let rad = 98.0 * s;
+        c.set_stroke_width(ui, w.max(0.5) as f64);
+        c.set_opacity(ui, (1.0 - e) as f64);
+        if let Some(cb) = ui.control_mut(c.id) {
+            cb.set_rect(cx - rad, cy - rad, 2.0 * rad, 2.0 * rad).set_visible(s > 0.0);
         }
     }
-    let geo = (cx, cy, max_r);
-    step(ui, ring, glow, geo, 0.0);
-    fn tick(ui: &mut Ui, ring: Circle, glow: Circle, geo: (f32, f32, f32), mut last: Instant, mut played: f32, mut gone: bool) {
-        let now = Instant::now();
-        played += now.duration_since(last).as_secs_f32().min(0.05);
-        last = now;
-        let k = (played / RIPPLE_SECS).min(1.0);
-        let e = cubic_bezier(0.16, 1.0, 0.3, 1.0, k);
-        // A curva desacelera: o efeito já foi visto bem antes do fim do tempo
-        // ([`RIPPLE_GONE`]). É aí que a janela pode ir para a bandeja.
-        if !gone && (e >= RIPPLE_GONE || k >= 1.0) {
-            gone = true;
-            bridge::recording::ripple_finished();
+}
+
+/// Um quadro da onda (`tmrRipple`), `dt` segundos depois do anterior.
+pub fn ripple_frame(ui: &mut Ui, dt: f64) {
+    let Some(mut r) = with(|s| s.ripple) else {
+        if let Some(frm) = FrmMain::components(ui) {
+            frm.tmrRipple.set_enabled(ui, false);
         }
-        if k >= 1.0 {
-            for c in [ring, glow] {
-                c.set_visible(ui, false);
-            }
-            with(|s| s.ripple_job = None);
-            return;
-        }
-        step(ui, ring, glow, geo, e);
-        let job = ui.set_timeout(16, move |ui| tick(ui, ring, glow, geo, last, played, gone));
-        with(|s| s.ripple_job = Some(job));
+        return;
+    };
+    r.played += (dt as f32).min(0.05);
+    let k = (r.played / RIPPLE_SECS).min(1.0);
+    let e = cubic_bezier(0.16, 1.0, 0.3, 1.0, k);
+    // A curva desacelera: o efeito já foi visto bem antes do fim do tempo
+    // ([`RIPPLE_GONE`]). É aí que a janela pode ir para a bandeja.
+    if !r.gone && (e >= RIPPLE_GONE || k >= 1.0) {
+        r.gone = true;
+        with(|s| s.ripple = Some(r));
+        bridge::recording::ripple_finished();
     }
-    let job = ui.set_timeout(16, move |ui| tick(ui, ring, glow, geo, last, played, false));
-    with(|s| s.ripple_job = Some(job));
+    if k >= 1.0 {
+        end_ripple(ui);
+        return;
+    }
+    ripple_draw(ui, &r, e);
+    with(|s| {
+        if s.ripple.is_some() {
+            s.ripple = Some(r);
+        }
+    });
+}
+
+/// Para a onda e esconde o anel. Também quando a janela some (bandeja ou minimizada):
+/// escondida, ela não desenha quadros, e a onda pararia no meio até a janela voltar.
+pub fn end_ripple(ui: &mut Ui) {
+    let Some(r) = with(|s| s.ripple.take()) else { return };
+    for c in [r.ring, r.glow] {
+        c.set_visible(ui, false);
+    }
+    if let Some(frm) = FrmMain::components(ui) {
+        frm.tmrRipple.set_enabled(ui, false);
+    }
+    if !r.gone {
+        bridge::recording::ripple_finished();
+    }
 }
 
 /// "Capturar...": o seletor (gravando, não abre).
@@ -842,13 +874,9 @@ pub fn on_record_countdown(sec: u32, total: u32) {
     with_ui(move |ui| {
         let prev = with(|s| std::mem::replace(&mut s.countdown_sec, sec));
         if sec == 0 {
-            if let Some(job) = with(|s| {
-                s.countdown_end = None;
-                s.countdown_job.take()
-            }) {
-                ui.clear_timeout(job);
-            }
+            with(|s| s.countdown_end = None);
             if let Some(frm) = FrmMain::components(ui) {
+                frm.tmrCountdown.set_enabled(ui, false);
                 frm.btnRecord.set_countdown(ui, 0i64);
             }
             render_recording(ui);
@@ -866,25 +894,25 @@ pub fn on_record_countdown(sec: u32, total: u32) {
             frm.btnRecord.set_countdown(ui, sec as i64);
         }
         render_recording(ui);
-        if with(|s| s.countdown_job.is_none()) {
-            tick_countdown(ui);
+        countdown_frame(ui);
+        if let Some(frm) = FrmMain::components(ui) {
+            if !frm.tmrCountdown.enabled(ui) {
+                frm.tmrCountdown.set_enabled(ui, true);
+            }
         }
     });
 }
 
-/// O anel da contagem esvazia a cada quadro.
-fn tick_countdown(ui: &mut Ui) {
+/// O anel da contagem esvazia a cada quadro do monitor (`tmrCountdown`).
+pub fn countdown_frame(ui: &mut Ui) {
+    let Some(frm) = FrmMain::components(ui) else { return };
     let (end, total) = with(|s| (s.countdown_end, s.countdown_total));
     let Some(end) = end else {
-        with(|s| s.countdown_job = None);
+        frm.tmrCountdown.set_enabled(ui, false);
         return;
     };
     let left = end.saturating_duration_since(Instant::now()).as_secs_f32();
-    if let Some(frm) = FrmMain::components(ui) {
-        frm.btnRecord.set_countdown_fraction(ui, if total > 0.0 { f64::from(left / total) } else { 0.0 });
-    }
-    let job = ui.set_timeout(16, tick_countdown);
-    with(|s| s.countdown_job = Some(job));
+    frm.btnRecord.set_countdown_fraction(ui, if total > 0.0 { f64::from(left / total) } else { 0.0 });
 }
 
 // ---------------------------------------------------------------------------

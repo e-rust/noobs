@@ -30,6 +30,18 @@ impl TabControl {
     pub fn set_transition(self, ui: &mut Ui, value: impl Into<String>) {
         handles::write(ui, self.id, "transition", Into::<String>::into(value))
     }
+    pub fn tab_position(self, ui: &Ui) -> String {
+        handles::text(ui, handles::read(ui, self.id, "tab_position"))
+    }
+    pub fn set_tab_position(self, ui: &mut Ui, value: impl Into<String>) {
+        handles::write(ui, self.id, "tab_position", Into::<String>::into(value))
+    }
+    pub fn tab_width(self, ui: &Ui) -> f64 {
+        handles::read(ui, self.id, "tab_width").and_then(|v| v.to_f64().ok()).unwrap_or_default()
+    }
+    pub fn set_tab_width(self, ui: &mut Ui, value: f64) {
+        handles::write(ui, self.id, "tab_width", value)
+    }
     pub fn left(self, ui: &Ui) -> f64 {
         handles::read(ui, self.id, "left").and_then(|v| v.to_f64().ok()).unwrap_or_default()
     }

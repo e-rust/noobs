@@ -75,6 +75,7 @@ pub struct FrmPlayer {
     pub btnSpeed8: Button,
     pub btnSpeed16: Button,
     pub btnSpeed32: Button,
+    pub tmrFlash: FrameTimer,
     pub data: super::player::Data,
 }
 
@@ -154,6 +155,7 @@ pub struct FrmPlayerComponents {
     pub btnSpeed8: Button,
     pub btnSpeed16: Button,
     pub btnSpeed32: Button,
+    pub tmrFlash: FrameTimer,
 }
 
 impl std::ops::Deref for FrmPlayer {
@@ -241,6 +243,7 @@ impl FrmPlayer {
             btnSpeed8: Button { id: handles::resolve(ui, root, "btnSpeed8", "Button", &mut problems) },
             btnSpeed16: Button { id: handles::resolve(ui, root, "btnSpeed16", "Button", &mut problems) },
             btnSpeed32: Button { id: handles::resolve(ui, root, "btnSpeed32", "Button", &mut problems) },
+            tmrFlash: FrameTimer { id: handles::resolve(ui, root, "tmrFlash", "FrameTimer", &mut problems) },
             data: Default::default(),
         };
         if !problems.is_empty() {
@@ -319,6 +322,7 @@ impl FrmPlayer {
             btnSpeed8: instance.btnSpeed8,
             btnSpeed16: instance.btnSpeed16,
             btnSpeed32: instance.btnSpeed32,
+            tmrFlash: instance.tmrFlash,
         }));
         Ok(Box::new(instance))
     }
@@ -344,6 +348,10 @@ impl FrmPlayer {
         if let Err(e) = ui.set_name(root, &name).and_then(|_| ui.set_parent(root, Some(parent))) {
             ui.free(root);
             return Err(e);
+        }
+        // Como o componente Frame: sem `fill` próprio, transparente (G05).
+        if matches!(ui.get_prop(root, "fill"), Ok(aylis::prelude::PropValue::Null)) {
+            let _ = ui.set_prop(root, "fill", aylis::prelude::Color::TRANSPARENT);
         }
         ui.form_components(root).ok_or(aylis::prelude::Error::InvalidId)
     }
@@ -431,6 +439,19 @@ impl FrmPlayer {
     /// O Edit que disparou o evento (`None` se o `sender` não é um Edit deste form).
     pub fn sender_as_edit(&self, ui: &Ui, sender: ComponentId) -> Option<Edit> {
         self.find_edit(ui.name(sender)?)
+    }
+
+    /// O FrameTimer deste form com o nome (`None` se não há um FrameTimer com ele).
+    pub fn find_frame_timer(&self, name: &str) -> Option<FrameTimer> {
+        match name {
+            "tmrFlash" => Some(self.tmrFlash),
+            _ => None,
+        }
+    }
+
+    /// O FrameTimer que disparou o evento (`None` se o `sender` não é um FrameTimer deste form).
+    pub fn sender_as_frame_timer(&self, ui: &Ui, sender: ComponentId) -> Option<FrameTimer> {
+        self.find_frame_timer(ui.name(sender)?)
     }
 
     /// O FrameView deste form com o nome (`None` se não há um FrameView com ele).

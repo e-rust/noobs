@@ -106,8 +106,6 @@
     "frmMain.capture_click": 2,
     "frmMain.close_query": 1,
     "frmMain.display_change": 1,
-    "frmMain.export_close": 1,
-    "frmMain.export_resize": 1,
     "frmMain.library_background": 1,
     "frmMain.library_crumb": 1,
     "frmMain.library_delete": 1,
@@ -119,35 +117,15 @@
     "frmMain.library_resize": 1,
     "frmMain.library_search": 2,
     "frmMain.library_trash_drop": 1,
+    "frmMain.main_countdown_frame": 1,
+    "frmMain.main_ripple_frame": 1,
+    "frmMain.main_window_created": 1,
     "frmMain.pause_click": 1,
-    "frmMain.picker_audio": 1,
-    "frmMain.picker_close": 1,
-    "frmMain.picker_mode": 1,
-    "frmMain.picker_refresh": 1,
-    "frmMain.picker_search": 1,
-    "frmMain.picker_select_area": 1,
-    "frmMain.picker_timelapse": 1,
-    "frmMain.picker_timelapse_cursor": 1,
-    "frmMain.player_captions": 1,
-    "frmMain.player_close": 1,
-    "frmMain.player_fullscreen": 1,
-    "frmMain.player_info": 1,
-    "frmMain.player_mute": 1,
-    "frmMain.player_play": 1,
-    "frmMain.player_seek": 1,
-    "frmMain.player_side_close": 1,
-    "frmMain.player_speed": 1,
-    "frmMain.player_stage_resize": 1,
-    "frmMain.player_tr_search": 1,
-    "frmMain.player_transcript": 1,
-    "frmMain.player_volume": 1,
     "frmMain.record_click": 1,
     "frmMain.replay_click": 1,
     "frmMain.replay_save_click": 1,
     "frmMain.replay_switch": 2,
     "frmMain.settings_click": 2,
-    "frmMain.settings_close": 1,
-    "frmMain.settings_resize": 1,
     "frmMain.update_close": 1,
     "frmMain.update_open": 1,
     "frmPicker.picker_audio": 2,
@@ -160,6 +138,7 @@
     "frmPicker.picker_timelapse_cursor": 2,
     "frmPlayer.player_captions": 1,
     "frmPlayer.player_close": 1,
+    "frmPlayer.player_flash_frame": 1,
     "frmPlayer.player_fullscreen": 1,
     "frmPlayer.player_info": 1,
     "frmPlayer.player_mute": 1,
@@ -311,6 +290,7 @@
         "frmMain/btnUpdOpen.on_click": "update_open",
         "frmMain/edLibSearch.on_change": "library_search",
         "frmMain/frmMain.on_close_query": "close_query",
+        "frmMain/frmMain.on_window_created": "main_window_created",
         "frmMain/lyLibContent.on_pointer_up": "library_background",
         "frmMain/lyLibrary.on_pointer_up": "library_background",
         "frmMain/lyLibrary.on_resize": "library_resize",
@@ -329,6 +309,8 @@
         "frmMain/pnlReplay.on_click": "replay_click",
         "frmMain/scrDisplays.on_change": "display_change",
         "frmMain/swReplay.on_change": "replay_switch",
+        "frmMain/tmrCountdown.on_frame": "main_countdown_frame",
+        "frmMain/tmrRipple.on_frame": "main_ripple_frame",
         "frmPicker/btnPickerClose.on_click": "picker_close",
         "frmPicker/btnPickerRefresh.on_click": "picker_refresh",
         "frmPicker/btnSelectArea.on_click": "picker_select_area",
@@ -351,6 +333,7 @@
         "frmPlayer/pnlCcCaptions.on_click": "player_captions",
         "frmPlayer/pnlCcTranscript.on_click": "player_transcript",
         "frmPlayer/scrPlayerSide.on_scroll": "player_side_scroll",
+        "frmPlayer/tmrFlash.on_frame": "player_flash_frame",
         "frmPlayer/trkVolume.on_change": "player_volume",
         "frmPlayer/wavPlayer.on_seek": "player_seek",
         "frmSettings/btnSetBack.on_click": "settings_close",
@@ -369,703 +352,619 @@
       },
       "handlers": {
         "fraAbout.about_repository": {
-          "hash": "91b97c2035d59b65",
+          "hash": "v2:91b97c2035d59b65",
           "seen": 1
         },
         "fraAudio.audio_bitrate": {
-          "hash": "d2287c54019b312f",
+          "hash": "v2:d2287c54019b312f",
           "seen": 2
         },
         "fraAudio.audio_mute_when_muted": {
-          "hash": "b22b1366cf8b6457",
+          "hash": "v2:b22b1366cf8b6457",
           "seen": 2
         },
         "fraFiles.files_browse": {
-          "hash": "8966e570391b1a5a",
+          "hash": "v2:8966e570391b1a5a",
           "seen": 2
         },
         "fraFiles.files_filename": {
-          "hash": "9e57b99675874bd7",
+          "hash": "v2:9e57b99675874bd7",
           "seen": 2
         },
         "fraFiles.files_filename_edit": {
-          "hash": "12f8692585708037",
+          "hash": "v2:12f8692585708037",
           "seen": 2
         },
         "fraFiles.files_library": {
-          "hash": "7da56cf0e3f4b29a",
+          "hash": "v2:7da56cf0e3f4b29a",
           "seen": 2
         },
         "fraFiles.files_record_dir": {
-          "hash": "d0afc68a3293e878",
+          "hash": "v2:d0afc68a3293e878",
           "seen": 2
         },
         "fraGeneral.general_autostart": {
-          "hash": "eac85d4eadb8864f",
+          "hash": "v2:eac85d4eadb8864f",
           "seen": 2
         },
         "fraGeneral.general_close_to_tray": {
-          "hash": "f2c2cee3e633f48d",
+          "hash": "v2:f2c2cee3e633f48d",
           "seen": 2
         },
         "fraGeneral.general_hibernate": {
-          "hash": "ac1b76698b4529d7",
+          "hash": "v2:ac1b76698b4529d7",
           "seen": 2
         },
         "fraGeneral.general_language": {
-          "hash": "23a862e71de35a85",
+          "hash": "v2:23a862e71de35a85",
           "seen": 2
         },
         "fraGeneral.general_reset": {
-          "hash": "267492a202481810",
+          "hash": "v2:267492a202481810",
           "seen": 2
         },
         "fraGeneral.general_run_as_admin": {
-          "hash": "3bef18350edef261",
+          "hash": "v2:3bef18350edef261",
           "seen": 2
         },
         "fraGeneral.general_theme": {
-          "hash": "d50538d92df97723",
+          "hash": "v2:d50538d92df97723",
           "seen": 2
         },
         "fraGeneral.general_window_title": {
-          "hash": "eb2c4357d1767e7f",
+          "hash": "v2:eb2c4357d1767e7f",
           "seen": 2
         },
         "fraHotkeys.hotkeys_add": {
-          "hash": "ab67cb0c615afbe4",
+          "hash": "v2:ab67cb0c615afbe4",
           "seen": 1
         },
         "fraOnRecord.onrecord_auto_apps": {
-          "hash": "7ffc1be4e6dbb802",
+          "hash": "v2:7ffc1be4e6dbb802",
           "seen": 2
         },
         "fraOnRecord.onrecord_auto_except": {
-          "hash": "b8256b8eae26bdbd",
+          "hash": "v2:b8256b8eae26bdbd",
           "seen": 2
         },
         "fraOnRecord.onrecord_auto_record": {
-          "hash": "4d2076d2202bdae3",
+          "hash": "v2:4d2076d2202bdae3",
           "seen": 3
         },
         "fraOnRecord.onrecord_fullscreen": {
-          "hash": "aedc4823182e3026",
+          "hash": "v2:aedc4823182e3026",
           "seen": 3
         },
         "fraOnRecord.onrecord_minimize": {
-          "hash": "8e14c4304e7db821",
+          "hash": "v2:8e14c4304e7db821",
           "seen": 3
         },
         "fraOnRecord.onrecord_play_sound": {
-          "hash": "91b04e42719c97eb",
+          "hash": "v2:91b04e42719c97eb",
           "seen": 3
         },
         "fraOnRecord.onrecord_rec_clickable": {
-          "hash": "db9f766dd6b015f8",
+          "hash": "v2:db9f766dd6b015f8",
           "seen": 3
         },
         "fraOnRecord.onrecord_rec_corner": {
-          "hash": "ebd7f56711164a22",
+          "hash": "v2:ebd7f56711164a22",
           "seen": 2
         },
         "fraOnRecord.onrecord_rec_indicator": {
-          "hash": "e0cecd54708f22d9",
+          "hash": "v2:e0cecd54708f22d9",
           "seen": 3
         },
         "fraOnRecord.onrecord_rec_opacity": {
-          "hash": "3cda07cc91d38250",
+          "hash": "v2:3cda07cc91d38250",
           "seen": 2
         },
         "fraOnRecord.onrecord_stop_on_lock": {
-          "hash": "58572613576e4ad5",
+          "hash": "v2:58572613576e4ad5",
           "seen": 3
         },
         "fraReplay.replay_apps": {
-          "hash": "ca6e8a7bce70fea6",
+          "hash": "v2:ca6e8a7bce70fea6",
           "seen": 2
         },
         "fraReplay.replay_apps_edit": {
-          "hash": "4dafdd1642c21606",
+          "hash": "v2:4dafdd1642c21606",
           "seen": 2
         },
         "fraReplay.replay_auto_start": {
-          "hash": "acc6ac971d5c592a",
+          "hash": "v2:acc6ac971d5c592a",
           "seen": 3
         },
         "fraReplay.replay_clickable": {
-          "hash": "6800b90b09a26a77",
+          "hash": "v2:6800b90b09a26a77",
           "seen": 3
         },
         "fraReplay.replay_corner": {
-          "hash": "4d5aecad952d1c11",
+          "hash": "v2:4d5aecad952d1c11",
           "seen": 2
         },
         "fraReplay.replay_indicator": {
-          "hash": "946817113c23714e",
+          "hash": "v2:946817113c23714e",
           "seen": 3
         },
         "fraReplay.replay_into_recording": {
-          "hash": "9589a5d7fdc3ed06",
+          "hash": "v2:9589a5d7fdc3ed06",
           "seen": 3
         },
         "fraReplay.replay_memory": {
-          "hash": "e88235430f93d11a",
+          "hash": "v2:e88235430f93d11a",
           "seen": 2
         },
         "fraReplay.replay_opacity": {
-          "hash": "d46290ec1c68f071",
+          "hash": "v2:d46290ec1c68f071",
           "seen": 2
         },
         "fraReplay.replay_seconds": {
-          "hash": "e88235430f93d11a",
+          "hash": "v2:e88235430f93d11a",
           "seen": 2
         },
         "fraTranscribe.transcribe_cancel": {
-          "hash": "0ffd3686375a1ea2",
+          "hash": "v2:0ffd3686375a1ea2",
           "seen": 2
         },
         "fraTranscribe.transcribe_engine": {
-          "hash": "be42020b412a76ea",
+          "hash": "v2:be42020b412a76ea",
           "seen": 2
         },
         "fraTranscribe.transcribe_language": {
-          "hash": "300f5f5abb80b9c2",
+          "hash": "v2:300f5f5abb80b9c2",
           "seen": 2
         },
         "fraTranscribe.transcribe_on_stop": {
-          "hash": "b8015d9cdd34cb33",
+          "hash": "v2:b8015d9cdd34cb33",
           "seen": 2
         },
         "fraTranscribe.transcribe_pending": {
-          "hash": "699b12cde9f7429b",
+          "hash": "v2:699b12cde9f7429b",
           "seen": 2
         },
         "fraUpdates.updates_auto": {
-          "hash": "bec730ed6b341fb4",
+          "hash": "v2:bec730ed6b341fb4",
           "seen": 2
         },
         "fraUpdates.updates_check_now": {
-          "hash": "ff0bf0b5497ef3d6",
+          "hash": "v2:ff0bf0b5497ef3d6",
           "seen": 2
         },
         "fraUpdates.updates_open_page": {
-          "hash": "71b0e24477927713",
+          "hash": "v2:71b0e24477927713",
           "seen": 2
         },
         "fraVideo.video_codec": {
-          "hash": "923076f60c17e408",
+          "hash": "v2:923076f60c17e408",
           "seen": 2
         },
         "fraVideo.video_fps": {
-          "hash": "a534490b1b722244",
+          "hash": "v2:a534490b1b722244",
           "seen": 2
         },
         "fraVideo.video_keyframe": {
-          "hash": "79c37713e233d0e4",
+          "hash": "v2:79c37713e233d0e4",
           "seen": 2
         },
         "fraVideo.video_quality": {
-          "hash": "56d4c2b2cd7ff570",
+          "hash": "v2:56d4c2b2cd7ff570",
           "seen": 2
         },
         "fraVideo.video_stage_down": {
-          "hash": "cdbfefcc53dad4b8",
+          "hash": "v2:cdbfefcc53dad4b8",
           "seen": 1
         },
         "fraVideo.video_stage_move": {
-          "hash": "60f0da51d61da609",
+          "hash": "v2:60f0da51d61da609",
           "seen": 1
         },
         "fraVideo.video_stage_up": {
-          "hash": "1cbccd5737c706d2",
+          "hash": "v2:1cbccd5737c706d2",
           "seen": 1
         },
         "fraVideo.video_test_cancel": {
-          "hash": "0d13f261f8ed25e1",
+          "hash": "v2:0d13f261f8ed25e1",
           "seen": 1
         },
         "fraVideo.video_test_run": {
-          "hash": "e0cc0d5fb17e81dc",
+          "hash": "v2:e0cc0d5fb17e81dc",
           "seen": 1
         },
         "fraVideo.video_test_swap": {
-          "hash": "18a57aa803f59000",
+          "hash": "v2:18a57aa803f59000",
           "seen": 1
         },
         "fraVideo.video_test_use": {
-          "hash": "0bc28dff67555076",
+          "hash": "v2:0bc28dff67555076",
           "seen": 1
         },
         "fraVideo.video_test_zoom": {
-          "hash": "e94c67e7afedefc4",
+          "hash": "v2:e94c67e7afedefc4",
           "seen": 1
         },
         "frmExport.export_burn": {
-          "hash": "2070c8093df17693",
+          "hash": "v2:2070c8093df17693",
           "seen": 1
         },
         "frmExport.export_cc": {
-          "hash": "b2125fdce3200183",
+          "hash": "v2:b2125fdce3200183",
           "seen": 1
         },
         "frmExport.export_close": {
-          "hash": "fdb65d7eff38ea5c",
+          "hash": "v2:fdb65d7eff38ea5c",
           "seen": 1
         },
         "frmExport.export_cont": {
-          "hash": "c31fdd5cb6eeb930",
+          "hash": "v2:c31fdd5cb6eeb930",
           "seen": 1
         },
         "frmExport.export_crop_change": {
-          "hash": "90a62dc39cd4f955",
+          "hash": "v2:90a62dc39cd4f955",
           "seen": 1
         },
         "frmExport.export_crop_end": {
-          "hash": "7b6d979c44bede76",
+          "hash": "v2:7b6d979c44bede76",
           "seen": 1
         },
         "frmExport.export_crop_reset": {
-          "hash": "6de094b7bd933964",
+          "hash": "v2:6de094b7bd933964",
           "seen": 1
         },
         "frmExport.export_crop_zoom_in": {
-          "hash": "d42b74c28263df73",
+          "hash": "v2:d42b74c28263df73",
           "seen": 1
         },
         "frmExport.export_crop_zoom_out": {
-          "hash": "893e53ef94e8d555",
+          "hash": "v2:893e53ef94e8d555",
           "seen": 1
         },
         "frmExport.export_crop_zoom_reset": {
-          "hash": "0fd8dc8bfd7e52de",
+          "hash": "v2:0fd8dc8bfd7e52de",
           "seen": 1
         },
         "frmExport.export_cut": {
-          "hash": "9fcc91da2273d737",
+          "hash": "v2:9fcc91da2273d737",
           "seen": 1
         },
         "frmExport.export_enc": {
-          "hash": "4e2cd75ca2921098",
+          "hash": "v2:4e2cd75ca2921098",
           "seen": 1
         },
         "frmExport.export_fps": {
-          "hash": "ae0ce97e9c114840",
+          "hash": "v2:ae0ce97e9c114840",
           "seen": 1
         },
         "frmExport.export_mix": {
-          "hash": "5d3dc578ebc8dcfe",
+          "hash": "v2:5d3dc578ebc8dcfe",
           "seen": 1
         },
         "frmExport.export_mute": {
-          "hash": "e345817802d53e72",
+          "hash": "v2:e345817802d53e72",
           "seen": 1
         },
         "frmExport.export_orig": {
-          "hash": "cbad83b095a1ab9f",
+          "hash": "v2:cbad83b095a1ab9f",
           "seen": 1
         },
         "frmExport.export_play": {
-          "hash": "e2affd147742cb43",
+          "hash": "v2:e2affd147742cb43",
           "seen": 1
         },
         "frmExport.export_preview": {
-          "hash": "e34e500f394d32af",
+          "hash": "v2:e34e500f394d32af",
           "seen": 1
         },
         "frmExport.export_prevsec": {
-          "hash": "b042be10c7048e04",
+          "hash": "v2:b042be10c7048e04",
           "seen": 1
         },
         "frmExport.export_quality": {
-          "hash": "218e572de91e8c7c",
+          "hash": "v2:218e572de91e8c7c",
           "seen": 1
         },
         "frmExport.export_res": {
-          "hash": "20bcacbfa747d520",
+          "hash": "v2:20bcacbfa747d520",
           "seen": 1
         },
         "frmExport.export_resize": {
-          "hash": "8ecf3c342ee13b54",
+          "hash": "v2:8ecf3c342ee13b54",
           "seen": 1
         },
         "frmExport.export_run": {
-          "hash": "5cfa8c43143228f8",
+          "hash": "v2:5cfa8c43143228f8",
           "seen": 1
         },
         "frmExport.export_sb_down": {
-          "hash": "a4110de63ca8dffe",
+          "hash": "v2:a4110de63ca8dffe",
           "seen": 1
         },
         "frmExport.export_sb_move": {
-          "hash": "fdaf0b8e83183619",
+          "hash": "v2:fdaf0b8e83183619",
           "seen": 1
         },
         "frmExport.export_sb_up": {
-          "hash": "671a819923b4de3d",
+          "hash": "v2:671a819923b4de3d",
           "seen": 1
         },
         "frmExport.export_scale": {
-          "hash": "1ac7e527ddc448f0",
+          "hash": "v2:1ac7e527ddc448f0",
           "seen": 1
         },
         "frmExport.export_speed_change": {
-          "hash": "86ed24f1ed2aa024",
+          "hash": "v2:86ed24f1ed2aa024",
           "seen": 1
         },
         "frmExport.export_speed_exit": {
-          "hash": "2976f0a9632d8a7d",
+          "hash": "v2:2976f0a9632d8a7d",
           "seen": 1
         },
         "frmExport.export_speed_key": {
-          "hash": "ca88e894534fad3b",
+          "hash": "v2:ca88e894534fad3b",
           "seen": 2
         },
         "frmExport.export_stage_down": {
-          "hash": "1a4d7b3c42b61dab",
+          "hash": "v2:1a4d7b3c42b61dab",
           "seen": 1
         },
         "frmExport.export_stage_move": {
-          "hash": "29de9c1bc9ee8efa",
+          "hash": "v2:29de9c1bc9ee8efa",
           "seen": 1
         },
         "frmExport.export_stage_up": {
-          "hash": "0789441da29ee321",
+          "hash": "v2:0789441da29ee321",
           "seen": 1
         },
         "frmExport.export_stage_wheel": {
-          "hash": "72e692d821e7702f",
+          "hash": "v2:72e692d821e7702f",
           "seen": 1
         },
         "frmExport.export_time_exit": {
-          "hash": "51b6450334e8d279",
+          "hash": "v2:51b6450334e8d279",
           "seen": 1
         },
         "frmExport.export_time_key": {
-          "hash": "fbf8866bb526b819",
+          "hash": "v2:fbf8866bb526b819",
           "seen": 2
         },
         "frmExport.export_tl_down": {
-          "hash": "9dd87afb43ecd787",
+          "hash": "v2:9dd87afb43ecd787",
           "seen": 1
         },
         "frmExport.export_tl_move": {
-          "hash": "8139d30f83061a08",
+          "hash": "v2:8139d30f83061a08",
           "seen": 1
         },
         "frmExport.export_tl_up": {
-          "hash": "ed40db29b5aecc28",
+          "hash": "v2:ed40db29b5aecc28",
           "seen": 1
         },
         "frmExport.export_tl_wheel": {
-          "hash": "d84bf1f78a8eb1ae",
+          "hash": "v2:d84bf1f78a8eb1ae",
           "seen": 1
         },
         "frmExport.export_tl_zoom_in": {
-          "hash": "0ff981672427ce08",
+          "hash": "v2:0ff981672427ce08",
           "seen": 1
         },
         "frmExport.export_tl_zoom_out": {
-          "hash": "8cf99dcb1c4eb7cf",
+          "hash": "v2:8cf99dcb1c4eb7cf",
           "seen": 1
         },
         "frmExport.export_toggle": {
-          "hash": "f6432eb420c9bf42",
+          "hash": "v2:f6432eb420c9bf42",
           "seen": 1
         },
         "frmExport.export_uncut": {
-          "hash": "1f0c0f47253fc1af",
+          "hash": "v2:1f0c0f47253fc1af",
           "seen": 1
         },
         "frmExport.export_volume": {
-          "hash": "d73d6621cf6f79fc",
+          "hash": "v2:d73d6621cf6f79fc",
           "seen": 1
         },
         "frmMain.capture_click": {
-          "hash": "5e2bdc9e2a5da238",
+          "hash": "v2:5e2bdc9e2a5da238",
           "seen": 2
         },
         "frmMain.close_query": {
-          "hash": "dac8061b1618a5eb",
+          "hash": "v2:dac8061b1618a5eb",
           "seen": 1
         },
         "frmMain.display_change": {
-          "hash": "16b05fedd99a72ea",
-          "seen": 1
-        },
-        "frmMain.export_close": {
-          "hash": "fdb65d7eff38ea5c",
-          "seen": 1
-        },
-        "frmMain.export_resize": {
-          "hash": "8ecf3c342ee13b54",
+          "hash": "v2:16b05fedd99a72ea",
           "seen": 1
         },
         "frmMain.library_background": {
-          "hash": "1b88962adc1d67f8",
+          "hash": "v2:1b88962adc1d67f8",
           "seen": 1
         },
         "frmMain.library_crumb": {
-          "hash": "f90918603ec51fe8",
+          "hash": "v2:f90918603ec51fe8",
           "seen": 1
         },
         "frmMain.library_delete": {
-          "hash": "00d642ec690b76a5",
+          "hash": "v2:00d642ec690b76a5",
           "seen": 1
         },
         "frmMain.library_export": {
-          "hash": "3971159c0ac8bdc0",
+          "hash": "v2:3971159c0ac8bdc0",
           "seen": 1
         },
         "frmMain.library_menu": {
-          "hash": "02c5f459452b6198",
+          "hash": "v2:02c5f459452b6198",
           "seen": 1
         },
         "frmMain.library_merge": {
-          "hash": "3088f9b2f23f59fe",
+          "hash": "v2:3088f9b2f23f59fe",
           "seen": 1
         },
         "frmMain.library_new_folder": {
-          "hash": "96e0372a1b05dc8f",
+          "hash": "v2:96e0372a1b05dc8f",
           "seen": 1
         },
         "frmMain.library_open_dir": {
-          "hash": "29224a76a65a7df3",
+          "hash": "v2:29224a76a65a7df3",
           "seen": 1
         },
         "frmMain.library_resize": {
-          "hash": "73e90264f879e3fa",
+          "hash": "v2:73e90264f879e3fa",
           "seen": 1
         },
         "frmMain.library_search": {
-          "hash": "6addc7c70de1ffe3",
+          "hash": "v2:6addc7c70de1ffe3",
           "seen": 2
         },
         "frmMain.library_trash_drop": {
-          "hash": "d19ddad7ae99885b",
+          "hash": "v2:d19ddad7ae99885b",
+          "seen": 1
+        },
+        "frmMain.main_countdown_frame": {
+          "hash": "v2:098afbe8995fec3c",
+          "seen": 1
+        },
+        "frmMain.main_ripple_frame": {
+          "hash": "v2:65bb7511f88f7057",
+          "seen": 1
+        },
+        "frmMain.main_window_created": {
+          "hash": "v2:fc4cfcf0c1b04153",
           "seen": 1
         },
         "frmMain.pause_click": {
-          "hash": "e474d6610f3030c4",
-          "seen": 1
-        },
-        "frmMain.picker_audio": {
-          "hash": "b003f5245f7b2b45",
-          "seen": 1
-        },
-        "frmMain.picker_close": {
-          "hash": "bd466bb31dd45918",
-          "seen": 1
-        },
-        "frmMain.picker_mode": {
-          "hash": "26aacdbb477e7228",
-          "seen": 1
-        },
-        "frmMain.picker_refresh": {
-          "hash": "4db610bdaefae07d",
-          "seen": 1
-        },
-        "frmMain.picker_search": {
-          "hash": "47a1007d74d3570f",
-          "seen": 1
-        },
-        "frmMain.picker_select_area": {
-          "hash": "6ea93481205fb91a",
-          "seen": 1
-        },
-        "frmMain.picker_timelapse": {
-          "hash": "6fdc186ab54034d1",
-          "seen": 1
-        },
-        "frmMain.picker_timelapse_cursor": {
-          "hash": "9226b61cea03a6d6",
-          "seen": 1
-        },
-        "frmMain.player_captions": {
-          "hash": "1b91d6455cf660c4",
-          "seen": 1
-        },
-        "frmMain.player_close": {
-          "hash": "6c0d91b96834b90a",
-          "seen": 1
-        },
-        "frmMain.player_fullscreen": {
-          "hash": "67ec24624a1aae1a",
-          "seen": 1
-        },
-        "frmMain.player_info": {
-          "hash": "9146ec43a6bab671",
-          "seen": 1
-        },
-        "frmMain.player_mute": {
-          "hash": "fb5c323c04a4ddce",
-          "seen": 1
-        },
-        "frmMain.player_play": {
-          "hash": "124d1e0cbda988c7",
-          "seen": 1
-        },
-        "frmMain.player_seek": {
-          "hash": "7dc5fb8de09a4fe8",
-          "seen": 1
-        },
-        "frmMain.player_side_close": {
-          "hash": "0436017997fbd5f0",
-          "seen": 1
-        },
-        "frmMain.player_speed": {
-          "hash": "abfa0c4c5e5511c8",
-          "seen": 1
-        },
-        "frmMain.player_stage_resize": {
-          "hash": "284e7f81e06a654d",
-          "seen": 1
-        },
-        "frmMain.player_tr_search": {
-          "hash": "ae5142b3b5717242",
-          "seen": 1
-        },
-        "frmMain.player_transcript": {
-          "hash": "37db6f18f4f551ef",
-          "seen": 1
-        },
-        "frmMain.player_volume": {
-          "hash": "49189d5f3da254c9",
+          "hash": "v2:e474d6610f3030c4",
           "seen": 1
         },
         "frmMain.record_click": {
-          "hash": "bf973dea75636543",
+          "hash": "v2:bf973dea75636543",
           "seen": 1
         },
         "frmMain.replay_click": {
-          "hash": "327cdbe78ea717bb",
+          "hash": "v2:327cdbe78ea717bb",
           "seen": 1
         },
         "frmMain.replay_save_click": {
-          "hash": "878fba6a885510a0",
+          "hash": "v2:878fba6a885510a0",
           "seen": 1
         },
         "frmMain.replay_switch": {
-          "hash": "7924ff426b3919cc",
+          "hash": "v2:7924ff426b3919cc",
           "seen": 2
         },
         "frmMain.settings_click": {
-          "hash": "4389b197a28acad9",
+          "hash": "v2:4389b197a28acad9",
           "seen": 2
         },
-        "frmMain.settings_close": {
-          "hash": "4edf9ad0bf8cad93",
-          "seen": 1
-        },
-        "frmMain.settings_resize": {
-          "hash": "4094af0014d053df",
-          "seen": 1
-        },
         "frmMain.update_close": {
-          "hash": "a96583fd6597c0dc",
+          "hash": "v2:a96583fd6597c0dc",
           "seen": 1
         },
         "frmMain.update_open": {
-          "hash": "b27be4ef384a4947",
+          "hash": "v2:b27be4ef384a4947",
           "seen": 1
         },
         "frmPicker.picker_audio": {
-          "hash": "8aee20c56f6dbb5d",
+          "hash": "v2:8aee20c56f6dbb5d",
           "seen": 2
         },
         "frmPicker.picker_close": {
-          "hash": "bd466bb31dd45918",
+          "hash": "v2:bd466bb31dd45918",
           "seen": 1
         },
         "frmPicker.picker_mode": {
-          "hash": "3027558756bbcc79",
+          "hash": "v2:3027558756bbcc79",
           "seen": 2
         },
         "frmPicker.picker_refresh": {
-          "hash": "4db610bdaefae07d",
+          "hash": "v2:4db610bdaefae07d",
           "seen": 1
         },
         "frmPicker.picker_search": {
-          "hash": "e573f9c94a16c316",
+          "hash": "v2:e573f9c94a16c316",
           "seen": 2
         },
         "frmPicker.picker_select_area": {
-          "hash": "6ea93481205fb91a",
+          "hash": "v2:6ea93481205fb91a",
           "seen": 1
         },
         "frmPicker.picker_timelapse": {
-          "hash": "7bd9a9b96c6d892a",
+          "hash": "v2:7bd9a9b96c6d892a",
           "seen": 2
         },
         "frmPicker.picker_timelapse_cursor": {
-          "hash": "4f9dce5585c0a9d3",
+          "hash": "v2:4f9dce5585c0a9d3",
           "seen": 2
         },
         "frmPlayer.player_captions": {
-          "hash": "1b91d6455cf660c4",
+          "hash": "v2:1b91d6455cf660c4",
           "seen": 1
         },
         "frmPlayer.player_close": {
-          "hash": "6c0d91b96834b90a",
+          "hash": "v2:6c0d91b96834b90a",
+          "seen": 1
+        },
+        "frmPlayer.player_flash_frame": {
+          "hash": "v2:6633394e8514736b",
           "seen": 1
         },
         "frmPlayer.player_fullscreen": {
-          "hash": "67ec24624a1aae1a",
+          "hash": "v2:67ec24624a1aae1a",
           "seen": 1
         },
         "frmPlayer.player_info": {
-          "hash": "9146ec43a6bab671",
+          "hash": "v2:9146ec43a6bab671",
           "seen": 1
         },
         "frmPlayer.player_mute": {
-          "hash": "fb5c323c04a4ddce",
+          "hash": "v2:fb5c323c04a4ddce",
           "seen": 1
         },
         "frmPlayer.player_play": {
-          "hash": "124d1e0cbda988c7",
+          "hash": "v2:124d1e0cbda988c7",
           "seen": 1
         },
         "frmPlayer.player_seek": {
-          "hash": "7dc5fb8de09a4fe8",
+          "hash": "v2:7dc5fb8de09a4fe8",
           "seen": 1
         },
         "frmPlayer.player_side_close": {
-          "hash": "0436017997fbd5f0",
+          "hash": "v2:0436017997fbd5f0",
           "seen": 1
         },
         "frmPlayer.player_side_scroll": {
-          "hash": "66d8da1507132863",
+          "hash": "v2:66d8da1507132863",
           "seen": 1
         },
         "frmPlayer.player_speed": {
-          "hash": "abfa0c4c5e5511c8",
+          "hash": "v2:abfa0c4c5e5511c8",
           "seen": 1
         },
         "frmPlayer.player_stage_resize": {
-          "hash": "284e7f81e06a654d",
+          "hash": "v2:284e7f81e06a654d",
           "seen": 1
         },
         "frmPlayer.player_tr_search": {
-          "hash": "6028e0ed74737b69",
+          "hash": "v2:6028e0ed74737b69",
           "seen": 2
         },
         "frmPlayer.player_transcript": {
-          "hash": "37db6f18f4f551ef",
+          "hash": "v2:37db6f18f4f551ef",
           "seen": 1
         },
         "frmPlayer.player_volume": {
-          "hash": "d9df0ed8b50c1a11",
+          "hash": "v2:d9df0ed8b50c1a11",
           "seen": 2
         },
         "frmSettings.settings_close": {
-          "hash": "4edf9ad0bf8cad93",
+          "hash": "v2:4edf9ad0bf8cad93",
           "seen": 1
         },
         "frmSettings.settings_resize": {
-          "hash": "4094af0014d053df",
+          "hash": "v2:4094af0014d053df",
           "seen": 1
         },
         "frmSettings.settings_tab": {
-          "hash": "512f526166fbe6c3",
+          "hash": "v2:512f526166fbe6c3",
           "seen": 2
         }
       }
@@ -1836,6 +1735,9 @@
     "tabUpdates",
     "tabVideo",
     "tbcSettings",
+    "tmrCountdown",
+    "tmrFlash",
+    "tmrRipple",
     "trkExFps",
     "trkExQuality",
     "trkExVolume",

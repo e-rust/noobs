@@ -23,8 +23,12 @@ use windows::Win32::Graphics::GdiPlus::{
     UnitPixel,
 };
 
-/// As cores da barra do editor (ARGB): vermelho, amarelo, verde, azul, branco e preto.
-pub const PALETTE: [u32; 6] = [0xFFE5_3935, 0xFFFD_D835, 0xFF43_A047, 0xFF1E_88E5, 0xFFFF_FFFF, 0xFF21_2121];
+/// As cores do seletor do editor (ARGB), duas linhas de seis: vermelho, amarelo, verde,
+/// azul, branco e preto; laranja, roxo, rosa, ciano, marrom e cinza.
+pub const PALETTE: [u32; 12] = [
+    0xFFE5_3935, 0xFFFD_D835, 0xFF43_A047, 0xFF1E_88E5, 0xFFFF_FFFF, 0xFF21_2121, //
+    0xFFFB_8C00, 0xFF8E_24AA, 0xFFD8_1B60, 0xFF00_ACC1, 0xFF6D_4C41, 0xFF9E_9E9E,
+];
 /// A cor inicial (o vermelho).
 pub const COLOR: u32 = PALETTE[0];
 /// Espessura inicial da seta e os limites da roda do mouse, em px.
@@ -398,8 +402,50 @@ mod log {
 
 /// Na janela da seleção: `marks` (coordenadas do cliente) só dentro de `clip`; com
 /// `caret`, o cursor de texto no fim do texto `marks[caret]` (o que está sendo digitado).
-pub fn draw_on_hdc(hdc: HDC, marks: &[Mark], clip: RECT, caret: Option<usize>) {
+/// `org`: onde o (0, 0) do `hdc` cai no cliente — o buffer do `WM_PAINT` começa no canto
+/// da região pintada, então tudo anda (-org). O recorte do `hdc` continua valendo.
+pub fn draw_on_hdc(hdc: HDC, marks: &[Mark], clip: RECT, caret: Option<usize>, org: (i32, i32)) {
     if marks.is_empty() || !crate::rec_indicator::ensure_gdiplus() {
+        return;
+    }
+    let (dx, dy) = (-org.0 as f32, -org.1 as f32);
+    unsafe {
+        let mut gfx: *mut GpGraphics = std::ptr::null_mut();
+        if GdipCreateFromHDC(hdc, &mut gfx).0 != 0 || gfx.is_null() {
+            return;
+        }
+        GdipSetClipRectI(gfx, clip.left - org.0, clip.top - org.1, clip.right - clip.left, clip.bottom - clip.top, CombineModeReplace);
+        draw(gfx, marks, dx, dy);
+        if let Some(Mark::Text(t)) = caret.and_then(|i| marks.get(i)) {
+            let (x, y, h) = caret_at(t);
+            let brush = solid(t.color);
+            if !brush.is_null() {
+                GdipFillRectangle(gfx, brush as *mut GpBrush, x + dx, y + dy, (t.size / 14.0).max(2.0), h);
+                GdipDeleteBrush(brush as *mut GpBrush);
+            }
+        }
+        GdipDeleteGraphics(gfx);
+    }
+}
+
+/// Os ícones da barra do editor, desenhados (não por fonte de ícones: a Segoe Fluent
+/// Icons só existe no Windows 11).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Icon {
+    Arrow,
+    Rect,
+    Text,
+    Close,
+    Minus,
+    Plus,
+    /// O triângulo para baixo (o seletor de cores abre).
+    Caret,
+}
+
+/// O ícone `icon` centrado em `r` (coordenadas do `hdc`), na cor `color` (ARGB), com
+/// antialiasing. Desenhado para 28 px e escalado pelo lado menor de `r`.
+pub fn draw_icon(hdc: HDC, icon: Icon, r: RECT, color: u32) {
+    if !crate::rec_indicator::ensure_gdiplus() {
         return;
     }
     unsafe {
@@ -407,18 +453,86 @@ pub fn draw_on_hdc(hdc: HDC, marks: &[Mark], clip: RECT, caret: Option<usize>) {
         if GdipCreateFromHDC(hdc, &mut gfx).0 != 0 || gfx.is_null() {
             return;
         }
-        GdipSetClipRectI(gfx, clip.left, clip.top, clip.right - clip.left, clip.bottom - clip.top, CombineModeReplace);
-        draw(gfx, marks, 0.0, 0.0);
-        if let Some(Mark::Text(t)) = caret.and_then(|i| marks.get(i)) {
-            let (x, y, h) = caret_at(t);
-            let brush = solid(t.color);
+        GdipSetSmoothingMode(gfx, SmoothingModeAntiAlias);
+        let (w, h) = ((r.right - r.left) as f32, (r.bottom - r.top) as f32);
+        let (cx, cy) = (r.left as f32 + w / 2.0, r.top as f32 + h / 2.0);
+        // O ▾ vai numa faixa estreita: a escala pela altura.
+        let u = if icon == Icon::Caret { h / 28.0 } else { w.min(h) / 28.0 };
+        let stroke = (2.0 * u).max(1.5);
+        let line = |x1: f32, y1: f32, x2: f32, y2: f32| {
+            let mut pen: *mut GpPen = std::ptr::null_mut();
+            GdipCreatePen1(color, stroke, UnitPixel, &mut pen);
+            if !pen.is_null() {
+                GdipSetPenStartCap(pen, LineCapRound);
+                GdipSetPenEndCap(pen, LineCapRound);
+                GdipDrawLine(gfx, pen, x1, y1, x2, y2);
+                GdipDeletePen(pen);
+            }
+        };
+        let poly = |pts: &[(f32, f32)]| {
+            let brush = solid(color);
             if !brush.is_null() {
-                GdipFillRectangle(gfx, brush as *mut GpBrush, x, y, (t.size / 14.0).max(2.0), h);
+                let pts: Vec<PointF> = pts.iter().map(|&(x, y)| PointF { X: x, Y: y }).collect();
+                GdipFillPolygon(gfx, brush as *mut GpBrush, pts.as_ptr(), pts.len() as i32, FillModeAlternate);
                 GdipDeleteBrush(brush as *mut GpBrush);
             }
+        };
+        let rect = |x: f32, y: f32, rw: f32, rh: f32| poly(&[(x, y), (x + rw, y), (x + rw, y + rh), (x, y + rh)]);
+        match icon {
+            Icon::Arrow => {
+                // Do canto de baixo à esquerda para o de cima à direita, com a ponta cheia.
+                let (x1, y1, x2, y2) = (cx - 7.0 * u, cy + 7.0 * u, cx + 7.0 * u, cy - 7.0 * u);
+                let d = std::f32::consts::FRAC_1_SQRT_2;
+                let (hl, hw) = (7.0 * u, 4.0 * u);
+                let base = (x2 - d * hl, y2 + d * hl);
+                line(x1, y1, base.0 + d * hl * 0.3, base.1 - d * hl * 0.3);
+                poly(&[(x2, y2), (base.0 + d * hw, base.1 + d * hw), (base.0 - d * hw, base.1 - d * hw)]);
+            }
+            Icon::Rect => {
+                let mut pen: *mut GpPen = std::ptr::null_mut();
+                GdipCreatePen1(color, stroke, UnitPixel, &mut pen);
+                if !pen.is_null() {
+                    GdipSetPenLineJoin(pen, LineJoinMiter);
+                    GdipDrawRectangle(gfx, pen, cx - 7.5 * u, cy - 5.5 * u, 15.0 * u, 11.0 * u);
+                    GdipDeletePen(pen);
+                }
+            }
+            Icon::Text => {
+                let t = 2.6 * u;
+                rect(cx - 6.5 * u, cy - 7.5 * u, 13.0 * u, t);
+                rect(cx - t / 2.0, cy - 7.5 * u, t, 15.0 * u);
+            }
+            Icon::Close => {
+                line(cx - 5.0 * u, cy - 5.0 * u, cx + 5.0 * u, cy + 5.0 * u);
+                line(cx - 5.0 * u, cy + 5.0 * u, cx + 5.0 * u, cy - 5.0 * u);
+            }
+            Icon::Minus => rect(cx - 5.0 * u, cy - stroke / 2.0, 10.0 * u, stroke),
+            Icon::Plus => {
+                rect(cx - 5.0 * u, cy - stroke / 2.0, 10.0 * u, stroke);
+                rect(cx - stroke / 2.0, cy - 5.0 * u, stroke, 10.0 * u);
+            }
+            Icon::Caret => poly(&[(cx - 4.0 * u, cy - 2.0 * u), (cx + 4.0 * u, cy - 2.0 * u), (cx, cy + 2.5 * u)]),
         }
         GdipDeleteGraphics(gfx);
     }
+}
+
+/// A cor (ARGB, opaca) da matiz `h` (graus) com saturação `s` e brilho `v` (0..1).
+pub fn hsv(h: f32, s: f32, v: f32) -> u32 {
+    let h = h.rem_euclid(360.0) / 60.0;
+    let c = v * s;
+    let x = c * (1.0 - (h % 2.0 - 1.0).abs());
+    let (r, g, b) = match h as u32 {
+        0 => (c, x, 0.0),
+        1 => (x, c, 0.0),
+        2 => (0.0, c, x),
+        3 => (0.0, x, c),
+        4 => (x, 0.0, c),
+        _ => (c, 0.0, x),
+    };
+    let m = v - c;
+    let to = |f: f32| ((f + m) * 255.0).round().clamp(0.0, 255.0) as u32;
+    0xFF00_0000 | (to(r) << 16) | (to(g) << 8) | to(b)
 }
 
 /// Onde fica o cursor no fim de `t`: (x, topo, altura).

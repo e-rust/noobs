@@ -112,5 +112,25 @@ impl FrmMain {
     pub fn library_menu(&mut self, ui: &mut Ui, sender: ComponentId, _args: &EventArgs) {
         crate::app_library::menu_click(ui, sender);
     }
+
+    /// A onda do botão de gravar, a cada quadro do monitor (`args`: os segundos desde o
+    /// anterior).
+    pub fn main_ripple_frame(&mut self, ui: &mut Ui, _sender: ComponentId, args: &EventArgs) {
+        let dt = match args {
+            EventArgs::Value(PropValue::Float(dt)) => *dt,
+            _ => 0.0,
+        };
+        crate::app_main::ripple_frame(ui, dt);
+    }
+
+    /// O anel da contagem do atraso, a cada quadro do monitor.
+    pub fn main_countdown_frame(&mut self, ui: &mut Ui, _sender: ComponentId, _args: &EventArgs) {
+        crate::app_main::countdown_frame(ui);
+    }
+
+    /// A janela do sistema nasceu (o HWND existe): ícone, posição e a exibição pendente.
+    pub fn main_window_created(&mut self, ui: &mut Ui, _sender: ComponentId, _args: &EventArgs) {
+        crate::ui::on_window_created(ui);
+    }
 }
 

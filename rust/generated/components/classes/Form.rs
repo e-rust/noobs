@@ -30,6 +30,12 @@ impl Form {
     pub fn set_border_style(self, ui: &mut Ui, value: impl Into<String>) {
         handles::write(ui, self.id, "border_style", Into::<String>::into(value))
     }
+    pub fn window_corners(self, ui: &Ui) -> String {
+        handles::text(ui, handles::read(ui, self.id, "window_corners"))
+    }
+    pub fn set_window_corners(self, ui: &mut Ui, value: impl Into<String>) {
+        handles::write(ui, self.id, "window_corners", Into::<String>::into(value))
+    }
     pub fn window_state(self, ui: &Ui) -> String {
         handles::text(ui, handles::read(ui, self.id, "window_state"))
     }
@@ -155,6 +161,18 @@ impl Form {
     }
     pub fn set_frame_rate(self, ui: &mut Ui, value: f64) {
         handles::write(ui, self.id, "frame_rate", value)
+    }
+    pub fn client_width(self, ui: &Ui) -> f64 {
+        handles::read(ui, self.id, "client_width").and_then(|v| v.to_f64().ok()).unwrap_or_default()
+    }
+    pub fn set_client_width(self, ui: &mut Ui, value: f64) {
+        handles::write(ui, self.id, "client_width", value)
+    }
+    pub fn client_height(self, ui: &Ui) -> f64 {
+        handles::read(ui, self.id, "client_height").and_then(|v| v.to_f64().ok()).unwrap_or_default()
+    }
+    pub fn set_client_height(self, ui: &mut Ui, value: f64) {
+        handles::write(ui, self.id, "client_height", value)
     }
     pub fn left(self, ui: &Ui) -> f64 {
         handles::read(ui, self.id, "left").and_then(|v| v.to_f64().ok()).unwrap_or_default()

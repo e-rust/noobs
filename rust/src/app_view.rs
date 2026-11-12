@@ -197,6 +197,8 @@ impl View for AylisView {
             if crate::app_player::is_open() {
                 crate::app_player::close(ui);
             }
+            // Escondida, a janela não desenha quadros: a onda do botão pararia no meio.
+            crate::app_main::end_ripple(ui);
         });
     }
 

@@ -82,4 +82,9 @@ impl FrmPlayer {
     pub fn player_side_scroll(&mut self, ui: &mut Ui, _sender: ComponentId, _args: &EventArgs) {
         crate::app_player::side_scrolled(ui);
     }
+
+    /// O pulso do indicador central na pausa, a cada quadro do monitor.
+    pub fn player_flash_frame(&mut self, ui: &mut Ui, _sender: ComponentId, _args: &EventArgs) {
+        crate::app_player::flash_frame(ui);
+    }
 }

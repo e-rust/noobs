@@ -281,6 +281,10 @@ impl FrmSettings {
             ui.free(root);
             return Err(e);
         }
+        // Como o componente Frame: sem `fill` próprio, transparente (G05).
+        if matches!(ui.get_prop(root, "fill"), Ok(aylis::prelude::PropValue::Null)) {
+            let _ = ui.set_prop(root, "fill", aylis::prelude::Color::TRANSPARENT);
+        }
         ui.form_components(root).ok_or(aylis::prelude::Error::InvalidId)
     }
 

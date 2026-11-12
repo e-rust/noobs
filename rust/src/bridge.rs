@@ -574,7 +574,7 @@ pub fn push_theme() {
     let pref = config::get_config_str("theme", "system");
     let resolved = resolved_theme();
     log!("PushTheme: cfg=\"{pref}\" resolved=\"{resolved}\"");
-    ui::set_dark_mode(resolved == "dark");
+    // A barra de título acompanha o tema do Aylis (o `dark` dele), que o `view.theme` troca.
     // Popup do menu da bandeja no mesmo tema.
     ui::apply_tray_menu_theme(resolved == "dark");
     let dark = resolved == "dark";
