@@ -129,6 +129,8 @@ pub struct SessionEnd {
     pub lagged: u64,
     pub audio_blocks: u64,
     pub error: Option<String>,
+    /// O que cada fonte de áudio recebeu do dispositivo (nome e contadores).
+    pub audio: Vec<(String, crate::capture::audio::AudioStats)>,
 }
 
 type PacketTx = Sender<Msg>;
@@ -366,7 +368,7 @@ impl Session {
 
     /// Para, esvazia os encoders e fecha o arquivo. Ao voltar, o arquivo está completo.
     pub fn stop(mut self) -> SessionEnd {
-        self.shutdown();
+        let audio = self.shutdown();
         let error = self.ctl.error.lock().unwrap_or_else(|p| p.into_inner()).clone();
         SessionEnd {
             path: self.path.clone(),
@@ -374,10 +376,12 @@ impl Session {
             lagged: self.stats.lagged.load(Ordering::Relaxed),
             audio_blocks: self.stats.audio_blocks.load(Ordering::Relaxed),
             error,
+            audio,
         }
     }
 
-    fn shutdown(&mut self) {
+    /// Para tudo; devolve o que cada fonte de áudio recebeu (e põe no log).
+    fn shutdown(&mut self) -> Vec<(String, crate::capture::audio::AudioStats)> {
         let _ = self.ctl.stop_ns.compare_exchange(u64::MAX, now_ns(), Ordering::SeqCst, Ordering::SeqCst);
         self.ctl.stop.store(true, Ordering::SeqCst);
         // Vídeo e áudio terminam e soltam os canais; o gravador fecha o arquivo
@@ -386,7 +390,18 @@ impl Session {
         for t in [self.video.take(), self.audio.take(), self.writer.take()].into_iter().flatten() {
             let _ = t.join();
         }
+        let audio: Vec<_> = self.audio_sources.iter().map(|s| (s.name().to_owned(), s.stats())).collect();
+        for (name, st) in &audio {
+            // Buraco tapado com silêncio ou descontinuidade = áudio que o dispositivo não entregou.
+            log!(
+                "Captura: audio \"{name}\": {:.1} s recebidos, {} ms de buraco, {} descontinuidade(s).",
+                st.frames as f64 / crate::capture::audio::SAMPLE_RATE as f64,
+                st.gap_frames * 1000 / crate::capture::audio::SAMPLE_RATE as u64,
+                st.discontinuities
+            );
+        }
         self.audio_sources.clear();
+        audio
     }
 }
 

@@ -282,7 +282,7 @@ fn rebuild_cache(st: &mut State) {
                 if mic_should_open(st, &name) {
                     client = start_capture_for_meter(&dev).map(Com);
                 } else {
-                    log!("WinAudioMeter: mic \"{name}\" inativo — nao abre sessao de captura.");
+                    log!("WinAudioMeter: mic \"{name}\" sem sessao de captura (inativo ou medidores fora da tela).");
                 }
             }
 
@@ -362,7 +362,7 @@ pub fn apply_mic_open_policy() {
             if let Some(c) = e.client.take() {
                 // Deixou de ser ativo: SOLTA o microfone (some o "em uso" do Windows).
                 let _ = unsafe { c.0.Stop() };
-                log!("WinAudioMeter: mic \"{}\" liberado (inativo).", e.info.name);
+                log!("WinAudioMeter: mic \"{}\" liberado (inativo ou medidores fora da tela).", e.info.name);
             }
         }
     }

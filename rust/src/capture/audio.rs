@@ -12,7 +12,7 @@
 //! áudio mudo e a corrupção de memória).
 
 use std::collections::VecDeque;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 use std::time::Duration;
@@ -22,7 +22,7 @@ use windows::Win32::Foundation::{CloseHandle, HANDLE};
 use windows::Win32::Media::Audio::{
     eCapture, eConsole, eRender, ActivateAudioInterfaceAsync, IActivateAudioInterfaceAsyncOperation, IActivateAudioInterfaceCompletionHandler,
     IActivateAudioInterfaceCompletionHandler_Impl, IAudioCaptureClient, IAudioClient, IMMDevice, IMMDeviceEnumerator, MMDeviceEnumerator,
-    AUDCLNT_BUFFERFLAGS_SILENT, AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_EVENTCALLBACK, AUDCLNT_STREAMFLAGS_LOOPBACK, AUDIOCLIENT_ACTIVATION_PARAMS,
+    AUDCLNT_BUFFERFLAGS_DATA_DISCONTINUITY, AUDCLNT_BUFFERFLAGS_SILENT, AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_EVENTCALLBACK, AUDCLNT_STREAMFLAGS_LOOPBACK, AUDIOCLIENT_ACTIVATION_PARAMS,
     AUDIOCLIENT_ACTIVATION_PARAMS_0, AUDIOCLIENT_ACTIVATION_TYPE_PROCESS_LOOPBACK, AUDIOCLIENT_PROCESS_LOOPBACK_PARAMS,
     PROCESS_LOOPBACK_MODE_INCLUDE_TARGET_PROCESS_TREE, VIRTUAL_AUDIO_DEVICE_PROCESS_LOOPBACK, WAVEFORMATEX,
 };
@@ -72,15 +72,18 @@ impl SampleRing {
         self.start_ns + frames_to_ns(self.frames())
     }
 
-    /// Acrescenta `data` (intercalado) que começa no instante `ts_ns`.
-    pub fn push(&mut self, ts_ns: u64, data: &[f32]) {
+    /// Acrescenta `data` (intercalado) que começa no instante `ts_ns`. Devolve quantas
+    /// amostras (por canal) de silêncio entraram para tapar um buraco antes dele.
+    pub fn push(&mut self, ts_ns: u64, data: &[f32]) -> u64 {
+        let mut filled = 0;
         if self.samples.is_empty() {
             self.start_ns = ts_ns;
         } else {
             let expected = self.end_ns();
             if ts_ns > expected + RESYNC_NS {
                 // Buraco (pacote perdido, loopback que voltou a tocar): silêncio até ele.
-                let gap = ns_to_frames(ts_ns - expected) as usize * CHANNELS;
+                filled = ns_to_frames(ts_ns - expected);
+                let gap = filled as usize * CHANNELS;
                 self.samples.extend(std::iter::repeat_n(0.0, gap));
             } else if ts_ns + RESYNC_NS < expected {
                 // O dispositivo andou mais rápido que o relógio: corta a sobra do fim.
@@ -100,6 +103,7 @@ impl SampleRing {
             self.samples.drain(..drop);
             self.start_ns += frames_to_ns((drop / CHANNELS) as u64);
         }
+        filled
     }
 
     /// Soma o trecho `[t0, t0 + out.len()/2 amostras)` em `out` (intercalado),
@@ -142,18 +146,38 @@ pub enum AudioDevice {
     App(u32),
 }
 
+/// O que uma fonte recebeu do dispositivo: para o log do fim da gravação e para os
+/// testes provarem que nada se perdeu (o anel tapa buraco com silêncio, então o
+/// arquivo sozinho não mostra a perda).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct AudioStats {
+    /// Amostras (por canal) entregues pelo dispositivo.
+    pub frames: u64,
+    /// Amostras (por canal) de silêncio postas no lugar de um buraco.
+    pub gap_frames: u64,
+    /// Pacotes que o Windows marcou como descontínuos (`DATA_DISCONTINUITY`), fora o 1º.
+    pub discontinuities: u64,
+}
+
 /// Uma fonte vista pelo mixer.
 pub trait AudioSource: Send + Sync {
     fn name(&self) -> &str;
     /// Soma o trecho `[t0, t0+n)` em `out` (intercalado), já com mudo aplicado.
     fn mix_into(&self, t0_ns: u64, out: &mut [f32]);
     fn set_muted(&self, muted: bool);
+    /// O que chegou do dispositivo até agora.
+    fn stats(&self) -> AudioStats {
+        AudioStats::default()
+    }
 }
 
 struct Shared {
     ring: Mutex<SampleRing>,
     muted: AtomicBool,
     stop: AtomicBool,
+    frames: AtomicU64,
+    gap_frames: AtomicU64,
+    discontinuities: AtomicU64,
 }
 
 /// Captura WASAPI em thread própria, por consulta.
@@ -166,7 +190,14 @@ pub struct WasapiSource {
 impl WasapiSource {
     /// Abre o dispositivo e começa a capturar. Erro de abertura volta aqui.
     pub fn start(name: &str, device: AudioDevice) -> Result<Self, String> {
-        let shared = Arc::new(Shared { ring: Mutex::new(SampleRing::default()), muted: AtomicBool::new(false), stop: AtomicBool::new(false) });
+        let shared = Arc::new(Shared {
+            ring: Mutex::new(SampleRing::default()),
+            muted: AtomicBool::new(false),
+            stop: AtomicBool::new(false),
+            frames: AtomicU64::new(0),
+            gap_frames: AtomicU64::new(0),
+            discontinuities: AtomicU64::new(0),
+        });
         let (tx, rx) = std::sync::mpsc::channel::<Result<(), String>>();
         let sh = shared.clone();
         let label = name.to_owned();
@@ -201,6 +232,14 @@ impl AudioSource for WasapiSource {
 
     fn set_muted(&self, muted: bool) {
         self.shared.muted.store(muted, Ordering::Relaxed);
+    }
+
+    fn stats(&self) -> AudioStats {
+        AudioStats {
+            frames: self.shared.frames.load(Ordering::Relaxed),
+            gap_frames: self.shared.gap_frames.load(Ordering::Relaxed),
+            discontinuities: self.shared.discontinuities.load(Ordering::Relaxed),
+        }
     }
 }
 
@@ -403,7 +442,13 @@ fn drain(o: &Opened, sh: &Shared, buf: &mut Vec<f32>) -> Result<(), String> {
         // Sem instante (o loopback de processo pode não dar): agora menos a
         // duração do pacote.
         let ts = if qpc_100ns != 0 { qpc_100ns * 100 } else { super::clock::now_ns().saturating_sub(frames_to_ns(frames as u64)) };
-        sh.ring.lock().unwrap_or_else(|p| p.into_inner()).push(ts, buf);
+        // O 1º pacote depois do `Start` costuma vir marcado: não é perda.
+        let first = sh.frames.fetch_add(frames as u64, Ordering::Relaxed) == 0;
+        if !first && flags & AUDCLNT_BUFFERFLAGS_DATA_DISCONTINUITY.0 as u32 != 0 {
+            sh.discontinuities.fetch_add(1, Ordering::Relaxed);
+        }
+        let filled = sh.ring.lock().unwrap_or_else(|p| p.into_inner()).push(ts, buf);
+        sh.gap_frames.fetch_add(filled, Ordering::Relaxed);
     }
 }
 
@@ -419,7 +464,10 @@ mod tests {
     fn trecho_alinhado_pelo_instante() {
         let mut r = SampleRing::default();
         let t = 1_000_000_000;
-        r.push(t, &block(480, 1.0)); // 10 ms de 1.0
+        assert_eq!(r.push(t, &block(480, 1.0)), 0, "o 1º pacote não tapa buraco"); // 10 ms de 1.0
+        assert_eq!(r.push(t + 10_000_000, &block(480, 1.0)), 0, "pacote emendado não tapa buraco");
+        r = SampleRing::default();
+        r.push(t, &block(480, 1.0));
         let mut out = vec![0.0; 960 * CHANNELS];
         r.mix_into(t, &mut out, 1.0);
         assert!(out[..480 * CHANNELS].iter().all(|&s| s == 1.0));
@@ -457,7 +505,8 @@ mod tests {
         let t = 1_000_000_000;
         r.push(t, &block(480, 1.0)); // 0..10 ms
         // Próximo pacote só 50 ms depois (loopback ficou sem som): silêncio no meio.
-        r.push(t + 50_000_000, &block(480, 3.0));
+        let filled = r.push(t + 50_000_000, &block(480, 3.0));
+        assert_eq!(filled, 1920, "40 ms de buraco contados (10..50 ms)");
         let mut out = vec![0.0; 2880 * CHANNELS]; // 60 ms
         r.mix_into(t, &mut out, 1.0);
         assert_eq!(out[0], 1.0);

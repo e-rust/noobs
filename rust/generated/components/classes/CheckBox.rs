@@ -60,6 +60,24 @@ impl CheckBox {
     pub fn set_align(self, ui: &mut Ui, value: impl Into<String>) {
         handles::write(ui, self.id, "align", Into::<String>::into(value))
     }
+    pub fn anchors(self, ui: &Ui) -> String {
+        handles::text(ui, handles::read(ui, self.id, "anchors"))
+    }
+    pub fn set_anchors(self, ui: &mut Ui, value: impl Into<String>) {
+        handles::write(ui, self.id, "anchors", Into::<String>::into(value))
+    }
+    pub fn margins(self, ui: &Ui) -> String {
+        handles::text(ui, handles::read(ui, self.id, "margins"))
+    }
+    pub fn set_margins(self, ui: &mut Ui, value: impl Into<String>) {
+        handles::write(ui, self.id, "margins", Into::<String>::into(value))
+    }
+    pub fn padding(self, ui: &Ui) -> String {
+        handles::text(ui, handles::read(ui, self.id, "padding"))
+    }
+    pub fn set_padding(self, ui: &mut Ui, value: impl Into<String>) {
+        handles::write(ui, self.id, "padding", Into::<String>::into(value))
+    }
     pub fn visible(self, ui: &Ui) -> bool {
         handles::read(ui, self.id, "visible").and_then(|v| v.to_bool().ok()).unwrap_or_default()
     }

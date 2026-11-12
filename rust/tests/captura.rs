@@ -452,6 +452,146 @@ fn s_audio_faixas(codec: &str) -> Result<String, String> {
     Ok(format!("3 faixas AAC 48 kHz estéreo {titles:?}, {:.2}s, {frames} quadros", r.duration))
 }
 
+/// A política de abertura dos medidores neste teste: o teste abre e solta à vontade.
+static MEDIDOR_ABERTO: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+fn politica_medidor_teste(_: &str) -> bool {
+    MEDIDOR_ABERTO.load(std::sync::atomic::Ordering::SeqCst)
+}
+
+/// Uma gravação só com o microfone padrão (o mesmo que os medidores seguram).
+fn cfg_mic(codec: &str) -> Result<SessionConfig, String> {
+    let mons = monitors();
+    let (h, _, _, _, _) = *mons.first().ok_or("sem monitor")?;
+    Ok(SessionConfig {
+        width: 640,
+        height: 360,
+        fps: 30,
+        sources: vec![SourceSpec { name: "Monitor 1".into(), target: VideoTarget::Monitor(h), crop: None, dest: None }],
+        encoder: VideoEncoderConfig { codec: codec.into(), width: 640, height: 360, fps: 30, crf: 23, keyframe_sec: 2 },
+        audio: Some(AudioConfig {
+            inputs: vec![AudioInputSpec { name: "Microfone".into(), device: AudioDevice::Input(String::new()), tracks: vec![0] }],
+            track_titles: vec!["Microfone".into()],
+            kbps: 192,
+        }),
+        replay: None,
+        output_path: String::new(),
+        motion: None,
+    })
+}
+
+/// A faixa de áudio `stream` do arquivo pelos pacotes: (início, fim, maior intervalo
+/// entre um pacote e o seguinte além da duração dele), em segundos.
+fn audio_span(path: &str, faixa: u32) -> Result<(f64, f64, f64), String> {
+    use noobs::ffi::ffmpeg::*;
+    let a = api()?;
+    let inp = Input::open(path).map_err(|e| format!("abrir {path}: {e}"))?;
+    let tb = inp.stream(faixa).ok_or("sem a faixa")?.time_base;
+    let sec = |v: i64| v as f64 * tb.num as f64 / tb.den as f64;
+    let mut pkt = Packet::alloc().ok_or("pacote")?;
+    let (mut first, mut end, mut worst) = (f64::NAN, f64::NAN, 0f64);
+    while unsafe { (a.format.av_read_frame)(inp.ptr(), pkt.ptr()) } >= 0 {
+        if pkt.stream_index as u32 == faixa && pkt.pts != AV_NOPTS_VALUE {
+            let (t, d) = (sec(pkt.pts), sec(pkt.duration));
+            if first.is_nan() {
+                first = t;
+            } else {
+                worst = worst.max(t - end);
+            }
+            end = t + d;
+        }
+        pkt.unref();
+    }
+    if first.is_nan() {
+        return Err("faixa sem pacotes".into());
+    }
+    Ok((first, end, worst))
+}
+
+/// Grava `secs` só com o microfone; com `toggles`, abre e solta a sessão dos medidores
+/// do MESMO microfone a cada 250 ms (e solta tudo, como a hibernação, a cada 2 s)
+/// durante a gravação. Devolve os contadores da fonte, o arquivo e quantas trocas houve.
+fn gravar_mic(nome: &str, codec: &str, secs: f64, toggles: bool) -> Result<(noobs::capture::audio::AudioStats, String, u32), String> {
+    use noobs::win_audio_meter as wam;
+    use std::sync::atomic::Ordering::SeqCst;
+    let mut cfg = cfg_mic(codec)?;
+    let path = out_dir().join(format!("{nome}.mkv")).to_string_lossy().into_owned();
+    cfg.output_path = path.clone();
+    let s = Session::start(cfg)?;
+    let t0 = std::time::Instant::now();
+    let mut trocas = 0u32;
+    let mut ultima_hibernacao = t0;
+    while t0.elapsed().as_secs_f64() < secs {
+        std::thread::sleep(Duration::from_millis(250));
+        if !toggles {
+            continue;
+        }
+        if ultima_hibernacao.elapsed() >= Duration::from_secs(2) {
+            // Como a hibernação: solta tudo e monta de novo (com a sessão aberta).
+            wam::done_audio();
+            MEDIDOR_ABERTO.store(true, SeqCst);
+            wam::init_audio();
+            wam::enumerate_audio_devices();
+            ultima_hibernacao = std::time::Instant::now();
+        } else {
+            // Como a janela escondida/minimizada/restaurada: abre ou solta a sessão.
+            MEDIDOR_ABERTO.store(!MEDIDOR_ABERTO.load(SeqCst), SeqCst);
+            wam::apply_mic_open_policy();
+        }
+        trocas += 1;
+    }
+    let end = s.stop();
+    if let Some(e) = end.error {
+        return Err(e);
+    }
+    let st = end.audio.iter().find(|(n, _)| n == "Microfone").map(|(_, st)| *st).ok_or("a sessão não devolveu a fonte do microfone")?;
+    Ok((st, path, trocas))
+}
+
+/// Os medidores abrem e soltam a sessão do microfone (janela escondida, minimizada,
+/// restaurada, hibernação) enquanto uma gravação usa o MESMO microfone: a gravação não
+/// pode perder nada. O anel tapa buraco com silêncio, então o arquivo sozinho não prova:
+/// quem prova é o contador da fonte (amostras recebidas ≈ o tempo gravado, zero buraco,
+/// zero descontinuidade), comparado com a mesma gravação sem mexer nos medidores.
+fn s_mic_medidores(codec: &str) -> Result<String, String> {
+    use noobs::win_audio_meter as wam;
+    const SECS: f64 = 10.0;
+    wam::set_mic_open_policy(politica_medidor_teste);
+    MEDIDOR_ABERTO.store(true, std::sync::atomic::Ordering::SeqCst);
+    let mics = wam::enumerate_audio_devices().into_iter().filter(|d| d.kind == noobs::win_audio_meter::DeviceKind::Input).count();
+    if mics == 0 {
+        return Err("PULADO: sem microfone".into());
+    }
+    let rate = noobs::capture::audio::SAMPLE_RATE as f64;
+    // Uma rodada: o que o microfone entregou x a faixa dele no arquivo. Se o
+    // dispositivo parasse de entregar, o anel tapava com silêncio e a faixa ficaria
+    // mais longa que o recebido; o buraco e a descontinuidade também acusam.
+    let rodada = |nome: &str, toggles: bool| -> Result<(f64, f64, f64, f64, u32, noobs::capture::audio::AudioStats), String> {
+        let (st, path, trocas) = gravar_mic(nome, codec, SECS, toggles)?;
+        let r = probe::probe(Path::new(&path)).ok_or("probe falhou")?;
+        let a = r.audio_streams().next().ok_or("sem faixa de áudio")?;
+        let (ini, fim, pior) = audio_span(&path, a.index as u32)?;
+        Ok((st.frames as f64 / rate, fim - ini, r.duration, pior, trocas, st))
+    };
+    let (rb, fb, db, pb, _, base) = rodada("mic-sem-medidores", false)?;
+    let (rc, fc, dc, pc, trocas, st) = rodada("mic-com-medidores", true)?;
+    wam::done_audio();
+    let resumo = format!(
+        "sem medidores: {rb:.2} s recebidos, faixa {fb:.2} s, arquivo {db:.2} s, {base:?} | com {trocas} trocas: {rc:.2} s recebidos, faixa {fc:.2} s, arquivo {dc:.2} s, {st:?}"
+    );
+    println!("  {resumo}");
+    check(trocas >= 30, format!("só {trocas} trocas dos medidores"))?;
+    check(base.gap_frames == 0 && base.discontinuities == 0, format!("sem os medidores já houve perda: ambiente instável, teste inconclusivo — {resumo}"))?;
+    check(st.gap_frames == 0, format!("{} ms de buraco no microfone com os medidores abrindo e soltando — {resumo}", st.gap_frames as f64 * 1000.0 / rate))?;
+    check(st.discontinuities == 0, format!("{} descontinuidade(s) no microfone — {resumo}", st.discontinuities))?;
+    // O recebido cobre a faixa inteira (a sobra é o que o mixer ainda não tinha
+    // consumido ao parar), nas duas rodadas do mesmo jeito.
+    check(rc + 0.05 >= fc, format!("a faixa ({fc:.2} s) é mais longa que o que o microfone entregou ({rc:.2} s) — {resumo}"))?;
+    check(rb + 0.05 >= fb, format!("sem medidores, a faixa ({fb:.2} s) é mais longa que o recebido ({rb:.2} s) — {resumo}"))?;
+    near(fc, dc, 0.3, "duração da faixa do microfone x arquivo")?;
+    check(pc < 0.05 && pb < 0.05, format!("intervalo entre pacotes de áudio: {:.0} ms / {:.0} ms", pc * 1000.0, pb * 1000.0))?;
+    Ok(format!("{trocas} trocas dos medidores, 0 buraco, 0 descontinuidade; microfone {rc:.2} s recebidos para {fc:.2} s de faixa (sem medidores: {rb:.2} s para {fb:.2} s)"))
+}
+
 /// Primeiros pacotes de cada faixa: (faixa, pts em s, keyframe).
 fn first_packets(path: &str, n: usize) -> Vec<(u32, f64, bool)> {
     use noobs::ffi::ffmpeg::*;
@@ -1729,6 +1869,9 @@ fn main() {
     }
     if quer("audio-loopback") {
         rep.take("audio-loopback", s_audio_loopback(&exe));
+    }
+    if quer("mic-medidores") {
+        rep.take("mic-medidores", s_mic_medidores(&codec));
     }
     if quer("audio-app") {
         rep.take("audio-app", s_audio_app(&exe));

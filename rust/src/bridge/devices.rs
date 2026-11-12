@@ -140,10 +140,33 @@ fn get_source_auto_record_by_id(id: &str) -> bool {
 }
 
 /// Política do medidor de nível: só segura o microfone se ele estiver marcado
-/// E visível. Sem isso o NoOBS mantinha uma sessão de captura em TODO mic do
-/// sistema e o Windows mostrava o dispositivo "em uso".
+/// E visível na lista, E se os medidores estiverem na tela ([`meters_on_screen`]).
+/// A sessão de captura do medidor deixa o mic "em uso" no Windows: sem a primeira
+/// parte o NoOBS segurava TODO mic do sistema; sem a segunda, segurava o mic com a
+/// janela minimizada, na bandeja até hibernar (ou para sempre, com a hibernação
+/// desligada) e no início pelo /autostart, sem gravar nada.
 fn mic_meter_open_policy(name: &str) -> bool {
-    config::get_source_active("mics", name, true)
+    meters_on_screen() && config::get_source_active("mics", name, true)
+}
+
+/// Alguém pode estar vendo os medidores: a janela na tela (nem escondida nem
+/// minimizada) e sem o player por cima. De qualquer thread (o rebuild do cache roda
+/// num worker).
+fn meters_on_screen() -> bool {
+    ui::is_window_shown() && !player_open_atomic()
+}
+
+/// O último [`meters_on_screen`] aplicado às sessões dos mics.
+static METERS_ON_SCREEN: AtomicBool = AtomicBool::new(false);
+
+/// No tique dos medidores: a tela mudou (janela escondida, minimizada, restaurada,
+/// player aberto/fechado)? Abre ou solta as sessões dos mics na hora.
+fn sync_meter_sessions() {
+    let on = meters_on_screen();
+    if METERS_ON_SCREEN.swap(on, Ordering::SeqCst) != on {
+        log!("Medidores: microfones {} ({}).", if on { "abertos" } else { "soltos" }, if on { "medidores na tela" } else { "medidores fora da tela" });
+        wam::apply_mic_open_policy();
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -968,6 +991,8 @@ pub fn do_init() {
 pub fn on_timer(id: usize) -> bool {
     match id {
         TIMER_AUDIO_METER => {
+            // Fora da tela, os mics não ficam segurados pelo medidor.
+            sync_meter_sessions();
             // Suspende os medidores com o player aberto: a sidebar está atrás do
             // modal e atualizá-la só gera reflow inútil.
             if !player_open() {
