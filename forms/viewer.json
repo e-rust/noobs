@@ -1,0 +1,178 @@
+{
+  "aylis": 1,
+  "root": {
+    "class": "Form",
+    "name": "frmViewer",
+    "width": 1600,
+    "height": 900,
+    "children": [
+      {
+        "class": "Panel",
+        "name": "pnlViewer",
+        "align": "client",
+        "style": "player",
+        "children": [
+          {
+            "class": "Layout",
+            "name": "lyViewStage",
+            "align": "client",
+            "clip_children": true,
+            "hit_test": true,
+            "children": [
+              {
+                "class": "Image",
+                "name": "imgView",
+                "fit": "stretch",
+                "width": 100,
+                "height": 100,
+                "hit_test": false
+              }
+            ]
+          },
+          {
+            "class": "Layout",
+            "name": "lyViewChrome",
+            "align": "contents",
+            "children": [
+              {
+                "class": "Panel",
+                "name": "pnlViewHead",
+                "fill": "black/70",
+                "fill2": "black/0",
+                "fill_mid": "black/40",
+                "fill_mid_at": 0.6,
+                "gradient_angle": 180,
+                "height": 62,
+                "align": "top",
+                "padding": [16, 12, 16, 18],
+                "style": "pl_head",
+                "children": [
+                  {
+                    "class": "Button",
+                    "name": "btnViewClose",
+                    "text": "×",
+                    "width": 32,
+                    "align": "right",
+                    "style": "pl_close",
+                    "hint": "Fechar (Esc)"
+                  },
+                  {
+                    "class": "Label",
+                    "name": "lblViewTitle",
+                    "align": "client",
+                    "style": "pl_title"
+                  }
+                ]
+              },
+              {
+                "class": "Panel",
+                "name": "pnlViewBar",
+                "fill": "black/75",
+                "fill2": "black/0",
+                "fill_mid": "black/40",
+                "fill_mid_at": 0.6,
+                "height": 64,
+                "align": "bottom",
+                "padding": [16, 18, 16, 14],
+                "style": "pl_head",
+                "children": [
+                  {
+                    "class": "Button",
+                    "name": "btnViewPrev",
+                    "text": "‹",
+                    "width": 32,
+                    "align": "left",
+                    "style": "pl_speed",
+                    "hint": "Print anterior (←)"
+                  },
+                  {
+                    "class": "Label",
+                    "name": "lblViewPos",
+                    "h_align": "center",
+                    "width": 70,
+                    "align": "left",
+                    "style": "pl_time"
+                  },
+                  {
+                    "class": "Button",
+                    "name": "btnViewNext",
+                    "text": "›",
+                    "width": 32,
+                    "align": "left",
+                    "style": "pl_speed",
+                    "hint": "Próximo print (→)"
+                  },
+                  {
+                    "class": "Button",
+                    "name": "btnViewCopy",
+                    "text": "Copiar",
+                    "width": 68,
+                    "align": "right",
+                    "margins": [12, 0, 0, 0],
+                    "style": "pl_speed",
+                    "hint": "Copiar (Ctrl+C)"
+                  },
+                  {
+                    "class": "Button",
+                    "name": "btnViewFit",
+                    "text": "Ajustar",
+                    "width": 68,
+                    "align": "right",
+                    "margins": [12, 0, 0, 0],
+                    "style": "pl_speed",
+                    "hint": "Ajustar à tela (0 / duplo clique)"
+                  },
+                  {
+                    "class": "Button",
+                    "name": "btnView100",
+                    "text": "100%",
+                    "width": 56,
+                    "align": "right",
+                    "margins": [12, 0, 0, 0],
+                    "style": "pl_speed",
+                    "hint": "Tamanho real (1 / duplo clique)"
+                  },
+                  {
+                    "class": "Button",
+                    "name": "btnViewIn",
+                    "text": "+",
+                    "width": 32,
+                    "align": "right",
+                    "margins": [4, 0, 0, 0],
+                    "style": "pl_speed",
+                    "hint": "Aproximar (+ / roda do mouse)"
+                  },
+                  {
+                    "class": "Label",
+                    "name": "lblViewZoom",
+                    "h_align": "center",
+                    "width": 56,
+                    "align": "right",
+                    "style": "pl_time"
+                  },
+                  {
+                    "class": "Button",
+                    "name": "btnViewOut",
+                    "text": "−",
+                    "width": 32,
+                    "align": "right",
+                    "margins": [12, 0, 4, 0],
+                    "style": "pl_speed",
+                    "hint": "Afastar (− / roda do mouse)"
+                  },
+                  {
+                    "class": "Label",
+                    "name": "lblViewInfo",
+                    "align": "client",
+                    "margins": [16, 0, 0, 0],
+                    "style": "pl_time"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

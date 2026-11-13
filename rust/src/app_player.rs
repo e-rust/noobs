@@ -1773,6 +1773,10 @@ pub fn setup(ui: &mut Ui) {
             }
             return;
         }
+        // O visualizador de prints fica por cima de tudo (até do player).
+        if crate::app_viewer::key(ui, k) || crate::app_viewer::is_open() {
+            return;
+        }
         if is_open() {
             let typing = ui.focused(form_of(ui)).is_some_and(|f| ui.get::<Edit>(f).is_some());
             if !typing {

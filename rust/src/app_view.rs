@@ -101,11 +101,12 @@ pub fn main_form() -> Option<ComponentId> {
 /// (a última fica por cima).
 type CreateScreen = fn(&mut Ui) -> Result<ComponentId, Error>;
 
-const SCREENS: [(&str, CreateScreen); 4] = [
+const SCREENS: [(&str, CreateScreen); 5] = [
     ("Capturar", g::FrmPicker::create),
     ("Configurações", g::FrmSettings::create),
     ("Exportar", g::FrmExport::create),
     ("Player", g::FrmPlayer::create),
+    ("Visualizador", g::FrmViewer::create),
 ];
 
 /// Põe uma tela dentro da janela, por cima da inicial e escondida: o `frmMain`
@@ -136,6 +137,7 @@ pub fn main_covered(ui: &Ui) -> bool {
     shown(g::FrmSettings::components(ui).map(|frm| frm.form))
         || shown(g::FrmPlayer::components(ui).map(|frm| frm.form))
         || shown(g::FrmExport::components(ui).map(|frm| frm.form))
+        || shown(g::FrmViewer::components(ui).map(|frm| frm.form))
 }
 
 /// Mostra ou esconde uma tela (`FrmPlayer::components(ui).map(|frm| frm.form)`...).
@@ -197,6 +199,7 @@ impl View for AylisView {
             if crate::app_player::is_open() {
                 crate::app_player::close(ui);
             }
+            crate::app_viewer::close(ui);
             // Escondida, a janela não desenha quadros: a onda do botão pararia no meio.
             crate::app_main::end_ripple(ui);
         });
@@ -385,6 +388,23 @@ pub fn create() -> Result<aylis::Application, aylis::Error> {
     with_ui(app_main::setup);
     with_ui(crate::app_library::apply_texts);
     with_ui(crate::app_player::setup);
+    with_ui(crate::app_viewer::setup);
+    // Os botões extras do mouse (voltar e avançar), em qualquer ponto da janela: a galeria
+    // anda pelo histórico de pastas, só com ela à vista.
+    app.ui.add_observer(|_, activity| {
+        let aylis::prelude::activity::Activity::PointerUp { event, .. } = activity else { return };
+        let forward = match event.button {
+            PointerButton::Back => false,
+            PointerButton::Forward => true,
+            _ => return,
+        };
+        with_ui(move |ui| {
+            let covered = main_covered(ui) || confirm_open() || crate::app_picker::is_open();
+            if !covered {
+                crate::app_library::mouse_history(ui, forward);
+            }
+        });
+    });
     Ok(app)
 }
 

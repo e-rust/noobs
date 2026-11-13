@@ -28,7 +28,7 @@ use windows::Win32::UI::HiDpi::GetDpiForSystem;
 use windows::Win32::UI::Input::KeyboardAndMouse::{GetKeyState, ReleaseCapture, SetCapture, SetFocus, VK_CONTROL, VK_ESCAPE, VK_RETURN, VK_SHIFT};
 use windows::Win32::UI::WindowsAndMessaging::*;
 
-use crate::annotate::{Arrow, Frame, Icon, Mark, Text, PALETTE, SIZE_MAX, SIZE_MIN, SIZE_STEP, WIDTH_MAX, WIDTH_MIN};
+use crate::annotate::{fill_round, Arrow, Frame, Icon, Mark, Stroke, Text, PALETTE, SIZE_MAX, SIZE_MIN, SIZE_STEP, WIDTH_MAX, WIDTH_MIN};
 use crate::engine::AreaRect;
 use crate::{lang, log, mainthread};
 
@@ -145,8 +145,13 @@ struct State {
     /// ([`drag_mark`]).
     marks: Vec<Mark>,
     drawing: Option<Arrow>,
-    /// A ferramenta e a cor da próxima marca.
-    tool: Tool,
+    /// O traço livre em andamento (lápis ou marca-texto).
+    stroke: Option<Stroke>,
+    /// Mexendo na área já escolhida: o que (mover ou uma alça), onde o mouse apertou e a
+    /// área nesse instante.
+    adjust: Option<(Grab, POINT, RECT)>,
+    /// A ferramenta e a cor da próxima marca. Sem ferramenta, arrastar dentro move a área.
+    tool: Option<Tool>,
     color: u32,
     /// A espessura da próxima seta e o tamanho do próximo texto (a roda do mouse muda).
     width: f32,
@@ -177,27 +182,126 @@ pub enum ShotAction {
     Copy,
 }
 
-/// A ferramenta do editor: arrastar faz uma seta ou um retângulo; clicar começa um texto.
+/// A ferramenta do editor: o lápis e o marca-texto seguem o mouse; a linha, a seta e o
+/// retângulo vão do ponto inicial ao final; clicar com o texto começa um texto.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 enum Tool {
+    Pen,
+    Line,
     #[default]
     Arrow,
     /// Arrastar demarca uma região com um retângulo (só a borda).
     Rect,
+    Marker,
     Text,
 }
 
+/// As ferramentas, na ordem da barra.
+const TOOLS: [Tool; 6] = [Tool::Pen, Tool::Line, Tool::Arrow, Tool::Rect, Tool::Marker, Tool::Text];
+
+impl Tool {
+    /// Segue o mouse (traço livre).
+    fn freehand(self) -> bool {
+        matches!(self, Tool::Pen | Tool::Marker)
+    }
+
+    fn icon(self) -> Icon {
+        match self {
+            Tool::Pen => Icon::Pen,
+            Tool::Line => Icon::Line,
+            Tool::Arrow => Icon::Arrow,
+            Tool::Rect => Icon::Rect,
+            Tool::Marker => Icon::Marker,
+            Tool::Text => Icon::Text,
+        }
+    }
+}
+
 /// O arrasto `a` como marca da ferramenta `tool`.
-fn drag_mark(a: Arrow, tool: Tool) -> Mark {
+fn drag_mark(a: Arrow, tool: Option<Tool>) -> Mark {
     match tool {
-        Tool::Rect => Mark::Rect(Frame::from_drag(&a)),
+        Some(Tool::Rect) => Mark::Rect(Frame::from_drag(&a)),
+        Some(Tool::Line) => Mark::Line(a),
         _ => Mark::Arrow(a),
+    }
+}
+
+/// Mexendo na área escolhida: movê-la inteira ou puxar uma alça (os lados que andam).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Grab {
+    Move,
+    Edges { left: bool, top: bool, right: bool, bottom: bool },
+}
+
+/// A área `r` depois de arrastar `dx`, `dy` pegando em `g`: movida, presa dentro do
+/// cliente; ou com os lados puxados, sem passar do lado oposto (fica com [`MIN_SIZE`]).
+fn adjusted(r: RECT, g: Grab, dx: i32, dy: i32, client: RECT) -> RECT {
+    match g {
+        Grab::Move => {
+            let (w, h) = (r.right - r.left, r.bottom - r.top);
+            let l = (r.left + dx).clamp(client.left, (client.right - w).max(client.left));
+            let t = (r.top + dy).clamp(client.top, (client.bottom - h).max(client.top));
+            RECT { left: l, top: t, right: l + w, bottom: t + h }
+        }
+        Grab::Edges { left, top, right, bottom } => {
+            let mut n = r;
+            if left {
+                n.left = (r.left + dx).min(r.right - MIN_SIZE).max(client.left);
+            }
+            if right {
+                n.right = (r.right + dx).max(r.left + MIN_SIZE).min(client.right);
+            }
+            if top {
+                n.top = (r.top + dy).min(r.bottom - MIN_SIZE).max(client.top);
+            }
+            if bottom {
+                n.bottom = (r.bottom + dy).max(r.top + MIN_SIZE).min(client.bottom);
+            }
+            n
+        }
+    }
+}
+
+/// As 8 alças da área (cantos e meios dos lados): o centro e os lados que cada uma puxa.
+fn handles(r: RECT) -> impl Iterator<Item = (POINT, Grab)> {
+    let xs = [(r.left, true, false), ((r.left + r.right) / 2, false, false), (r.right, false, true)];
+    let ys = [(r.top, true, false), ((r.top + r.bottom) / 2, false, false), (r.bottom, false, true)];
+    ys.into_iter().flat_map(move |(y, top, bottom)| {
+        xs.into_iter().filter_map(move |(x, left, right)| {
+            (left || right || top || bottom).then_some((POINT { x, y }, Grab::Edges { left, top, right, bottom }))
+        })
+    })
+}
+
+/// O lado de uma alça desenhada.
+fn handle_px(dpi: i32) -> i32 {
+    sx(dpi, 8)
+}
+
+/// A alça sob `p` (com folga em volta, para pegar fácil).
+fn handle_at(r: RECT, p: POINT, dpi: i32) -> Option<Grab> {
+    let reach = sx(dpi, 7);
+    handles(r).find(|(c, _)| (p.x - c.x).abs() <= reach && (p.y - c.y).abs() <= reach).map(|(_, g)| g)
+}
+
+/// O cursor de quem puxa a alça `g`.
+fn grab_cursor(g: Grab) -> PCWSTR {
+    match g {
+        Grab::Move => IDC_SIZEALL,
+        Grab::Edges { left, top, right, bottom } => match (left || right, top || bottom) {
+            (true, true) if (left && top) || (right && bottom) => IDC_SIZENWSE,
+            (true, true) => IDC_SIZENESW,
+            (true, false) => IDC_SIZEWE,
+            _ => IDC_SIZENS,
+        },
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ShotButton {
     Tool(Tool),
+    /// Desfaz a última marca (como o Ctrl+Z).
+    Undo,
     /// A cor atual: abre (ou fecha) o seletor de cores.
     ColorMenu,
     /// No seletor: uma cor de [`PALETTE`] (o índice)...
@@ -367,6 +471,8 @@ fn reset_editor(s: &mut State) {
     s.editing = false;
     s.marks.clear();
     s.drawing = None;
+    s.stroke = None;
+    s.adjust = None;
     s.typing = None;
     s.high_surrogate = None;
     s.bar = None;
@@ -378,7 +484,7 @@ fn reset_editor(s: &mut State) {
         s.width = crate::annotate::WIDTH_DEFAULT;
         s.font_size = crate::annotate::SIZE_DEFAULT;
         s.color = crate::annotate::COLOR;
-        s.tool = Tool::Arrow;
+        s.tool = Some(Tool::Arrow);
     }
 }
 
@@ -494,7 +600,7 @@ fn finish_shot(action: ShotAction) {
     let marks: Vec<Mark> = marks.iter().map(|m| m.offset(origin.0 as f32, origin.1 as f32)).collect();
     let (_, on_shot) = close();
     let texts = marks.iter().filter(|m| matches!(m, Mark::Text(_))).count();
-    log!("AreaSelect: print {:?} {}x{} em ({}, {}), {} seta(s), {} texto(s).", action, area.w, area.h, area.x, area.y, marks.len() - texts, texts);
+    log!("AreaSelect: print {:?} {}x{} em ({}, {}), {} desenho(s), {} texto(s).", action, area.w, area.h, area.x, area.y, marks.len() - texts, texts);
     if let Some(cb) = on_shot {
         mainthread::queue(move || cb(Some(ShotDone { action, area, marks })));
     }
@@ -546,6 +652,8 @@ fn close() -> (Option<OnSelected>, Option<OnShot>) {
     let (hwnd, cb, on_shot, fonts, frozen, back) = with(|s| {
         s.editing = false;
         s.drawing = None;
+        s.stroke = None;
+        s.adjust = None;
         s.typing = None;
         s.marks.clear();
         s.bar = None;
@@ -617,7 +725,9 @@ fn rect_rgn(r: RECT) -> HRGN {
 /// fica como está — arrastar o canto de uma área grande repinta só as faixas da borda,
 /// não a área inteira a cada movimento do mouse. Quem chama apaga a região.
 fn selection_change(old: Option<RECT>, new: Option<RECT>, dpi: i32) -> HRGN {
-    let b = border_px(dpi) + 1;
+    // A moldura vai da borda (por fora) até o meio das alças (por dentro e por fora).
+    let half = handle_px(dpi) / 2 + 1;
+    let b = border_px(dpi).max(half) + 1;
     let outer = |r: Option<RECT>| r.map(|r| rect_rgn(inflate(r, b))).unwrap_or_else(|| rect_rgn(RECT::default()));
     unsafe {
         let rgn = outer(old);
@@ -625,8 +735,8 @@ fn selection_change(old: Option<RECT>, new: Option<RECT>, dpi: i32) -> HRGN {
         for r in old.iter().chain(new.iter()) {
             let frame = rect_rgn(inflate(*r, b));
             // Seleção fina demais (o primeiro clique): ela toda é moldura.
-            if r.right - r.left > 2 && r.bottom - r.top > 2 {
-                combine(frame, rect_rgn(inflate(*r, -1)), RGN_DIFF);
+            if r.right - r.left > 2 * half + 2 && r.bottom - r.top > 2 * half + 2 {
+                combine(frame, rect_rgn(inflate(*r, -half)), RGN_DIFF);
             }
             combine(rgn, frame, RGN_OR);
             combine(rgn, rect_rgn(label_rect(*r, dpi)), RGN_OR);
@@ -676,48 +786,47 @@ fn client_rect(hwnd: HWND) -> RECT {
 
 /// O tamanho que a roda (e o − e o +) muda agora: o da fonte (digitando ou com o Texto)?
 fn sizing_text(s: &State) -> bool {
-    s.typing.is_some() || s.tool == Tool::Text
+    s.typing.is_some() || s.tool == Some(Tool::Text)
 }
 
 /// O número entre o − e o +.
 fn size_label(s: &State) -> String {
     let size = match s.typing.and_then(|i| s.marks.get(i)) {
         Some(Mark::Text(t)) => t.size,
-        _ if s.tool == Tool::Text => s.font_size,
+        _ if s.tool == Some(Tool::Text) => s.font_size,
         _ => s.width,
     };
     format!("{size:.0} px")
 }
 
 /// Monta a barra do editor (com a área escolhida), colada embaixo da área (em cima, ou
-/// dentro, sem espaço), alinhada à direita dela: [Seta Retângulo Texto] | [cor ▾] |
-/// [− 6 px +] | [✕ Copiar Salvar]. Ícones no lugar dos nomes (o nome e o atalho vão na
-/// dica). Com o seletor de cores aberto, ele vai embaixo da barra (ou em cima).
+/// dentro, sem espaço), alinhada à direita dela, em grupos:
+/// [Lápis Linha Seta Retângulo Marca-texto Texto] | [cor ▾  − 6 px +] | [Desfazer] |
+/// [Copiar Salvar Fechar]. Só ícones (o nome e o atalho vão na dica). Com o seletor de
+/// cores aberto, ele vai embaixo da barra (ou em cima).
 fn layout_bar(s: &State, client: RECT) -> Option<Bar> {
     let sel = s.sel.filter(|_| s.editing)?;
     let d = s.dpi;
-    let (h, gap, pad, sep, margin) = (sx(d, 30), sx(d, 3), sx(d, 12), sx(d, 9), sx(d, 8));
-    let tw = |key: &str| text_extent(s.small_font, &wide(&lang::tr(key))).cx;
+    let (h, gap, sep, margin) = (sx(d, 32), sx(d, 4), sx(d, 13), sx(d, 10));
     enum It {
         B(ShotButton, i32),
         Sep,
     }
-    let items = [
-        It::B(ShotButton::Tool(Tool::Arrow), h),
-        It::B(ShotButton::Tool(Tool::Rect), h),
-        It::B(ShotButton::Tool(Tool::Text), h),
+    let mut items: Vec<It> = TOOLS.iter().map(|t| It::B(ShotButton::Tool(*t), h)).collect();
+    items.extend([
         It::Sep,
         It::B(ShotButton::ColorMenu, h + sx(d, 12)),
-        It::Sep,
         It::B(ShotButton::Smaller, sx(d, 24)),
         // Largura fixa (a do maior número): a barra não muda de tamanho com a roda.
         It::B(ShotButton::Size, text_extent(s.small_font, &wide("000 px")).cx + sx(d, 4)),
         It::B(ShotButton::Bigger, sx(d, 24)),
         It::Sep,
+        It::B(ShotButton::Undo, h),
+        It::Sep,
+        It::B(ShotButton::Copy, h),
+        It::B(ShotButton::Save, h),
         It::B(ShotButton::Cancel, h),
-        It::B(ShotButton::Copy, tw("Copiar") + 2 * pad),
-        It::B(ShotButton::Save, tw("Salvar") + 2 * pad),
-    ];
+    ]);
     let (mut x, mut rel, mut seps) = (gap, Vec::new(), Vec::new());
     for it in items {
         match it {
@@ -768,9 +877,15 @@ fn layout_bar(s: &State, client: RECT) -> Option<Bar> {
 /// O nome (e o atalho) do botão, na dica.
 fn tip_key(s: &State, b: ShotButton) -> Option<&'static str> {
     Some(match b {
+        // A ativa: clicar de novo a solta (e arrastar dentro passa a mover a área).
+        ShotButton::Tool(t) if s.tool == Some(t) => "Clique de novo para mover a área",
+        ShotButton::Tool(Tool::Pen) => "Lápis",
+        ShotButton::Tool(Tool::Line) => "Linha",
         ShotButton::Tool(Tool::Arrow) => "Seta",
         ShotButton::Tool(Tool::Rect) => "Retângulo",
+        ShotButton::Tool(Tool::Marker) => "Marca-texto",
         ShotButton::Tool(Tool::Text) => "Texto",
+        ShotButton::Undo => "Desfazer (Ctrl+Z)",
         ShotButton::ColorMenu => "Cor",
         ShotButton::Smaller | ShotButton::Size | ShotButton::Bigger => {
             if sizing_text(s) {
@@ -851,109 +966,104 @@ fn hue_at(r: RECT, x: i32) -> u32 {
     crate::annotate::hsv(t.clamp(0.0, 1.0) * 360.0, 0.85, 0.95)
 }
 
-const BAR_BG: u32 = 0x0020_2020;
-const HOVER_BG: u32 = 0x0045_4545;
-const TOOL_ON: u32 = 0x00D9_6F1E;
+/// As cores da barra (ARGB): o fundo, a borda, o realce sob o mouse, o separador e o
+/// verde do NoOBS (a ferramenta ativa e o Salvar).
+const BAR_BG: u32 = 0xFF1C_1D1F;
+const BAR_BORDER: u32 = 0xFF3A_3B3E;
+const HOVER_BG: u32 = 0xFF34_3539;
+const SEP: u32 = 0x0045_4649;
+const GREEN: u32 = 0xFF10_B981;
+const GREEN_HOVER: u32 = 0xFF34_D399;
+const GREEN_SOFT: u32 = 0xFF0F_3B2F;
 const WHITE: u32 = 0xFFFF_FFFF;
+const ICON: u32 = 0xFFE8_E8EA;
 
 /// A barra (e o seletor e a dica) em `dc`, na posição montada por [`layout_bar`].
 /// `org`: o canto do cliente que o (0, 0) de `dc` representa (para o GDI+, que não segue
-/// a origem do GDI).
+/// a origem do GDI). Primeiro os fundos arredondados (GDI+), depois o texto e as cores
+/// (GDI), por último os ícones (GDI+, com antialiasing).
 unsafe fn paint_bar(dc: HDC, org: (i32, i32)) {
     let Some(bar) = with(|s| s.bar.clone()) else { return };
     let (dpi, font, tool, color, hover, picker, tip, size) = with(|s| (s.dpi, s.small_font, s.tool, s.color, s.hover, s.picker, s.tip.clone(), size_label(s)));
-    fill(dc, &bar.rect, BAR_BG);
-    frame(dc, &bar.rect, 0x0040_4040);
-    let inset = sx(dpi, 8);
+    let (radius, inner) = (sx(dpi, 10) as f32, sx(dpi, 7) as f32);
+    let at = |r: RECT| offset(r, -org.0, -org.1);
+    let mut icons: Vec<(Icon, RECT, u32)> = Vec::new();
+    gdiplus(dc, org, || {
+        fill_round(dc, at(bar.rect), radius, BAR_BG, Some(BAR_BORDER));
+        if let Some(pr) = bar.picker {
+            fill_round(dc, at(pr), radius, BAR_BG, Some(BAR_BORDER));
+        }
+        for (b, r) in &bar.buttons {
+            let hov = hover == Some(*b);
+            let bg = match *b {
+                ShotButton::Tool(t) if tool == Some(t) => Some(GREEN_SOFT),
+                ShotButton::Save => Some(if hov { GREEN_HOVER } else { GREEN }),
+                ShotButton::ColorMenu if picker => Some(HOVER_BG),
+                ShotButton::Color(_) | ShotButton::Hue | ShotButton::Size => None,
+                _ if hov => Some(HOVER_BG),
+                _ => None,
+            };
+            if let Some(bg) = bg {
+                fill_round(dc, at(*r), inner, bg, None);
+            }
+            let icon = match *b {
+                ShotButton::Tool(t) => Some((t.icon(), if tool == Some(t) { GREEN_HOVER } else { ICON })),
+                ShotButton::Undo => Some((Icon::Undo, ICON)),
+                ShotButton::Copy => Some((Icon::Copy, ICON)),
+                ShotButton::Save => Some((Icon::Save, WHITE)),
+                ShotButton::Cancel => Some((Icon::Close, ICON)),
+                ShotButton::Smaller => Some((Icon::Minus, ICON)),
+                ShotButton::Bigger => Some((Icon::Plus, ICON)),
+                _ => None,
+            };
+            if let Some((icon, c)) = icon {
+                // Os ícones um pouco menores que o botão (mais respiro).
+                icons.push((icon, inflate(*r, -sx(dpi, 3)), c));
+            }
+        }
+        if let Some((tr, _)) = &tip {
+            fill_round(dc, at(*tr), inner, 0xF012_1214, Some(BAR_BORDER));
+        }
+    });
+    let inset = sx(dpi, 9);
     for x in &bar.seps {
-        fill(dc, &RECT { left: *x, top: bar.rect.top + inset, right: *x + sx(dpi, 1).max(1), bottom: bar.rect.bottom - inset }, 0x0050_5050);
+        fill(dc, &RECT { left: *x, top: bar.rect.top + inset, right: *x + sx(dpi, 1).max(1), bottom: bar.rect.bottom - inset }, SEP);
     }
     let old_font = (!font.is_invalid()).then(|| SelectObject(dc, HGDIOBJ(font.0)));
     SetBkMode(dc, TRANSPARENT);
-    let text = |r: &RECT, s: &str, bgr: u32| {
-        SetTextColor(dc, COLORREF(bgr));
-        let (mut t, mut tr) = (wide(s), *r);
-        DrawTextW(dc, &mut t, &mut tr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-    };
-    // Os ícones vão depois, pelo GDI+ (antialiasing).
-    let mut icons: Vec<(Icon, RECT, u32)> = Vec::new();
     for (b, r) in &bar.buttons {
-        let hov = hover == Some(*b);
         match *b {
-            ShotButton::Tool(t) => {
-                if t == tool {
-                    fill(dc, r, TOOL_ON);
-                } else if hov {
-                    fill(dc, r, HOVER_BG);
-                }
-                let icon = match t {
-                    Tool::Arrow => Icon::Arrow,
-                    Tool::Rect => Icon::Rect,
-                    Tool::Text => Icon::Text,
-                };
-                icons.push((icon, *r, WHITE));
-            }
             ShotButton::ColorMenu => {
-                if hov || picker {
-                    fill(dc, r, HOVER_BG);
-                }
                 // A cor atual numa amostra, e o ▾ do seletor.
-                let m = sx(dpi, 7);
+                let m = sx(dpi, 8);
                 let side = (r.bottom - r.top) - 2 * m;
                 let sw = RECT { left: r.left + m, top: r.top + m, right: r.left + m + side, bottom: r.top + m + side };
                 fill(dc, &inflate(sw, 1), 0x00A0_A0A0);
                 fill(dc, &sw, bgr(color));
                 icons.push((Icon::Caret, RECT { left: sw.right, ..*r }, 0xFFDD_DDDD));
             }
-            ShotButton::Smaller | ShotButton::Bigger | ShotButton::Cancel => {
-                if hov {
-                    fill(dc, r, HOVER_BG);
+            ShotButton::Size => {
+                SetTextColor(dc, COLORREF(0x00DD_DDDD));
+                let (mut t, mut tr) = (wide(&size), *r);
+                DrawTextW(dc, &mut t, &mut tr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+            }
+            ShotButton::Color(i) => {
+                // A escolhida com moldura branca; as outras, um fio cinza.
+                let on = PALETTE[i] == color;
+                let hov = hover == Some(*b);
+                fill(dc, &inflate(*r, if on || hov { sx(dpi, 2) } else { 1 }), if on { 0x00FF_FFFF } else if hov { 0x00A0_A0A0 } else { 0x0060_6060 });
+                fill(dc, r, bgr(PALETTE[i]));
+            }
+            ShotButton::Hue => {
+                for x in r.left..r.right {
+                    fill(dc, &RECT { left: x, right: x + 1, ..*r }, bgr(hue_at(*r, x)));
                 }
-                let icon = match *b {
-                    ShotButton::Smaller => Icon::Minus,
-                    ShotButton::Bigger => Icon::Plus,
-                    _ => Icon::Close,
-                };
-                icons.push((icon, *r, WHITE));
+                frame(dc, &inflate(*r, 1), 0x0060_6060);
             }
-            ShotButton::Size => text(r, &size, 0x00DD_DDDD),
-            ShotButton::Copy => {
-                fill(dc, r, if hov { 0x0058_5858 } else { 0x0040_4040 });
-                text(r, &lang::tr("Copiar"), 0x00FF_FFFF);
-            }
-            ShotButton::Save => {
-                // A ação principal, em verde.
-                fill(dc, r, if hov { 0x0040_9A3B } else { 0x0032_7D2E });
-                text(r, &lang::tr("Salvar"), 0x00FF_FFFF);
-            }
-            ShotButton::Color(_) | ShotButton::Hue => {}
-        }
-    }
-    if let Some(pr) = bar.picker {
-        fill(dc, &pr, BAR_BG);
-        frame(dc, &pr, 0x0050_5050);
-        for (b, r) in &bar.buttons {
-            match *b {
-                ShotButton::Color(i) => {
-                    // A escolhida com moldura branca; as outras, um fio cinza.
-                    let on = PALETTE[i] == color;
-                    let hov = hover == Some(*b);
-                    fill(dc, &inflate(*r, if on || hov { sx(dpi, 2) } else { 1 }), if on { 0x00FF_FFFF } else if hov { 0x00A0_A0A0 } else { 0x0060_6060 });
-                    fill(dc, r, bgr(PALETTE[i]));
-                }
-                ShotButton::Hue => {
-                    for x in r.left..r.right {
-                        fill(dc, &RECT { left: x, right: x + 1, ..*r }, bgr(hue_at(*r, x)));
-                    }
-                    frame(dc, &inflate(*r, 1), 0x0060_6060);
-                }
-                _ => {}
-            }
+            _ => {}
         }
     }
     if let Some((tr, t)) = tip {
-        fill(dc, &tr, 0x0010_1010);
-        frame(dc, &tr, 0x0060_6060);
         SetTextColor(dc, COLORREF(0x00FF_FFFF));
         let (mut t, mut r) = (t, tr);
         DrawTextW(dc, &mut t, &mut r, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
@@ -963,7 +1073,7 @@ unsafe fn paint_bar(dc: HDC, org: (i32, i32)) {
     }
     gdiplus(dc, org, || {
         for (icon, r, c) in icons {
-            crate::annotate::draw_icon(dc, icon, offset(r, -org.0, -org.1), c);
+            crate::annotate::draw_icon(dc, icon, at(r), c);
         }
     });
 }
@@ -1083,7 +1193,10 @@ unsafe fn compose(dc: HDC, org: (i32, i32), rc: RECT) {
             }
             // As marcas do editor do print, só dentro da área (o que vai para o print),
             // com o cursor no texto sendo digitado.
-            let (marks, caret) = with(|s| (s.marks.iter().cloned().chain(s.drawing.map(|a| drag_mark(a, s.tool))).collect::<Vec<_>>(), s.typing));
+            let (marks, caret) = with(|s| {
+                let live = s.drawing.map(|a| drag_mark(a, s.tool)).into_iter().chain(s.stroke.clone().map(Mark::Stroke));
+                (s.marks.iter().cloned().chain(live).collect::<Vec<_>>(), s.typing)
+            });
             if !marks.is_empty() {
                 gdiplus(dc, org, || crate::annotate::draw_on_hdc(dc, &marks, r, caret, org));
             }
@@ -1097,10 +1210,19 @@ unsafe fn compose(dc: HDC, org: (i32, i32), rc: RECT) {
         ] {
             fill(dc, &side, 0x00FF_FFFF);
         }
+        // As alças do editor (a área já escolhida): puxam os lados.
+        if with(|s| s.editing && s.on_shot.is_some()) {
+            let hp = handle_px(dpi);
+            for (c, _) in handles(r) {
+                let h = RECT { left: c.x - hp / 2, top: c.y - hp / 2, right: c.x - hp / 2 + hp, bottom: c.y - hp / 2 + hp };
+                fill(dc, &h, 0x0020_2020);
+                fill(dc, &inflate(h, -1), 0x00FF_FFFF);
+            }
+        }
         // 3. Tamanho, em px físicos — é o tamanho do vídeo (arredondado
         // pro múltiplo de 16 na gravação).
         let lr = label_rect(r, dpi);
-        fill(dc, &lr, 0);
+        gdiplus(dc, org, || fill_round(dc, offset(lr, -org.0, -org.1), sx(dpi, 8) as f32, 0xE614_1517, Some(0xFF3A_3B3E)));
         let old_font = SelectObject(dc, HGDIOBJ(font.0));
         SetBkMode(dc, TRANSPARENT);
         SetTextColor(dc, COLORREF(0x00FF_FFFF));
@@ -1166,10 +1288,12 @@ fn run_button(hwnd: HWND, b: ShotButton, p: POINT) {
         ShotButton::Copy => finish_shot(ShotAction::Copy),
         ShotButton::Save => finish_shot(ShotAction::Save),
         ShotButton::Tool(t) => {
+            // A ativa de novo: solta (sem ferramenta, arrastar dentro move a área).
             end_typing();
-            with(|s| s.tool = t);
+            with(|s| s.tool = if s.tool == Some(t) { None } else { Some(t) });
             refresh_bar(hwnd);
         }
+        ShotButton::Undo => undo(hwnd),
         ShotButton::ColorMenu => {
             with(|s| s.picker = !s.picker);
             refresh_bar(hwnd);
@@ -1193,6 +1317,15 @@ fn run_button(hwnd: HWND, b: ShotButton, p: POINT) {
     }
 }
 
+/// Desfaz a última marca (o botão e o Ctrl+Z; digitando, o texto em edição termina antes).
+fn undo(hwnd: HWND) {
+    end_typing();
+    if let Some(m) = with(|s| s.marks.pop()) {
+        invalidate(hwnd, &mark_area(&m));
+    }
+    refresh_bar(hwnd);
+}
+
 /// A roda do mouse (e o − e o +): no texto sendo digitado (ou com a ferramenta Texto), o
 /// tamanho da fonte, 2 px por dente; com a Seta e o Retângulo, a espessura, 1 px por dente
 /// (a marca sendo arrastada acompanha).
@@ -1202,7 +1335,7 @@ fn wheel_steps(hwnd: HWND, steps: i32) {
             t.size = (t.size + steps as f32 * SIZE_STEP).clamp(SIZE_MIN, SIZE_MAX);
             s.font_size = t.size;
             true
-        } else if s.tool == Tool::Text && s.drawing.is_none() {
+        } else if s.tool == Some(Tool::Text) && s.drawing.is_none() && s.stroke.is_none() {
             s.font_size = (s.font_size + steps as f32 * SIZE_STEP).clamp(SIZE_MIN, SIZE_MAX);
             true
         } else {
@@ -1210,15 +1343,25 @@ fn wheel_steps(hwnd: HWND, steps: i32) {
         }
     });
     if !text_size {
+        // A marca sendo feita acompanha (a linha, a seta, o retângulo ou o traço livre).
+        let live = |s: &State| {
+            let a = s.drawing.map(|a| inflate(drag_mark(a, s.tool).bounds(), 4));
+            let k = s.stroke.as_ref().map(|k| k.bounds());
+            [a, k]
+        };
         let (old, new) = with(|s| {
             s.width = (s.width + steps as f32).clamp(WIDTH_MIN, WIDTH_MAX);
-            let old = s.drawing;
+            let old = live(s);
+            let w = s.width;
             if let Some(d) = s.drawing.as_mut() {
-                d.width = s.width;
+                d.width = w;
             }
-            (old, s.drawing)
+            if let Some(k) = s.stroke.as_mut() {
+                k.width = w;
+            }
+            (old, live(s))
         });
-        for r in [old.map(|a| a.bounds()), new.map(|a| a.bounds())].into_iter().flatten() {
+        for r in old.into_iter().chain(new).flatten() {
             invalidate(hwnd, &r);
         }
     }
@@ -1289,11 +1432,21 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM
             // texto dentro da área (com a ferramenta Texto); no resto, a cruz.
             let mut p = POINT::default();
             let known = editor && unsafe { GetCursorPos(&mut p).is_ok() && ScreenToClient(hwnd, &mut p).as_bool() };
+            // A área escolhida: a alça sob o mouse, ou dentro dela.
+            let (grab, inside, tool) = with(|s| {
+                let sel = s.sel.filter(|_| s.editing && known);
+                let grab = s.adjust.map(|(g, _, _)| g).or_else(|| sel.and_then(|r| handle_at(r, p, s.dpi)));
+                (grab, sel.is_some_and(|r| in_rect(&r, p)), s.tool)
+            });
             let cursor = if known && button_at(p).is_some_and(|b| b != ShotButton::Size) {
                 IDC_HAND
             } else if known && on_bar(p) {
                 IDC_ARROW
-            } else if known && with(|s| s.editing && s.tool == Tool::Text && s.sel.is_some_and(|r| in_rect(&r, p))) {
+            } else if let Some(g) = grab {
+                grab_cursor(g)
+            } else if inside && tool.is_none() {
+                IDC_SIZEALL
+            } else if inside && tool == Some(Tool::Text) {
                 IDC_IBEAM
             } else {
                 IDC_CROSS
@@ -1307,7 +1460,7 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM
             // Arrasto já começou: um 2º "aperto" (visto no teste: chega um
             // logo depois do 1º, quando a janela é ativada pelo clique) não
             // pode reiniciar a seleção — o ponto de partida é o primeiro.
-            if with(|s| s.anchor.is_some() || s.drawing.is_some() || s.hue_drag) {
+            if with(|s| s.anchor.is_some() || s.drawing.is_some() || s.stroke.is_some() || s.adjust.is_some() || s.hue_drag) {
                 return LRESULT(0);
             }
             let p = point_from(lparam);
@@ -1332,16 +1485,38 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM
                 if on_bar(p) {
                     return LRESULT(0);
                 }
-                let (editing, sel, width, color, tool) = with(|s| (s.editing, s.sel, s.width, s.color, s.tool));
-                if editing && sel.is_some_and(|r| in_rect(&r, p)) {
-                    if tool == Tool::Text {
-                        start_text(hwnd, p);
-                        return LRESULT(0);
-                    }
-                    // Dentro da área: uma seta (ou um retângulo), do ponto inicial ao final.
+                let (editing, sel, width, color, tool, dpi) = with(|s| (s.editing, s.sel, s.width, s.color, s.tool, s.dpi));
+                // Uma alça (com qualquer ferramenta) puxa os lados; dentro, sem ferramenta,
+                // arrastar move a área inteira.
+                let grab = sel.filter(|_| editing).and_then(|r| {
+                    handle_at(r, p, dpi).or_else(|| (tool.is_none() && in_rect(&r, p)).then_some(Grab::Move)).map(|g| (g, r))
+                });
+                if let Some((g, r)) = grab {
                     end_typing();
+                    with(|s| s.adjust = Some((g, p, r)));
+                    unsafe {
+                        SetCapture(hwnd);
+                    }
+                    return LRESULT(0);
+                }
+                if editing && sel.is_some_and(|r| in_rect(&r, p)) {
                     let (x, y) = (p.x as f32, p.y as f32);
-                    with(|s| s.drawing = Some(Arrow { x1: x, y1: y, x2: x, y2: y, width, color }));
+                    match tool {
+                        Some(Tool::Text) => {
+                            start_text(hwnd, p);
+                            return LRESULT(0);
+                        }
+                        // O lápis e o marca-texto: o traço segue o mouse até soltar.
+                        Some(t) if t.freehand() => {
+                            end_typing();
+                            with(|s| s.stroke = Some(Stroke { points: vec![(x, y)], width, color, marker: t == Tool::Marker }));
+                        }
+                        // A linha, a seta e o retângulo: do ponto inicial ao final.
+                        _ => {
+                            end_typing();
+                            with(|s| s.drawing = Some(Arrow { x1: x, y1: y, x2: x, y2: y, width, color }));
+                        }
+                    }
                     unsafe {
                         SetCapture(hwnd);
                     }
@@ -1380,12 +1555,40 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM
                 }
                 return LRESULT(0);
             }
+            // Movendo a área ou puxando uma alça: a barra vai junto.
+            if let Some((g, from, r0)) = with(|s| s.adjust) {
+                let r = adjusted(r0, g, p.x - from.x, p.y - from.y, client_rect(hwnd));
+                set_selection(hwnd, Some(r));
+                refresh_bar(hwnd);
+                paint_now(hwnd);
+                return LRESULT(0);
+            }
+            // O traço livre: um ponto a cada passo do mouse; repinta só o pedaço novo.
+            if let Some(seg) = with(|s| {
+                let k = s.stroke.as_mut()?;
+                let (x, y) = (p.x as f32, p.y as f32);
+                let &(lx, ly) = k.points.last()?;
+                if (x - lx).abs() < 1.0 && (y - ly).abs() < 1.0 {
+                    return None;
+                }
+                k.points.push((x, y));
+                let piece = Stroke { points: vec![(lx, ly), (x, y)], width: k.width, color: k.color, marker: k.marker };
+                Some(piece.bounds())
+            }) {
+                invalidate(hwnd, &seg);
+                paint_now(hwnd);
+                return LRESULT(0);
+            }
+            if with(|s| s.stroke.is_some()) {
+                return LRESULT(0);
+            }
             if let Some(mut a) = with(|s| s.drawing) {
-                let old = a.bounds();
+                let tool = with(|s| s.tool);
+                let old = inflate(drag_mark(a, tool).bounds(), 4);
                 (a.x2, a.y2) = (p.x as f32, p.y as f32);
                 with(|s| s.drawing = Some(a));
                 invalidate(hwnd, &old);
-                invalidate(hwnd, &a.bounds());
+                invalidate(hwnd, &inflate(drag_mark(a, tool).bounds(), 4));
                 paint_now(hwnd);
                 return LRESULT(0);
             }
@@ -1407,6 +1610,23 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM
                 refresh_bar(hwnd);
                 return LRESULT(0);
             }
+            if with(|s| s.adjust.take()).is_some() {
+                unsafe {
+                    let _ = ReleaseCapture();
+                }
+                refresh_bar(hwnd);
+                return LRESULT(0);
+            }
+            // O traço livre entra como está (um clique sem arrasto vira um pingo).
+            if let Some(k) = with(|s| s.stroke.take()) {
+                unsafe {
+                    let _ = ReleaseCapture();
+                }
+                let area = k.bounds();
+                with(|s| s.marks.push(Mark::Stroke(k)));
+                invalidate(hwnd, &area);
+                return LRESULT(0);
+            }
             if let Some(mut a) = with(|s| s.drawing.take()) {
                 unsafe {
                     let _ = ReleaseCapture();
@@ -1417,10 +1637,11 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM
                     Mark::Rect(f) => f.is_tiny(),
                     _ => a.is_tiny(),
                 };
+                let area = inflate(mark.bounds(), 4);
                 if !tiny {
                     with(|s| s.marks.push(mark));
                 }
-                invalidate(hwnd, &a.bounds());
+                invalidate(hwnd, &area);
                 return LRESULT(0);
             }
             let (anchor, origin) = with(|s| (s.anchor.take(), s.origin));
@@ -1503,12 +1724,7 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM
             } else if editor && editing && ctrl && vk == u16::from(b'C') {
                 finish_shot(ShotAction::Copy);
             } else if editor && ctrl && vk == u16::from(b'Z') {
-                // Desfaz a última marca (digitando: o texto em edição termina antes).
-                end_typing();
-                if let Some(m) = with(|s| s.marks.pop()) {
-                    invalidate(hwnd, &mark_area(&m));
-                }
-                refresh_bar(hwnd);
+                undo(hwnd);
             } else if editor && typing {
                 // As outras teclas viram WM_CHAR (TranslateMessage); nada de atalho aqui.
                 return LRESULT(0);
@@ -1644,7 +1860,7 @@ mod tests {
         let hwnd = open_editor();
         drag(hwnd, (100, 100), (700, 500));
         click(hwnd, ShotButton::Tool(Tool::Text));
-        assert_eq!(with(|s| s.tool), Tool::Text);
+        assert_eq!(with(|s| s.tool), Some(Tool::Text));
         send(hwnd, WM_LBUTTONDOWN, 1, lp(200, 200));
         send(hwnd, WM_LBUTTONUP, 0, lp(200, 200));
         assert_eq!(with(|s| s.typing), Some(0), "digitando no texto novo");
@@ -1702,7 +1918,7 @@ mod tests {
         drag(hwnd, (100, 100), (700, 500));
         click(hwnd, ShotButton::Tool(Tool::Rect));
         click(hwnd, ShotButton::Color(2));
-        // Arrastado de baixo-direita para cima-esquerda, com a roda +2 no meio.
+        // Arrastado de baixo-direita para cima-esquerda, com a roda +2 no meio (longe das alças).
         send(hwnd, WM_LBUTTONDOWN, 1, lp(400, 350));
         send(hwnd, WM_MOUSEMOVE, 1, lp(300, 250));
         wheel(hwnd, 2);
@@ -1731,7 +1947,92 @@ mod tests {
         key(hwnd, VK_ESCAPE);
         take_done();
         with(reset_editor);
-        assert_eq!(with(|s| (s.tool, s.color, s.font_size, s.marks.len())), (Tool::Text, PALETTE[1], crate::annotate::SIZE_DEFAULT - 4.0, 0));
+        assert_eq!(with(|s| (s.tool, s.color, s.font_size, s.marks.len())), (Some(Tool::Text), PALETTE[1], crate::annotate::SIZE_DEFAULT - 4.0, 0));
+    }
+
+    /// Mover: a área inteira anda e não sai do cliente. Alça: os lados puxados andam, sem
+    /// passar do oposto (fica com o mínimo) nem sair do cliente.
+    #[test]
+    fn mover_e_puxar_a_area() {
+        let client = RECT { left: 0, top: 0, right: 1000, bottom: 800 };
+        let r = RECT { left: 100, top: 100, right: 400, bottom: 300 };
+        assert_eq!(adjusted(r, Grab::Move, 50, -20, client), RECT { left: 150, top: 80, right: 450, bottom: 280 });
+        assert_eq!(adjusted(r, Grab::Move, 900, -500, client), RECT { left: 700, top: 0, right: 1000, bottom: 200 });
+        let corner = Grab::Edges { left: false, top: false, right: true, bottom: true };
+        assert_eq!(adjusted(r, corner, 30, 40, client), RECT { right: 430, bottom: 340, ..r });
+        let left = Grab::Edges { left: true, top: false, right: false, bottom: false };
+        assert_eq!(adjusted(r, left, 1000, 0, client), RECT { left: 400 - MIN_SIZE, ..r }, "não passa do lado oposto");
+        assert_eq!(adjusted(r, left, -500, 0, client), RECT { left: 0, ..r }, "nem sai do cliente");
+        // As 8 alças: os cantos puxam dois lados; os meios, um.
+        assert_eq!(handles(r).count(), 8);
+        assert_eq!(handle_at(r, POINT { x: 402, y: 298 }, 96), Some(corner));
+        assert_eq!(handle_at(r, POINT { x: 250, y: 100 }, 96), Some(Grab::Edges { left: false, top: true, right: false, bottom: false }));
+        assert_eq!(handle_at(r, POINT { x: 250, y: 200 }, 96), None, "o meio da área não é alça");
+    }
+
+    /// Sem ferramenta (clicar de novo na ativa), arrastar dentro move a área e as marcas
+    /// ficam onde estavam na tela; a alça do canto puxa os dois lados, com qualquer
+    /// ferramenta.
+    #[test]
+    fn editor_move_e_redimensiona_a_area() {
+        let _t = crate::testkit::begin();
+        take_done();
+        let hwnd = open_editor();
+        drag(hwnd, (100, 100), (500, 400));
+        drag(hwnd, (150, 150), (300, 200)); // uma seta
+        click(hwnd, ShotButton::Tool(Tool::Arrow)); // a ativa: solta
+        assert_eq!(with(|s| s.tool), None);
+        drag(hwnd, (300, 300), (350, 250));
+        assert_eq!(with(|s| s.sel), Some(RECT { left: 150, top: 50, right: 550, bottom: 350 }));
+        assert_eq!(with(|s| s.marks.clone()), vec![arrow(150.0, 150.0, 300.0, 200.0, crate::annotate::WIDTH_DEFAULT)], "a seta fica no lugar");
+        assert!(with(|s| s.editing), "a área continua escolhida");
+
+        // A alça do canto de baixo à direita, com a seta escolhida de novo.
+        click(hwnd, ShotButton::Tool(Tool::Arrow));
+        drag(hwnd, (550, 350), (600, 420));
+        assert_eq!(with(|s| s.sel), Some(RECT { left: 150, top: 50, right: 600, bottom: 420 }));
+        assert_eq!(with(|s| s.marks.len()), 1, "puxar a alça não desenha");
+
+        click(hwnd, ShotButton::Save);
+        let d = take_done().pop().flatten().expect("salvo");
+        assert_eq!(d.area, AreaRect { x: 150 - 1920, y: 50, w: 450, h: 370 });
+    }
+
+    /// O lápis guarda o caminho do mouse; o marca-texto também, largo e translúcido; a
+    /// linha vai de ponta a ponta sem ponta de seta; o Desfazer tira a última marca.
+    #[test]
+    fn editor_lapis_marca_texto_linha_e_desfazer() {
+        let _t = crate::testkit::begin();
+        take_done();
+        let hwnd = open_editor();
+        drag(hwnd, (100, 100), (700, 500));
+        click(hwnd, ShotButton::Tool(Tool::Pen));
+        send(hwnd, WM_LBUTTONDOWN, 1, lp(200, 200));
+        for (x, y) in [(210, 205), (220, 215), (240, 230)] {
+            send(hwnd, WM_MOUSEMOVE, 1, lp(x, y));
+        }
+        send(hwnd, WM_LBUTTONUP, 0, lp(240, 230));
+        let pen = |m: &Mark| matches!(m, Mark::Stroke(k) if !k.marker && k.points == vec![(200.0, 200.0), (210.0, 205.0), (220.0, 215.0), (240.0, 230.0)]);
+        assert!(with(|s| s.marks.last().is_some_and(pen)), "{:?}", with(|s| s.marks.clone()));
+
+        click(hwnd, ShotButton::Tool(Tool::Marker));
+        click(hwnd, ShotButton::Color(1)); // amarelo
+        drag(hwnd, (300, 300), (400, 300));
+        let marker = with(|s| s.marks.last().cloned());
+        let Some(Mark::Stroke(k)) = marker else { panic!("marca-texto: {marker:?}") };
+        assert!(k.marker && k.color == PALETTE[1]);
+        assert_eq!(k.drawn_width(), k.width * crate::annotate::MARKER_SCALE);
+        assert_eq!(k.drawn_color() >> 24, 0x80, "translúcido");
+
+        click(hwnd, ShotButton::Tool(Tool::Line));
+        drag(hwnd, (150, 450), (650, 450));
+        assert!(matches!(with(|s| s.marks.last().cloned()), Some(Mark::Line(a)) if (a.x1, a.x2) == (150.0, 650.0)));
+
+        click(hwnd, ShotButton::Undo);
+        assert_eq!(with(|s| s.marks.len()), 2, "a linha saiu");
+        click(hwnd, ShotButton::Save);
+        let d = take_done().pop().flatten().expect("salvo");
+        assert!(matches!(&d.marks[0], Mark::Stroke(k) if k.points[0] == (200.0 - 1920.0, 200.0)), "as marcas vão em coordenadas de tela");
     }
 
     /// A barra montada (o que a janela de verdade faz ao escolher a área).

@@ -220,6 +220,30 @@ pub fn deliver_copy(shot: Shot) {
     }
 }
 
+/// Copia um print já salvo para a área de transferência (Ctrl+C no visualizador). Lê o
+/// PNG e monta o DIB numa thread, como [`deliver_copy`].
+pub fn copy_file(path: String) {
+    let spawned = std::thread::Builder::new().name("noobs-print-copy".into()).spawn(move || {
+        let shot = image::open(&path).ok().map(|img| {
+            let rgba = img.to_rgba8();
+            let (w, h) = (rgba.width() as i32, rgba.height() as i32);
+            Shot { area: AreaRect { x: 0, y: 0, w, h }, rgba: rgba.into_raw() }
+        });
+        let copied = shot.as_ref().is_some_and(copy_to_clipboard);
+        mainthread::queue(move || {
+            log!("Visualizador: {path} copiado (area de transferencia: {copied}).");
+            if copied {
+                crate::view::call(|v| v.toast(&lang::tr("Imagem copiada"), &lang::tr("A imagem está na área de transferência."), false, 0));
+            } else {
+                crate::bridge::post_error(lang::tr("Não foi possível copiar a imagem para a área de transferência."));
+            }
+        });
+    });
+    if let Err(e) = spawned {
+        log!("Visualizador: thread da copia nao subiu ({e}).");
+    }
+}
+
 /// `<pasta>/2026-11-10 09-15-02.png` (com ` (2)`, ` (3)`... se já existir).
 fn file_path(dir: &Path) -> PathBuf {
     file_path_at(dir, &chrono::Local::now().format("%Y-%m-%d %H-%M-%S").to_string())

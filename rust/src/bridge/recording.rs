@@ -164,6 +164,16 @@ pub fn record_dir() -> PathBuf {
     Path::new(&profile).join("Videos")
 }
 
+/// Onde os prints são salvos (config `printDir`; vazio: a pasta das gravações).
+pub fn print_dir() -> PathBuf {
+    let dir = config::get_config_str("printDir", "");
+    if dir.trim().is_empty() {
+        record_dir()
+    } else {
+        PathBuf::from(dir)
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Formatação
 // ---------------------------------------------------------------------------

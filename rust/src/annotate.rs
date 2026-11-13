@@ -1,8 +1,12 @@
-//! Marcas do print — setas e textos: o editor da seleção desenha na tela e a imagem
-//! final sai com elas, pelo MESMO desenho ([`draw`]) — o que se vê é o que vai para o arquivo.
+//! Marcas do print — traços, linhas, setas, retângulos, marca-texto e textos: o editor da
+//! seleção desenha na tela e a imagem final sai com elas, pelo MESMO desenho ([`draw`]) — o
+//! que se vê é o que vai para o arquivo.
 //!
 //! * Seta: reta, do ponto inicial ao final, com a ponta no final:
 //!   `(inicial)────────▶(final)`. A espessura (`width`) é a do corpo; a ponta cresce com ela.
+//! * Linha: reta, sem ponta, com as pontas arredondadas.
+//! * Lápis: o traço livre do mouse. Marca-texto: o mesmo traço, largo ([`MARKER_SCALE`]) e
+//!   translúcido, num desenho só (onde ele se cruza não escurece).
 //! * Texto: Segoe UI em negrito, do tamanho `size` (px), com um contorno de contraste
 //!   (escuro em cor clara, claro em cor escura) para ler sobre qualquer fundo.
 //!   Várias linhas com `\n`.
@@ -13,7 +17,8 @@ use windows::core::{w, PCWSTR};
 use windows::Win32::Foundation::RECT;
 use windows::Win32::Graphics::Gdi::{CreateCompatibleDC, DeleteDC, HDC};
 use windows::Win32::Graphics::GdiPlus::{
-    CombineModeReplace, FillModeAlternate, FillModeWinding, GdipAddPathString, GdipCloneStringFormat, GdipCreateBitmapFromScan0, GdipCreateFont,
+    CombineModeReplace, FillModeAlternate, FillModeWinding, GdipAddPathArc, GdipAddPathString, GdipCloneStringFormat, GdipClosePathFigure,
+    GdipCreateBitmapFromScan0, GdipCreateFont, GdipDrawLines, GdipFillEllipse,
     GdipCreateFontFamilyFromName, GdipCreateFromHDC, GdipCreatePath, GdipCreatePen1, GdipCreateSolidFill, GdipDeleteBrush, GdipDeleteFont,
     GdipDeleteFontFamily, GdipDeleteGraphics, GdipDeletePath, GdipDeletePen, GdipDeleteStringFormat, GdipDisposeImage, GdipDrawLine, GdipDrawPath, GdipDrawRectangle, LineJoinMiter,
     GdipFillPath, GdipFillPolygon, GdipFillRectangle, GdipGetEmHeight, GdipGetImageGraphicsContext, GdipGetLineSpacing, GdipGetStringFormatFlags,
@@ -104,20 +109,74 @@ impl Frame {
     }
 }
 
+/// Quantas vezes a espessura escolhida o marca-texto tem.
+pub const MARKER_SCALE: f32 = 3.0;
+/// A opacidade do marca-texto (0..255).
+const MARKER_ALPHA: u32 = 0x80;
+
+/// Um traço livre (o lápis ou o marca-texto): os pontos por onde o mouse passou.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Stroke {
+    pub points: Vec<(f32, f32)>,
+    pub width: f32,
+    pub color: u32,
+    /// Marca-texto: largo e translúcido.
+    pub marker: bool,
+}
+
+impl Stroke {
+    /// A espessura desenhada (o marca-texto é mais largo que a escolhida).
+    pub fn drawn_width(&self) -> f32 {
+        if self.marker {
+            self.width * MARKER_SCALE
+        } else {
+            self.width
+        }
+    }
+
+    /// A cor desenhada (o marca-texto, translúcido).
+    pub fn drawn_color(&self) -> u32 {
+        if self.marker {
+            (self.color & 0x00FF_FFFF) | (MARKER_ALPHA << 24)
+        } else {
+            self.color
+        }
+    }
+
+    /// Onde o traço desenha (para invalidar).
+    pub fn bounds(&self) -> RECT {
+        let pad = (self.drawn_width() / 2.0).ceil() as i32 + 2;
+        let (mut l, mut t, mut r, mut b) = (f32::MAX, f32::MAX, f32::MIN, f32::MIN);
+        for &(x, y) in &self.points {
+            (l, t, r, b) = (l.min(x), t.min(y), r.max(x), b.max(y));
+        }
+        if self.points.is_empty() {
+            return RECT::default();
+        }
+        RECT { left: l as i32 - pad, top: t as i32 - pad, right: r as i32 + pad + 1, bottom: b as i32 + pad + 1 }
+    }
+}
+
 /// Uma marca do print, desenhada na ordem em que foi feita.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Mark {
     Arrow(Arrow),
+    /// Uma linha reta, sem ponta (os dois pontos de uma [`Arrow`]).
+    Line(Arrow),
     Rect(Frame),
+    Stroke(Stroke),
     Text(Text),
 }
 
 impl Mark {
     /// A mesma marca deslocada (cliente → tela, tela → recorte).
     pub fn offset(&self, dx: f32, dy: f32) -> Mark {
+        let moved = |a: &Arrow| Arrow { x1: a.x1 + dx, y1: a.y1 + dy, x2: a.x2 + dx, y2: a.y2 + dy, ..*a };
         match self {
-            Mark::Arrow(a) => Mark::Arrow(Arrow { x1: a.x1 + dx, y1: a.y1 + dy, x2: a.x2 + dx, y2: a.y2 + dy, ..*a }),
+            Mark::Arrow(a) => Mark::Arrow(moved(a)),
+            Mark::Line(a) => Mark::Line(moved(a)),
             Mark::Rect(f) => Mark::Rect(Frame { x1: f.x1 + dx, y1: f.y1 + dy, x2: f.x2 + dx, y2: f.y2 + dy, ..*f }),
+            Mark::Stroke(s) => Mark::Stroke(Stroke { points: s.points.iter().map(|&(x, y)| (x + dx, y + dy)).collect(), ..s.clone() }),
             Mark::Text(t) => Mark::Text(Text { x: t.x + dx, y: t.y + dy, ..t.clone() }),
         }
     }
@@ -126,7 +185,17 @@ impl Mark {
     pub fn bounds(&self) -> RECT {
         match self {
             Mark::Arrow(a) => a.bounds(),
+            Mark::Line(a) => {
+                let pad = (a.width / 2.0).ceil() as i32 + 2;
+                RECT {
+                    left: a.x1.min(a.x2) as i32 - pad,
+                    top: a.y1.min(a.y2) as i32 - pad,
+                    right: a.x1.max(a.x2) as i32 + pad + 1,
+                    bottom: a.y1.max(a.y2) as i32 + pad + 1,
+                }
+            }
             Mark::Rect(f) => f.bounds(),
+            Mark::Stroke(s) => s.bounds(),
             Mark::Text(t) => t.bounds(),
         }
     }
@@ -185,9 +254,10 @@ pub fn line_height(size: f32) -> f32 {
     .unwrap_or(size * 1.33)
 }
 
-/// Comprimento e meia-largura da ponta para a espessura `w`.
+/// Comprimento e meia-largura da ponta para a espessura `w`: longa e estreita (cerca de
+/// 17° de cada lado), a ponta fina das ferramentas de captura.
 fn head_size(w: f32) -> (f32, f32) {
-    ((w * 3.5).max(14.0), (w * 2.2).max(8.0))
+    ((w * 5.2).max(20.0), (w * 1.6).max(6.0))
 }
 
 /// A forma: o corpo (do início até a base da ponta) e o triângulo da ponta.
@@ -319,6 +389,43 @@ unsafe fn draw_arrow(gfx: *mut GpGraphics, a: &Arrow, dx: f32, dy: f32) {
     }
 }
 
+/// A linha reta: as duas pontas arredondadas.
+unsafe fn draw_line(gfx: *mut GpGraphics, a: &Arrow, dx: f32, dy: f32) {
+    let mut pen: *mut GpPen = std::ptr::null_mut();
+    GdipCreatePen1(a.color, a.width, UnitPixel, &mut pen);
+    if !pen.is_null() {
+        GdipSetPenStartCap(pen, LineCapRound);
+        GdipSetPenEndCap(pen, LineCapRound);
+        GdipDrawLine(gfx, pen, a.x1 + dx, a.y1 + dy, a.x2 + dx, a.y2 + dy);
+        GdipDeletePen(pen);
+    }
+}
+
+/// O traço livre, num desenho só (o marca-texto translúcido não escurece onde se cruza);
+/// um ponto sozinho (um clique) vira um pingo redondo.
+unsafe fn draw_stroke(gfx: *mut GpGraphics, s: &Stroke, dx: f32, dy: f32) {
+    let (w, color) = (s.drawn_width(), s.drawn_color());
+    if s.points.len() == 1 {
+        let (x, y) = s.points[0];
+        let brush = solid(color);
+        if !brush.is_null() {
+            GdipFillEllipse(gfx, brush as *mut GpBrush, x + dx - w / 2.0, y + dy - w / 2.0, w, w);
+            GdipDeleteBrush(brush as *mut GpBrush);
+        }
+        return;
+    }
+    let mut pen: *mut GpPen = std::ptr::null_mut();
+    GdipCreatePen1(color, w, UnitPixel, &mut pen);
+    if !pen.is_null() {
+        GdipSetPenStartCap(pen, LineCapRound);
+        GdipSetPenEndCap(pen, LineCapRound);
+        GdipSetPenLineJoin(pen, LineJoinRound);
+        let pts: Vec<PointF> = s.points.iter().map(|&(x, y)| PointF { X: x + dx, Y: y + dy }).collect();
+        GdipDrawLines(gfx, pen, pts.as_ptr(), pts.len() as i32);
+        GdipDeletePen(pen);
+    }
+}
+
 /// O retângulo: só a borda, na cor e na espessura dele, com os cantos vivos.
 unsafe fn draw_rect(gfx: *mut GpGraphics, f: &Frame, dx: f32, dy: f32) {
     let (l, t, w, h) = f.normalized();
@@ -375,7 +482,9 @@ unsafe fn draw(gfx: *mut GpGraphics, marks: &[Mark], dx: f32, dy: f32) {
         for m in marks {
             match m {
                 Mark::Arrow(a) => draw_arrow(gfx, a, dx, dy),
+                Mark::Line(a) => draw_line(gfx, a, dx, dy),
                 Mark::Rect(f) => draw_rect(gfx, f, dx, dy),
+                Mark::Stroke(s) => draw_stroke(gfx, s, dx, dy),
                 Mark::Text(t) if !fam.is_null() => draw_text(gfx, fam, t, dx, dy),
                 Mark::Text(_) => {}
             }
@@ -432,14 +541,61 @@ pub fn draw_on_hdc(hdc: HDC, marks: &[Mark], clip: RECT, caret: Option<usize>, o
 /// Icons só existe no Windows 11).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Icon {
+    Pen,
+    Line,
     Arrow,
     Rect,
+    Marker,
     Text,
+    Undo,
+    Copy,
+    Save,
     Close,
     Minus,
     Plus,
     /// O triângulo para baixo (o seletor de cores abre).
     Caret,
+}
+
+/// Um retângulo de cantos arredondados em `hdc` (antialiasing), com borda de 1 px opcional.
+/// Cores ARGB.
+pub fn fill_round(hdc: HDC, r: RECT, radius: f32, fill: u32, border: Option<u32>) {
+    if !crate::rec_indicator::ensure_gdiplus() {
+        return;
+    }
+    unsafe {
+        let mut gfx: *mut GpGraphics = std::ptr::null_mut();
+        if GdipCreateFromHDC(hdc, &mut gfx).0 != 0 || gfx.is_null() {
+            return;
+        }
+        GdipSetSmoothingMode(gfx, SmoothingModeAntiAlias);
+        let mut path: *mut GpPath = std::ptr::null_mut();
+        if GdipCreatePath(FillModeWinding, &mut path).0 == 0 && !path.is_null() {
+            let (x, y) = (r.left as f32, r.top as f32);
+            let (w, h) = ((r.right - r.left) as f32 - 1.0, (r.bottom - r.top) as f32 - 1.0);
+            let d = (radius * 2.0).min(w).min(h).max(0.1);
+            GdipAddPathArc(path, x, y, d, d, 180.0, 90.0);
+            GdipAddPathArc(path, x + w - d, y, d, d, 270.0, 90.0);
+            GdipAddPathArc(path, x + w - d, y + h - d, d, d, 0.0, 90.0);
+            GdipAddPathArc(path, x, y + h - d, d, d, 90.0, 90.0);
+            GdipClosePathFigure(path);
+            let brush = solid(fill);
+            if !brush.is_null() {
+                GdipFillPath(gfx, brush as *mut GpBrush, path);
+                GdipDeleteBrush(brush as *mut GpBrush);
+            }
+            if let Some(b) = border {
+                let mut pen: *mut GpPen = std::ptr::null_mut();
+                GdipCreatePen1(b, 1.0, UnitPixel, &mut pen);
+                if !pen.is_null() {
+                    GdipDrawPath(gfx, pen, path);
+                    GdipDeletePen(pen);
+                }
+            }
+            GdipDeletePath(path);
+        }
+        GdipDeleteGraphics(gfx);
+    }
 }
 
 /// O ícone `icon` centrado em `r` (coordenadas do `hdc`), na cor `color` (ARGB), com
@@ -478,7 +634,72 @@ pub fn draw_icon(hdc: HDC, icon: Icon, r: RECT, color: u32) {
             }
         };
         let rect = |x: f32, y: f32, rw: f32, rh: f32| poly(&[(x, y), (x + rw, y), (x + rw, y + rh), (x, y + rh)]);
+        // Uma linha quebrada (contornos e curvas), com as junções e as pontas redondas.
+        let polyline = |pts: &[(f32, f32)], c: u32| {
+            let mut pen: *mut GpPen = std::ptr::null_mut();
+            GdipCreatePen1(c, stroke, UnitPixel, &mut pen);
+            if !pen.is_null() {
+                GdipSetPenStartCap(pen, LineCapRound);
+                GdipSetPenEndCap(pen, LineCapRound);
+                GdipSetPenLineJoin(pen, LineJoinRound);
+                let pts: Vec<PointF> = pts.iter().map(|&(x, y)| PointF { X: x, Y: y }).collect();
+                GdipDrawLines(gfx, pen, pts.as_ptr(), pts.len() as i32);
+                GdipDeletePen(pen);
+            }
+        };
+        // O lápis e o marca-texto: inclinados, a ponta embaixo à esquerda. `a` sobe para a
+        // direita ao longo do corpo; `n` é a largura.
+        let d = std::f32::consts::FRAC_1_SQRT_2;
+        let (a, n) = ((d, -d), (d, d));
+        let at = |p: (f32, f32), k: f32, m: f32| (p.0 + a.0 * k + n.0 * m, p.1 + a.1 * k + n.1 * m);
         match icon {
+            Icon::Pen => {
+                let tip = (cx - 7.0 * u, cy + 7.0 * u);
+                let half = 2.4 * u;
+                poly(&[tip, at(tip, 4.5 * u, half), at(tip, 4.5 * u, -half)]);
+                poly(&[at(tip, 5.7 * u, half), at(tip, 18.5 * u, half), at(tip, 18.5 * u, -half), at(tip, 5.7 * u, -half)]);
+            }
+            Icon::Line => line(cx - 7.0 * u, cy + 7.0 * u, cx + 7.0 * u, cy - 7.0 * u),
+            Icon::Marker => {
+                // O traço translúcido embaixo e o marcador de ponta chanfrada em cima.
+                rect(cx - 8.0 * u, cy + 5.5 * u, 16.0 * u, 3.0 * u);
+                let tip = (cx - 4.5 * u, cy + 2.5 * u);
+                let half = 3.0 * u;
+                poly(&[at(tip, 0.0, 1.3 * u), at(tip, 0.0, -1.3 * u), at(tip, 3.0 * u, -half), at(tip, 3.0 * u, half)]);
+                poly(&[at(tip, 4.2 * u, half), at(tip, 13.0 * u, half), at(tip, 13.0 * u, -half), at(tip, 4.2 * u, -half)]);
+            }
+            Icon::Undo => {
+                // A curva por cima, da direita para a esquerda, e a ponta descendo à esquerda.
+                let (ox, oy, r) = (cx + 1.0 * u, cy + 1.5 * u, 6.0 * u);
+                let pts: Vec<(f32, f32)> = (0..=24)
+                    .map(|i| {
+                        let t = (-35.0 + 230.0 * i as f32 / 24.0).to_radians();
+                        (ox + r * t.cos(), oy - r * t.sin())
+                    })
+                    .collect();
+                polyline(&pts, color);
+                let end = 195.0f32.to_radians();
+                let e = (ox + r * end.cos(), oy - r * end.sin());
+                let dir = (-end.sin(), -end.cos());
+                let perp = (-dir.1, dir.0);
+                let (hl, hw) = (4.5 * u, 3.6 * u);
+                poly(&[
+                    (e.0 + dir.0 * hl, e.1 + dir.1 * hl),
+                    (e.0 + perp.0 * hw, e.1 + perp.1 * hw),
+                    (e.0 - perp.0 * hw, e.1 - perp.1 * hw),
+                ]);
+            }
+            Icon::Copy => {
+                // Duas folhas: a de trás aparece em cima e à direita da da frente.
+                polyline(&[(cx - 3.0 * u, cy - 4.0 * u), (cx - 3.0 * u, cy - 7.5 * u), (cx + 7.0 * u, cy - 7.5 * u), (cx + 7.0 * u, cy + 3.5 * u), (cx + 3.5 * u, cy + 3.5 * u)], color);
+                polyline(&[(cx - 7.0 * u, cy - 4.0 * u), (cx + 3.0 * u, cy - 4.0 * u), (cx + 3.0 * u, cy + 7.5 * u), (cx - 7.0 * u, cy + 7.5 * u), (cx - 7.0 * u, cy - 4.0 * u)], color);
+            }
+            Icon::Save => {
+                // A seta para baixo, entrando na bandeja.
+                line(cx, cy - 7.5 * u, cx, cy + 0.5 * u);
+                poly(&[(cx - 4.5 * u, cy - 1.0 * u), (cx + 4.5 * u, cy - 1.0 * u), (cx, cy + 4.0 * u)]);
+                polyline(&[(cx - 7.5 * u, cy + 2.5 * u), (cx - 7.5 * u, cy + 7.5 * u), (cx + 7.5 * u, cy + 7.5 * u), (cx + 7.5 * u, cy + 2.5 * u)], color);
+            }
             Icon::Arrow => {
                 // Do canto de baixo à esquerda para o de cima à direita, com a ponta cheia.
                 let (x1, y1, x2, y2) = (cx - 7.0 * u, cy + 7.0 * u, cx + 7.0 * u, cy - 7.0 * u);

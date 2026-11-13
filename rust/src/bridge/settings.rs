@@ -238,6 +238,33 @@ pub fn handle_set_record_dir(path: &str) {
     record_watch::update_dir(&recording::record_dir().to_string_lossy());
 }
 
+/// "Procurar..." da pasta dos prints: o diálogo de pasta, começando na atual. `None`:
+/// cancelado.
+pub fn handle_pick_print_dir() -> Option<String> {
+    pick_folder(&recording::print_dir().to_string_lossy())
+}
+
+/// A pasta dos prints. Vazio = a pasta das gravações (o padrão). `false`: a pasta não
+/// existe (avisado).
+pub fn handle_set_print_dir(path: &str) -> bool {
+    let path = path.trim();
+    if !path.is_empty() && !std::path::Path::new(path).is_dir() {
+        post_error(lang::tr("Pasta dos prints não encontrada"));
+        return false;
+    }
+    config::set_config_str("printDir", path);
+    log!("Pasta dos prints: {}", recording::print_dir().display());
+    true
+}
+
+/// Mostrar (ou não) os prints na lista de gravações: a lista refaz já.
+pub fn handle_set_prints_in_library(on: bool) {
+    config::set_config_bool("printsInLibrary", on);
+    log!("PrintsInLibrary: {on}");
+    library::push_recordings();
+    library::scan_recordings_meta();
+}
+
 /// `auto` | `always` | `off` (fallback `auto`). Re-scan para aplicar já;
 /// `off` não apaga caches, só para de gerar.
 pub fn handle_set_library_thumbs(mode: &str) {

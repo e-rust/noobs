@@ -41,6 +41,7 @@ windows = { version = "0.61", features = [
   "Win32_System_Registry",
   "Win32_Storage_Xps",
   "Win32_UI_HiDpi",
+  "Win32_UI_Input",
   "Win32_UI_Input_KeyboardAndMouse",
   "Win32_UI_Shell",
   "Win32_UI_WindowsAndMessaging",
@@ -48,7 +49,9 @@ windows = { version = "0.61", features = [
   "Win32_Security_Authorization",
   "Win32_Networking_WinHttp",
   "Win32_System_JobObjects",
+  "Win32_System_Diagnostics_Debug",
   "Win32_System_Diagnostics_ToolHelp",
+  "Win32_System_Kernel",
   "Win32_System_SystemInformation",
   "Win32_Graphics_GdiPlus",
   "Win32_System_RemoteDesktop",
@@ -151,7 +154,11 @@ opt-level = 3
 opt-level = 3
 lto = true
 codegen-units = 1
-strip = true
+# As linhas num `.pdb` separado (o exe só aponta para ele; o instalador não o leva): os
+# endereços `NoOBS.exe+0x…` que o log grava num PANIC/CRASH viram função e linha com o
+# `.pdb` guardado da versão (ver `crash.rs`).
+debug = "line-tables-only"
+strip = "none"
 # SEM `panic = "abort"`: com ele todo `catch_unwind` do projeto (probe,
 # miniatura, exportação, dispatch, timers…) vira código morto no release e
 # qualquer falha fecha o app sem deixar nada no log. Com o unwind, a falha é

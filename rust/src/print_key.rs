@@ -15,7 +15,8 @@
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Mutex;
 
-use windows::Win32::Foundation::{LPARAM, LRESULT, WPARAM};
+use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
+use windows::Win32::UI::Input::{RegisterRawInputDevices, RAWINPUTDEVICE, RIDEV_REMOVE};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::System::Threading::GetCurrentThreadId;
 use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_CONTROL, VK_LWIN, VK_MENU, VK_RWIN, VK_SHIFT};
@@ -110,6 +111,20 @@ fn current_mods() -> u32 {
 /// O atalho de `mods` + Print Screen, se houver um.
 pub fn binding_for(bindings: &[(u32, usize)], mods: u32) -> Option<usize> {
     bindings.iter().find(|(m, _)| *m == mods).map(|(_, i)| *i)
+}
+
+/// Tira o registro de raw input do teclado que o winit (por baixo do Aylis) faz ao criar
+/// o laço de eventos. Com ele, o Windows não chama o hook de baixo nível DESTE processo
+/// enquanto a janela dele está em primeiro plano: com o NoOBS à frente, a Print Screen ia
+/// direto para a Ferramenta de Captura e o print do NoOBS não saía. O Aylis não usa os
+/// eventos de teclado raw (o teclado chega pelas mensagens da janela); o do mouse fica.
+/// Main thread, depois de a janela existir.
+pub fn release_raw_keyboard() {
+    let device = RAWINPUTDEVICE { usUsagePage: 0x01, usUsage: 0x06, dwFlags: RIDEV_REMOVE, hwndTarget: HWND::default() };
+    let ok = unsafe { RegisterRawInputDevices(&[device], std::mem::size_of::<RAWINPUTDEVICE>() as u32) };
+    if let Err(e) = ok {
+        log!("PrintKey: o raw input do teclado nao saiu ({e}); com o NoOBS em primeiro plano a Print Screen fica com o Windows.");
+    }
 }
 
 unsafe extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {

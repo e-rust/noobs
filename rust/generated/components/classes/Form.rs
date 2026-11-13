@@ -48,6 +48,12 @@ impl Form {
     pub fn set_transition(self, ui: &mut Ui, value: impl Into<String>) {
         handles::write(ui, self.id, "transition", Into::<String>::into(value))
     }
+    pub fn layer_cache(self, ui: &Ui) -> String {
+        handles::text(ui, handles::read(ui, self.id, "layer_cache"))
+    }
+    pub fn set_layer_cache(self, ui: &mut Ui, value: impl Into<String>) {
+        handles::write(ui, self.id, "layer_cache", Into::<String>::into(value))
+    }
     pub fn topmost(self, ui: &Ui) -> bool {
         handles::read(ui, self.id, "topmost").and_then(|v| v.to_bool().ok()).unwrap_or_default()
     }

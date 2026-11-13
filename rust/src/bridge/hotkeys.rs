@@ -267,7 +267,7 @@ fn take_screenshot(it: &Item) {
     if area_select::is_active() {
         return;
     }
-    let dir = recording::record_dir();
+    let dir = recording::print_dir();
     let fixed = match (it.target, it.area) {
         (ShotTarget::Monitor, _) => Some(screenshot::cursor_monitor()),
         (ShotTarget::Area, Some(saved)) => match area::clamp_to_screen(saved) {
@@ -317,7 +317,7 @@ fn on_shot_done(done: Option<area_select::ShotDone>) {
         log!("Print: as {} marca(s) nao puderam ser desenhadas (GDI+).", done.marks.len());
     }
     match done.action {
-        area_select::ShotAction::Save => screenshot::deliver(shot, recording::record_dir()),
+        area_select::ShotAction::Save => screenshot::deliver(shot, recording::print_dir()),
         area_select::ShotAction::Copy => screenshot::deliver_copy(shot),
     }
 }

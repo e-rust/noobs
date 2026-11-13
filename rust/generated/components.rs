@@ -44,6 +44,7 @@ include!("components/classes/Waveform.rs");
 include!("components/forms/main.rs");
 include!("components/forms/settings.rs");
 include!("components/forms/player.rs");
+include!("components/forms/viewer.rs");
 include!("components/forms/export.rs");
 include!("components/forms/picker.rs");
 include!("components/forms/settings_general.rs");

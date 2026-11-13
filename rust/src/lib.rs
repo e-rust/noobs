@@ -59,10 +59,12 @@ pub mod capture;
 pub mod generated;
 
 modulos! {
+    crash,
     app_export,
     app_library,
     app_main,
     app_player,
+    app_viewer,
     app_settings,
     app_picker,
     app_view,
@@ -141,20 +143,10 @@ mod media_tests;
 pub fn run_app() {
     let cmd = win::cmdline_lower();
     log::init_log();
-    // Toda falha (panic) vai pro log do NoOBS com o local exato, em qualquer
-    // thread. Antes nada ficava registrado: o app sumia e o log parava no meio.
-    std::panic::set_hook(Box::new(|info| {
-        let msg = info
-            .payload()
-            .downcast_ref::<&str>()
-            .map(|s| (*s).to_owned())
-            .or_else(|| info.payload().downcast_ref::<String>().cloned())
-            .unwrap_or_else(|| "(sem mensagem)".into());
-        let loc = info.location().map(|l| format!("{}:{}", l.file(), l.line())).unwrap_or_default();
-        let th = std::thread::current();
-        log!("PANIC em {loc} (thread {}): {msg}", th.name().unwrap_or("?"));
-    }));
-    log!("===== NoOBS startup =====");
+    log!("===== NoOBS startup ({}) =====", version::APP_VERSION);
+    // Toda queda vai pro log: o panic com a pilha, o crash nativo com a pilha e um
+    // minidump, e a execução anterior que não fechou (ver `crash.rs`).
+    crash::install();
     log!("Dispatcher: cmdline=\"{cmd}\"");
 
     // "Abrir como administrador": reabre elevado ANTES do mutex de instância
@@ -168,4 +160,5 @@ pub fn run_app() {
     bridge::install_hooks();
     ui::run();
     log::log("Dispatcher: ui::run retornou — processo encerrando.");
+    crash::mark_clean_exit();
 }

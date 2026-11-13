@@ -2342,6 +2342,10 @@ fn load_files(ui: &mut Ui) {
     let Some(frm) = FraFiles::components(ui) else { return };
     fit_button(ui, Some(frm.btnRecordDir));
     frm.edtRecordDir.set_text(ui, recording::record_dir().to_string_lossy().into_owned());
+    // A pasta dos prints: vazio (o padrão) mostra o texto de ajuda "A mesma das gravações".
+    fit_button(ui, Some(frm.btnPrintDir));
+    frm.edtPrintDir.set_text(ui, config::get_config_str("printDir", "").as_str());
+    frm.chkPrintsInLibrary.set_checked(ui, bridge::prints_in_library());
     let pattern = config::get_config_str("filenamePattern", settings::DEFAULT_FILENAME_PATTERN);
     frm.edtFilename.set_text(ui, pattern.as_str());
     frm.lblFilenamePreview.set_text(ui, filename_preview(&pattern));
@@ -2406,6 +2410,34 @@ pub mod files {
     pub fn record_dir(p: &str) {
         if p != recording::record_dir().to_string_lossy() {
             settings::handle_set_record_dir(p);
+        }
+    }
+
+    /// "Procurar..." da pasta dos prints: a escolhida vai para o campo e para a config.
+    pub fn print_browse(ui: &mut Ui) {
+        let Some(picked) = settings::handle_pick_print_dir() else { return };
+        if settings::handle_set_print_dir(&picked) {
+            if let Some(frm) = FraFiles::components(ui) {
+                frm.edtPrintDir.set_text(ui, picked.as_str());
+            }
+        }
+    }
+
+    /// A pasta dos prints digitada (ao sair do campo ou no Enter). Não existe: o campo
+    /// volta para a que vale.
+    pub fn print_dir(ui: &mut Ui, p: &str) {
+        let current = config::get_config_str("printDir", "");
+        if p == current.trim() || settings::handle_set_print_dir(p) {
+            return;
+        }
+        if let Some(frm) = FraFiles::components(ui) {
+            frm.edtPrintDir.set_text(ui, current.as_str());
+        }
+    }
+
+    pub fn prints_in_library(on: bool) {
+        if on != bridge::prints_in_library() {
+            settings::handle_set_prints_in_library(on);
         }
     }
 

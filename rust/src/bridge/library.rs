@@ -74,10 +74,22 @@ pub fn is_recording_ext(path: &str) -> bool {
     RECORDING_EXTS.contains(&ext.as_str())
 }
 
-/// O que a lista de gravações mostra: os vídeos e os prints (`screenshot::PRINT_EXTS`).
-/// Transcrição, exportação e união seguem só com os vídeos ([`is_recording_ext`]).
+/// Os arquivos da biblioteca: os vídeos e os prints (`screenshot::PRINT_EXTS`). É o que
+/// se move, conta e mantém no cache; o que a lista MOSTRA ainda passa por
+/// [`is_shown_ext`]. Transcrição, exportação e união seguem só com os vídeos
+/// ([`is_recording_ext`]).
 pub fn is_library_ext(path: &str) -> bool {
     is_recording_ext(path) || crate::screenshot::is_print_file(path)
+}
+
+/// Os prints aparecem na lista de gravações? (config `printsInLibrary`, padrão sim).
+pub fn prints_in_library() -> bool {
+    config::get_config_bool("printsInLibrary", true)
+}
+
+/// O que a lista de gravações mostra: os vídeos e, com a opção ligada, os prints.
+pub fn is_shown_ext(path: &str) -> bool {
+    is_recording_ext(path) || (crate::screenshot::is_print_file(path) && prints_in_library())
 }
 
 fn full_path(p: &str) -> Option<PathBuf> {
@@ -163,9 +175,10 @@ pub fn list_recordings(dir: &str) -> Vec<String> {
     list_files(dir, is_recording_ext)
 }
 
-/// Vídeos e prints da pasta (não recursivo): o que a lista de gravações mostra.
+/// O que a lista de gravações mostra da pasta (não recursivo): os vídeos e, com a opção
+/// ligada, os prints ([`is_shown_ext`]).
 pub fn list_library(dir: &str) -> Vec<String> {
-    list_files(dir, is_library_ext)
+    list_files(dir, is_shown_ext)
 }
 
 fn list_files(dir: &str, keep: fn(&str) -> bool) -> Vec<String> {
@@ -436,23 +449,28 @@ pub fn push_recording_added(path: &str, duration_sec: i32) {
     // Gera a miniatura em background; chega depois via recording_meta.
     scan_single_recording_meta(path);
 }
-/// Um print novo (atalho de print): o card na lista, como uma gravação que terminou.
+/// Um print novo (atalho de print): o card na lista, como uma gravação que terminou — só
+/// se a lista mostra prints e ele caiu na pasta que está à vista (a dos prints pode ser
+/// outra, dentro ou fora da de gravações).
 pub fn push_print_added(path: &str) {
-    push_recording_added(path, 0);
+    let here = Path::new(path).parent().is_some_and(|p| trim_sep(&p.to_string_lossy()).eq_ignore_ascii_case(trim_sep(&current_browse_dir())));
+    if prints_in_library() && here {
+        push_recording_added(path, 0);
+    }
 }
 
-/// Abrir um print da lista: no visualizador de imagens do Windows (o player é de vídeo).
-/// Só um PNG da pasta de gravações: a interface não manda abrir qualquer arquivo.
-pub fn handle_open_print(path: &str) {
+/// Pode abrir este print no visualizador do NoOBS? Só um PNG da pasta de gravações: a
+/// interface não manda abrir qualquer arquivo. Sumido: avisa.
+pub fn check_print(path: &str) -> bool {
     if !crate::screenshot::is_print_file(path) || !is_path_in_record_dir(path) {
-        log!("HandleOpenPrint: recusado (nao e um print da pasta de gravacao): {path}");
-        return;
+        log!("CheckPrint: recusado (nao e um print da pasta de gravacao): {path}");
+        return false;
     }
     if !Path::new(path).is_file() {
         post_error(lang::tr("Arquivo não encontrado"));
-        return;
+        return false;
     }
-    ui::shell_open(path);
+    true
 }
 
 // ---------------------------------------------------------------------------
@@ -929,6 +947,27 @@ mod tests {
         assert!(is_recording_ext("a.mp3"));
         assert!(!is_recording_ext("a.exe"));
         assert!(!is_recording_ext("semextensao"));
+    }
+
+    /// A opção de mostrar os prints: desligada, a lista esconde só os prints (os vídeos
+    /// seguem); a biblioteca continua sabendo deles (mover, contar, cache). A pasta dos
+    /// prints vazia é a das gravações.
+    #[test]
+    fn prints_na_lista_pela_opcao() {
+        let _t = crate::testkit::begin();
+        assert!(prints_in_library(), "padrão: aparecem");
+        assert!(is_shown_ext("C:\\v\\2026-11-12 10-00-00.png") && is_shown_ext("C:\\v\\a.mkv"));
+        config::set_config_bool("printsInLibrary", false);
+        assert!(!is_shown_ext("C:\\v\\2026-11-12 10-00-00.png"), "o print some da lista");
+        assert!(is_shown_ext("C:\\v\\a.mkv"), "o vídeo fica");
+        assert!(is_library_ext("C:\\v\\2026-11-12 10-00-00.png"), "mas continua da biblioteca");
+        config::set_config_bool("printsInLibrary", true);
+
+        config::set_config_str("printDir", "");
+        assert_eq!(super::super::recording::print_dir(), record_dir());
+        config::set_config_str("printDir", "D:\\Prints");
+        assert_eq!(super::super::recording::print_dir(), PathBuf::from("D:\\Prints"));
+        config::set_config_str("printDir", "");
     }
 
     #[test]

@@ -21,7 +21,7 @@ fn sink() -> &'static Mutex<Sink> {
     SINK.get_or_init(|| Mutex::new(Sink { file: None }))
 }
 
-fn log_dir() -> PathBuf {
+pub fn log_dir() -> PathBuf {
     crate::config::config_dir().join("logs")
 }
 

@@ -1,6 +1,7 @@
 frmMain
 frmSettings
 frmPlayer
+frmViewer
 frmExport
 frmPicker
 fraGeneral

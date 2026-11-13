@@ -67,6 +67,51 @@ struct State {
     cols: usize,
     /// O que está sendo arrastado (gravações e/ou pastas).
     drag: Vec<String>,
+    /// O histórico de pastas, como no Explorer: os botões voltar e avançar do mouse.
+    back: Vec<String>,
+    forward: Vec<String>,
+    /// A pasta pedida veio do histórico: ao chegar, não entra nele de novo.
+    nav_by_history: bool,
+}
+
+/// Quantas pastas o voltar guarda.
+const HISTORY_MAX: usize = 50;
+
+/// A lista nova entra; se a pasta mudou por um caminho normal (pasta, breadcrumb,
+/// Backspace), a de antes vai para o "voltar" e o "avançar" esvazia.
+fn set_lib(st: &mut State, lib: Library) {
+    let old = std::mem::take(&mut st.lib.current_dir);
+    if !old.is_empty() && !old.eq_ignore_ascii_case(&lib.current_dir) {
+        if !std::mem::take(&mut st.nav_by_history) {
+            st.back.push(old);
+            if st.back.len() > HISTORY_MAX {
+                st.back.remove(0);
+            }
+            st.forward.clear();
+        }
+    }
+    st.lib = lib;
+}
+
+/// Os botões extras do mouse (voltar e avançar) na galeria. O voltar sem histórico, dentro
+/// de uma pasta, sobe um nível (como o Backspace).
+pub fn mouse_history(ui: &mut Ui, forward: bool) {
+    let target = with(|st| {
+        let current = st.lib.current_dir.clone();
+        let target = if forward { st.forward.pop() } else { st.back.pop() }?;
+        if forward {
+            st.back.push(current);
+        } else {
+            st.forward.push(current);
+        }
+        st.nav_by_history = true;
+        Some(target)
+    });
+    match target {
+        Some(dir) => bridge::handle_open_folder(&dir),
+        None if !forward => go_up(ui),
+        None => {}
+    }
 }
 
 thread_local! {
@@ -593,7 +638,7 @@ fn on_library_now(ui: &mut Ui, lib: Library) {
         apply_pending_after_rename(ui);
         return;
     }
-    with(|st| st.lib = lib);
+    with(|st| set_lib(st, lib));
     render(ui);
 }
 
@@ -864,10 +909,28 @@ fn card_clicked(ui: &mut Ui, id: &str) {
         return;
     }
     if is_print(id) {
-        bridge::handle_open_print(id);
+        crate::app_viewer::open(ui, id);
         return;
     }
     crate::app_player::open(ui, id);
+}
+
+/// Os prints da lista como ela está na tela (a busca e a ordem, do mais novo ao mais
+/// antigo): o ← e o → do visualizador andam por eles.
+pub fn print_ids() -> Vec<String> {
+    with(|st| {
+        let q = st.query.clone();
+        let searching = !q.is_empty();
+        let mut items: Vec<&RecItem> = st
+            .lib
+            .recordings
+            .iter()
+            .filter(|it| is_print(&it.id))
+            .filter(|it| !searching || search_text(it).contains(&q) || st.tr_hits.contains(&it.id))
+            .collect();
+        items.sort_by(|a, b| b.date.cmp(&a.date));
+        items.into_iter().map(|it| it.id.clone()).collect()
+    })
 }
 
 pub fn search(ui: &mut Ui, text: &str) {
@@ -1035,7 +1098,7 @@ fn apply_pending_after_rename(ui: &mut Ui) {
             return;
         }
         if let Some(lib) = with(|st| st.pending.take()) {
-            with(|st| st.lib = lib);
+            with(|st| set_lib(st, lib));
             render(ui);
         }
     });
@@ -1245,6 +1308,30 @@ pub fn on_language_changed(ui: &mut Ui) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Entrar em pastas enche o "voltar" e esvazia o "avançar"; a pasta que chega pelo
+    /// histórico não entra nele de novo; a mesma pasta (uma atualização) não conta.
+    #[test]
+    fn historico_de_pastas_como_no_explorer() {
+        let dir = |d: &str| Library { current_dir: d.into(), ..Default::default() };
+        let mut st = State::default();
+        set_lib(&mut st, dir("D:\\V"));
+        set_lib(&mut st, dir("D:\\V\\A"));
+        set_lib(&mut st, dir("D:\\V\\A\\B"));
+        set_lib(&mut st, dir("D:\\V\\A\\B"));
+        assert_eq!(st.back, vec!["D:\\V", "D:\\V\\A"]);
+        // Voltar (o que o `mouse_history` faz antes de pedir a pasta) e a pasta chega.
+        st.forward.push(st.lib.current_dir.clone());
+        st.back.pop();
+        st.nav_by_history = true;
+        set_lib(&mut st, dir("D:\\V\\A"));
+        assert_eq!((st.back.clone(), st.forward.clone()), (vec!["D:\\V".to_string()], vec!["D:\\V\\A\\B".to_string()]));
+        assert!(!st.nav_by_history);
+        // Uma pasta nova pelo caminho normal: o "avançar" esvazia.
+        set_lib(&mut st, dir("D:\\V\\C"));
+        assert_eq!(st.back, vec!["D:\\V", "D:\\V\\A"]);
+        assert!(st.forward.is_empty());
+    }
 
     #[test]
     fn duracao_como_a_web() {

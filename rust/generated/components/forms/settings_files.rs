@@ -8,6 +8,14 @@ pub struct FraFiles {
     pub lyRecordDir: Layout,
     pub btnRecordDir: Button,
     pub edtRecordDir: Edit,
+    pub lnRulePrints: Rectangle,
+    pub lblPrintDir: Label,
+    pub lyPrintDir: Layout,
+    pub btnPrintDir: Button,
+    pub edtPrintDir: Edit,
+    pub lblPrintDirHint: Label,
+    pub chkPrintsInLibrary: CheckBox,
+    pub lblPrintsInLibraryHint: Label,
     pub lnRule1: Rectangle,
     pub lblFilename: Label,
     pub edtFilename: Edit,
@@ -34,6 +42,14 @@ pub struct FraFilesComponents {
     pub lyRecordDir: Layout,
     pub btnRecordDir: Button,
     pub edtRecordDir: Edit,
+    pub lnRulePrints: Rectangle,
+    pub lblPrintDir: Label,
+    pub lyPrintDir: Layout,
+    pub btnPrintDir: Button,
+    pub edtPrintDir: Edit,
+    pub lblPrintDirHint: Label,
+    pub chkPrintsInLibrary: CheckBox,
+    pub lblPrintsInLibraryHint: Label,
     pub lnRule1: Rectangle,
     pub lblFilename: Label,
     pub edtFilename: Edit,
@@ -68,6 +84,14 @@ impl FraFiles {
             lyRecordDir: Layout { id: handles::resolve(ui, root, "lyRecordDir", "Layout", &mut problems) },
             btnRecordDir: Button { id: handles::resolve(ui, root, "btnRecordDir", "Button", &mut problems) },
             edtRecordDir: Edit { id: handles::resolve(ui, root, "edtRecordDir", "Edit", &mut problems) },
+            lnRulePrints: Rectangle { id: handles::resolve(ui, root, "lnRulePrints", "Rectangle", &mut problems) },
+            lblPrintDir: Label { id: handles::resolve(ui, root, "lblPrintDir", "Label", &mut problems) },
+            lyPrintDir: Layout { id: handles::resolve(ui, root, "lyPrintDir", "Layout", &mut problems) },
+            btnPrintDir: Button { id: handles::resolve(ui, root, "btnPrintDir", "Button", &mut problems) },
+            edtPrintDir: Edit { id: handles::resolve(ui, root, "edtPrintDir", "Edit", &mut problems) },
+            lblPrintDirHint: Label { id: handles::resolve(ui, root, "lblPrintDirHint", "Label", &mut problems) },
+            chkPrintsInLibrary: CheckBox { id: handles::resolve(ui, root, "chkPrintsInLibrary", "CheckBox", &mut problems) },
+            lblPrintsInLibraryHint: Label { id: handles::resolve(ui, root, "lblPrintsInLibraryHint", "Label", &mut problems) },
             lnRule1: Rectangle { id: handles::resolve(ui, root, "lnRule1", "Rectangle", &mut problems) },
             lblFilename: Label { id: handles::resolve(ui, root, "lblFilename", "Label", &mut problems) },
             edtFilename: Edit { id: handles::resolve(ui, root, "edtFilename", "Edit", &mut problems) },
@@ -93,6 +117,14 @@ impl FraFiles {
             lyRecordDir: instance.lyRecordDir,
             btnRecordDir: instance.btnRecordDir,
             edtRecordDir: instance.edtRecordDir,
+            lnRulePrints: instance.lnRulePrints,
+            lblPrintDir: instance.lblPrintDir,
+            lyPrintDir: instance.lyPrintDir,
+            btnPrintDir: instance.btnPrintDir,
+            edtPrintDir: instance.edtPrintDir,
+            lblPrintDirHint: instance.lblPrintDirHint,
+            chkPrintsInLibrary: instance.chkPrintsInLibrary,
+            lblPrintsInLibraryHint: instance.lblPrintsInLibraryHint,
             lnRule1: instance.lnRule1,
             lblFilename: instance.lblFilename,
             edtFilename: instance.edtFilename,
@@ -160,6 +192,7 @@ impl FraFiles {
     pub fn find_button(&self, name: &str) -> Option<Button> {
         match name {
             "btnRecordDir" => Some(self.btnRecordDir),
+            "btnPrintDir" => Some(self.btnPrintDir),
             _ => None,
         }
     }
@@ -167,6 +200,19 @@ impl FraFiles {
     /// O Button que disparou o evento (`None` se o `sender` não é um Button deste form).
     pub fn sender_as_button(&self, ui: &Ui, sender: ComponentId) -> Option<Button> {
         self.find_button(ui.name(sender)?)
+    }
+
+    /// O CheckBox deste form com o nome (`None` se não há um CheckBox com ele).
+    pub fn find_check_box(&self, name: &str) -> Option<CheckBox> {
+        match name {
+            "chkPrintsInLibrary" => Some(self.chkPrintsInLibrary),
+            _ => None,
+        }
+    }
+
+    /// O CheckBox que disparou o evento (`None` se o `sender` não é um CheckBox deste form).
+    pub fn sender_as_check_box(&self, ui: &Ui, sender: ComponentId) -> Option<CheckBox> {
+        self.find_check_box(ui.name(sender)?)
     }
 
     /// O ComboBox deste form com o nome (`None` se não há um ComboBox com ele).
@@ -186,6 +232,7 @@ impl FraFiles {
     pub fn find_edit(&self, name: &str) -> Option<Edit> {
         match name {
             "edtRecordDir" => Some(self.edtRecordDir),
+            "edtPrintDir" => Some(self.edtPrintDir),
             "edtFilename" => Some(self.edtFilename),
             _ => None,
         }
@@ -200,6 +247,9 @@ impl FraFiles {
     pub fn find_label(&self, name: &str) -> Option<Label> {
         match name {
             "lblRecordDir" => Some(self.lblRecordDir),
+            "lblPrintDir" => Some(self.lblPrintDir),
+            "lblPrintDirHint" => Some(self.lblPrintDirHint),
+            "lblPrintsInLibraryHint" => Some(self.lblPrintsInLibraryHint),
             "lblFilename" => Some(self.lblFilename),
             "lblFilenameHint" => Some(self.lblFilenameHint),
             "lblFilenamePreview" => Some(self.lblFilenamePreview),
@@ -221,6 +271,7 @@ impl FraFiles {
     pub fn find_layout(&self, name: &str) -> Option<Layout> {
         match name {
             "lyRecordDir" => Some(self.lyRecordDir),
+            "lyPrintDir" => Some(self.lyPrintDir),
             "lyHiddenFolders" => Some(self.lyHiddenFolders),
             _ => None,
         }
@@ -234,6 +285,7 @@ impl FraFiles {
     /// O Rectangle deste form com o nome (`None` se não há um Rectangle com ele).
     pub fn find_rectangle(&self, name: &str) -> Option<Rectangle> {
         match name {
+            "lnRulePrints" => Some(self.lnRulePrints),
             "lnRule1" => Some(self.lnRule1),
             "lnRule2" => Some(self.lnRule2),
             "lnRule3" => Some(self.lnRule3),

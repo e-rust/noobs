@@ -185,8 +185,7 @@ pub struct Crumb {
 pub struct Library {
     pub recordings: Vec<RecItem>,
     pub folders: Vec<FolderItem>,
-    // Só o gravador dos testes lê estes dois (o JSON antigo da lista).
-    #[cfg_attr(not(any(test, feature = "app-tests")), allow(dead_code))]
+    /// A pasta mostrada (o histórico de voltar/avançar da galeria a acompanha).
     pub current_dir: String,
     pub parent_dir: String,
     pub at_root: bool,

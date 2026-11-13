@@ -16,6 +16,9 @@ pub mod settings;
 #[path = "../src/forms/player.rs"]
 pub mod player;
 
+#[path = "../src/forms/viewer.rs"]
+pub mod viewer;
+
 #[path = "../src/forms/export.rs"]
 pub mod export;
 
@@ -179,6 +182,7 @@ pub fn register(ui: &mut Ui) {
     ui.register_handler("frmPlayer.player_volume", aylis::prelude::instances::form_handler(FrmPlayer::player_volume));
     ui.register_handler("frmPlayer.player_transcript", aylis::prelude::instances::form_handler(FrmPlayer::player_transcript));
     ui.register_handler("frmPlayer.player_flash_frame", aylis::prelude::instances::form_handler(FrmPlayer::player_flash_frame));
+    ui.register_form_class("frmViewer", FrmViewer::bind);
     ui.register_form_class("frmExport", FrmExport::bind);
     ui.register_handler("frmExport.export_close", aylis::prelude::instances::form_handler(FrmExport::export_close));
     ui.register_handler("frmExport.export_resize", aylis::prelude::instances::form_handler(FrmExport::export_resize));
@@ -258,6 +262,9 @@ pub fn register(ui: &mut Ui) {
     ui.register_form_class("fraFiles", FraFiles::bind);
     ui.register_handler("fraFiles.files_browse", aylis::prelude::instances::form_handler(FraFiles::files_browse));
     ui.register_handler("fraFiles.files_record_dir", aylis::prelude::instances::form_handler(FraFiles::files_record_dir));
+    ui.register_handler("fraFiles.files_print_browse", aylis::prelude::instances::form_handler(FraFiles::files_print_browse));
+    ui.register_handler("fraFiles.files_print_dir", aylis::prelude::instances::form_handler(FraFiles::files_print_dir));
+    ui.register_handler("fraFiles.files_prints_in_library", aylis::prelude::instances::form_handler(FraFiles::files_prints_in_library));
     ui.register_handler("fraFiles.files_filename_edit", aylis::prelude::instances::form_handler(FraFiles::files_filename_edit));
     ui.register_handler("fraFiles.files_filename", aylis::prelude::instances::form_handler(FraFiles::files_filename));
     ui.register_handler("fraFiles.files_library", aylis::prelude::instances::form_handler(FraFiles::files_library));

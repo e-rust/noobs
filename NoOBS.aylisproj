@@ -20,6 +20,11 @@
       "auto_create": false
     },
     {
+      "name": "frmViewer",
+      "file": "forms/viewer.json",
+      "auto_create": false
+    },
+    {
       "name": "frmExport",
       "file": "forms/export.json",
       "auto_create": false
@@ -402,7 +407,7 @@
   "locale": "pt-BR",
   "publish": {
     "app_name": "NoOBS",
-    "version": "0.0.7-beta",
+    "version": "0.0.8-beta",
     "icon": "assets/images/icon.png",
     "publisher": "e-rust",
     "windows": {

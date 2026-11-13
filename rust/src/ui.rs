@@ -423,6 +423,11 @@ fn on_visible_hwnd() {
     let Some(hwnd) = visible_hwnd() else { return };
     VISIBLE_HWND.store(hwnd.0 as isize, Ordering::SeqCst);
     if !wstate(|s| std::mem::replace(&mut s.icon_applied, true)) {
+        // Sem isso, a Print Screen dos atalhos não chega ao hook com o NoOBS à frente.
+        crate::print_key::release_raw_keyboard();
+        if let Some(form) = app_view::main_form() {
+            keep_native_maximize_button(form);
+        }
         let icon = win::main_icon();
         if !icon.0.is_null() {
             unsafe {
@@ -431,6 +436,30 @@ fn on_visible_hwnd() {
             }
         }
     }
+}
+
+/// O botão maximizar/restaurar da barra de título NATIVA volta a funcionar.
+///
+/// Desde a barra de título própria do Aylis (0.2.0-beta.4), a janela engole o clique em
+/// `HTMAXBUTTON` (`WM_NCLBUTTONDOWN`/`UP`/`DBLCLK`) para entregá-lo à barra própria, sem
+/// conferir se o form tem uma. Na barra do sistema, que o NoOBS usa, quem diz `HTMAXBUTTON`
+/// é o próprio Windows: o clique sumia e o botão não maximizava nem restaurava. Os ganchos do
+/// app rodam antes desse trecho do Aylis: aqui o clique vai direto ao `DefWindowProcW`, que
+/// acompanha o botão e manda o `SC_MAXIMIZE`/`SC_RESTORE` à janela (o caminho de sempre).
+fn keep_native_maximize_button(form: ComponentId) {
+    use aylis::platform::win::{on_message, MessageReply};
+    const WM_NCLBUTTONDOWN: u32 = 0x00A1;
+    const WM_NCLBUTTONUP: u32 = 0x00A2;
+    const WM_NCLBUTTONDBLCLK: u32 = 0x00A3;
+    const HTMAXBUTTON: usize = 9;
+    on_message(form, |m| {
+        if !matches!(m.message, WM_NCLBUTTONDOWN | WM_NCLBUTTONUP | WM_NCLBUTTONDBLCLK) || m.wparam != HTMAXBUTTON {
+            return MessageReply::Default;
+        }
+        let Some(hwnd) = visible_hwnd() else { return MessageReply::Default };
+        let result = unsafe { DefWindowProcW(hwnd, m.message, WPARAM(m.wparam), LPARAM(m.lparam)) };
+        MessageReply::Handled(result.0)
+    });
 }
 
 /// `ITaskbarList3` lazy; `None` se a COM falhar (degrada calado).
