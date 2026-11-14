@@ -867,5 +867,6 @@
   "Onde o atalho de print e o Salvar do editor gravam as imagens. Vazio: a pasta das gravações.": "Donde el atajo de captura y el Guardar del editor guardan las imágenes. Vacío: la carpeta de grabaciones.",
   "Mostrar os prints na lista de gravações": "Mostrar las capturas en la lista de grabaciones",
   "Vale para os prints na pasta das gravações ou numa subpasta dela. Desmarcado, a lista mostra só os vídeos.": "Vale para las capturas en la carpeta de grabaciones o en una subcarpeta. Desmarcado, la lista muestra solo los videos.",
-  "Pasta dos prints não encontrada": "Carpeta de capturas no encontrada"
+  "Pasta dos prints não encontrada": "Carpeta de capturas no encontrada",
+  "Necessário para o atalho funcionar com aplicações que rodam como administrador (ex.: o Gerenciador de Tarefas). O Windows pede confirmação só na primeira vez; depois, o NoOBS abre como administrador sem perguntar. Se você recusar, ele abre normalmente. Vale a partir da próxima vez que o NoOBS abrir.": "Necesario para que el atajo funcione en aplicaciones que se ejecutan como administrador (ej.: el Administrador de tareas). Windows pide confirmación solo la primera vez; después, NoOBS se abre como administrador sin preguntar. Si lo rechazas, se abre normalmente. Vale a partir de la próxima vez que NoOBS se abra."
 }

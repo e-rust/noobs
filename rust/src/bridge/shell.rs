@@ -106,6 +106,13 @@ pub fn handle_set_autostart(enable: bool) {
 pub fn handle_set_run_as_admin(enable: bool) {
     config::set_config_bool("runAsAdmin", enable);
     log!("Elevate: abrir como administrador = {enable} (no proximo inicio).");
+    // Ligada já elevado: a tarefa sai agora (os próximos inícios não perguntam).
+    // Desligada: a tarefa sai junto.
+    if enable {
+        crate::elevate::ensure_task();
+    } else {
+        crate::elevate::remove_task();
+    }
 }
 
 /// Reflete na bandeja na hora. Desligando com a janela ESCONDIDA o ícone

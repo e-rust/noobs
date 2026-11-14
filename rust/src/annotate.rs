@@ -7,8 +7,7 @@
 //! * Linha: reta, sem ponta, com as pontas arredondadas.
 //! * Lápis: o traço livre do mouse. Marca-texto: o mesmo traço, largo ([`MARKER_SCALE`]) e
 //!   translúcido, num desenho só (onde ele se cruza não escurece).
-//! * Texto: Segoe UI em negrito, do tamanho `size` (px), com um contorno de contraste
-//!   (escuro em cor clara, claro em cor escura) para ler sobre qualquer fundo.
+//! * Texto: Segoe UI em negrito, do tamanho `size` (px), só na cor dele (sem contorno).
 //!   Várias linhas com `\n`.
 //!
 //! GDI+ com antialiasing (o GDI serrilha a linha inclinada e a letra grande).
@@ -224,16 +223,12 @@ impl Arrow {
 }
 
 impl Text {
-    /// A espessura do contorno.
-    fn outline(&self) -> f32 {
-        (self.size / 7.0).max(2.0)
-    }
-
-    /// O retângulo do texto (com o contorno e o lugar do cursor no fim). Vazio: o do cursor.
+    /// O retângulo do texto (com a margem do antialiasing e o lugar do cursor no fim).
+    /// Vazio: o do cursor.
     pub fn bounds(&self) -> RECT {
         let (lh, widths) = measure(self);
         let w = widths.iter().copied().fold(0.0f32, f32::max);
-        let pad = self.outline() + 3.0;
+        let pad = 4.0;
         RECT {
             left: (self.x - pad) as i32,
             top: (self.y - pad) as i32,
@@ -273,17 +268,6 @@ pub fn shape(a: &Arrow) -> ((f32, f32), (f32, f32), [(f32, f32); 3]) {
     // O corpo entra um pouco na ponta: sem fresta entre os dois com antialiasing.
     let shaft_end = (base.0 + dx * head_len * 0.2, base.1 + dy * head_len * 0.2);
     ((a.x1, a.y1), shaft_end, head)
-}
-
-/// O contorno do texto: escuro numa cor clara, claro numa escura.
-fn outline_color(color: u32) -> u32 {
-    let (r, g, b) = ((color >> 16) & 0xFF, (color >> 8) & 0xFF, color & 0xFF);
-    let luma = (299 * r + 587 * g + 114 * b) / 1000;
-    if luma > 140 {
-        0xD000_0000
-    } else {
-        0xE0FF_FFFF
-    }
 }
 
 /// A família Segoe UI, só durante `f`. `None` sem GDI+ ou sem a fonte.
@@ -438,8 +422,7 @@ unsafe fn draw_rect(gfx: *mut GpGraphics, f: &Frame, dx: f32, dy: f32) {
     }
 }
 
-/// O texto como contorno de letras: primeiro o contorno grosso (cor de contraste),
-/// depois o preenchimento na cor do texto.
+/// O texto como contorno de letras, preenchido na cor dele (sem borda em volta).
 unsafe fn draw_text(gfx: *mut GpGraphics, fam: *mut GpFontFamily, t: &Text, dx: f32, dy: f32) {
     if t.text.is_empty() {
         return;
@@ -452,13 +435,6 @@ unsafe fn draw_text(gfx: *mut GpGraphics, fam: *mut GpFontFamily, t: &Text, dx: 
     let fmt = typographic();
     let layout = RectF { X: t.x + dx, Y: t.y + dy, Width: 0.0, Height: 0.0 };
     GdipAddPathString(path, PCWSTR(w.as_ptr()), w.len() as i32, fam, BOLD, t.size, &layout, fmt);
-    let mut pen: *mut GpPen = std::ptr::null_mut();
-    GdipCreatePen1(outline_color(t.color), t.outline(), UnitPixel, &mut pen);
-    if !pen.is_null() {
-        GdipSetPenLineJoin(pen, LineJoinRound);
-        GdipDrawPath(gfx, pen, path);
-        GdipDeletePen(pen);
-    }
     let brush = solid(t.color);
     if !brush.is_null() {
         GdipFillPath(gfx, brush as *mut GpBrush, path);

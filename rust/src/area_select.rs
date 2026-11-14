@@ -694,14 +694,94 @@ fn offset(r: RECT, dx: i32, dy: i32) -> RECT {
 
 /// Faixa do rótulo "1280 × 720", acima da seleção (ou abaixo, colada no topo).
 fn label_rect(sel: RECT, dpi: i32) -> RECT {
-    let (w, h, gap) = (sx(dpi, 120), sx(dpi, 28), sx(dpi, 6));
+    let ext = text_extent(label_font(dpi), &label_text(sel));
+    let (w, h, gap) = (ext.cx + 2 * sx(dpi, 7), ext.cy + 2 * sx(dpi, 2), sx(dpi, 6));
     let top = if sel.top - h - gap >= 0 { sel.top - h - gap } else { sel.bottom + gap };
     RECT { left: sel.left, top, right: sel.left + w, bottom: top + h }
 }
 
+/// O texto do rótulo do tamanho: "1280 × 720".
+fn label_text(sel: RECT) -> Vec<u16> {
+    wide(&format!("{} × {}", sel.right - sel.left, sel.bottom - sel.top))
+}
+
+thread_local! {
+    /// A fonte do rótulo do tamanho, por DPI (criada uma vez; vive até o fim do app).
+    static LABEL_FONT: std::cell::Cell<(i32, HFONT)> = const { std::cell::Cell::new((0, HFONT(std::ptr::null_mut()))) };
+}
+
+/// A fonte do rótulo do tamanho: pequena, a Segoe UI Variable do Windows 11 (a Segoe UI
+/// onde ela não existe).
+fn label_font(dpi: i32) -> HFONT {
+    LABEL_FONT.with(|c| {
+        let (d, f) = c.get();
+        if d == dpi && !f.is_invalid() {
+            return f;
+        }
+        let make = |face: PCWSTR| unsafe {
+            CreateFontW(-sx(dpi, 12), 0, 0, 0, FW_SEMIBOLD.0 as i32, 0, 0, 0, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH.0 as u32, face)
+        };
+        let mut font = make(w!("Segoe UI Variable Text"));
+        // Sem ela, o Windows troca por outra qualquer: confere o nome que saiu.
+        let got = unsafe {
+            let dc = CreateCompatibleDC(None);
+            let old = SelectObject(dc, HGDIOBJ(font.0));
+            let mut name = [0u16; 64];
+            let n = GetTextFaceW(dc, Some(&mut name));
+            SelectObject(dc, old);
+            let _ = DeleteDC(dc);
+            String::from_utf16_lossy(&name[..(n.max(1) - 1) as usize])
+        };
+        if !got.starts_with("Segoe UI Variable") {
+            unsafe {
+                let _ = DeleteObject(HGDIOBJ(font.0));
+            }
+            font = make(w!("Segoe UI"));
+        }
+        c.set((dpi, font));
+        font
+    })
+}
+
 /// A espessura da borda branca em volta da seleção.
-fn border_px(dpi: i32) -> i32 {
-    sx(dpi, 2).max(1)
+fn border_px(_dpi: i32) -> i32 {
+    // Fina como a das ferramentas de captura: 1 px em qualquer escala.
+    1
+}
+
+/// A borda tracejada da área `r`, `w` px por fora dela: um fio escuro com traços brancos
+/// de `dash` px (contraste em qualquer fundo). Os traços começam nos cantos da área (andam
+/// com ela) e só os que cruzam `clip` são desenhados (o arrasto repinta pedaços).
+unsafe fn dashed_border(dc: HDC, r: RECT, w: i32, dash: i32, clip: RECT) {
+    let o = inflate(r, w);
+    let sides = [
+        RECT { left: o.left, top: o.top, right: o.right, bottom: r.top },
+        RECT { left: o.left, top: r.bottom, right: o.right, bottom: o.bottom },
+        RECT { left: o.left, top: r.top, right: r.left, bottom: r.bottom },
+        RECT { left: r.right, top: r.top, right: o.right, bottom: r.bottom },
+    ];
+    let dark = CreateSolidBrush(COLORREF(0x0020_2020));
+    let light = CreateSolidBrush(COLORREF(0x00FF_FFFF));
+    let mut part = RECT::default();
+    for (i, side) in sides.iter().enumerate() {
+        if !IntersectRect(&mut part, side, &clip).as_bool() {
+            continue;
+        }
+        FillRect(dc, side, dark);
+        let horizontal = i < 2;
+        let (start, end) = if horizontal { (side.left, side.right) } else { (side.top, side.bottom) };
+        // Só os traços dentro do pedaço a pintar (o lado de uma área grande tem centenas).
+        let (from, to) = if horizontal { (part.left, part.right) } else { (part.top, part.bottom) };
+        let mut a = start + ((from - start) / (2 * dash)) * 2 * dash;
+        while a < end.min(to) {
+            let b = (a + dash).min(end);
+            let seg = if horizontal { RECT { left: a, right: b, ..*side } } else { RECT { top: a, bottom: b, ..*side } };
+            FillRect(dc, &seg, light);
+            a += 2 * dash;
+        }
+    }
+    let _ = DeleteObject(HGDIOBJ(dark.0));
+    let _ = DeleteObject(HGDIOBJ(light.0));
 }
 
 fn invalidate(hwnd: HWND, r: &RECT) {
@@ -1127,6 +1207,30 @@ fn back_buffer(w: i32, h: i32) -> Option<HDC> {
 /// isso, o Windows mostrava o meio do desenho (o escuro já por cima, a imagem nítida
 /// ainda não) — a borda "atrasada" ao arrastar.
 fn paint(hwnd: HWND) {
+    LAST_PAINT.with(|c| c.set(Some(std::time::Instant::now())));
+    paint_inner(hwnd);
+}
+
+/// Os retângulos de uma região (vazio se não der para ler).
+fn region_rects(rgn: HRGN) -> Vec<RECT> {
+    unsafe {
+        let size = GetRegionData(rgn, 0, None);
+        if size == 0 {
+            return Vec::new();
+        }
+        // u64: o RGNDATA fica alinhado.
+        let mut buf = vec![0u64; (size as usize).div_ceil(8)];
+        let data = buf.as_mut_ptr() as *mut RGNDATA;
+        if GetRegionData(rgn, size, Some(data)) == 0 {
+            return Vec::new();
+        }
+        let n = (*data).rdh.nCount as usize;
+        let first = (*data).Buffer.as_ptr() as *const RECT;
+        std::slice::from_raw_parts(first, n).to_vec()
+    }
+}
+
+fn paint_inner(hwnd: HWND) {
     unsafe {
         // A região antes do BeginPaint, que a esvazia.
         let rgn = CreateRectRgn(0, 0, 0, 0);
@@ -1145,7 +1249,17 @@ fn paint(hwnd: HWND) {
                     let _ = SelectClipRgn(buf, Some(rgn));
                     compose(buf, (rc.left, rc.top), rc);
                     let _ = SelectClipRgn(buf, None);
-                    let _ = BitBlt(screen, rc.left, rc.top, w, h, Some(buf), 0, 0, SRCCOPY);
+                    // Para a tela, só os retângulos da região (o arrasto muda faixas nas
+                    // bordas; o retângulo em volta delas pode ser a tela quase inteira).
+                    // Retalhada demais, vai o retângulo todo.
+                    let parts = region_rects(rgn);
+                    if parts.is_empty() || parts.len() > 64 {
+                        let _ = BitBlt(screen, rc.left, rc.top, w, h, Some(buf), 0, 0, SRCCOPY);
+                    } else {
+                        for p in parts {
+                            let _ = BitBlt(screen, rc.left + p.left, rc.top + p.top, p.right - p.left, p.bottom - p.top, Some(buf), p.left, p.top, SRCCOPY);
+                        }
+                    }
                 }
                 // Sem memória para o buffer: direto na tela, como antes.
                 None => compose(screen, (0, 0), rc),
@@ -1201,15 +1315,7 @@ unsafe fn compose(dc: HDC, org: (i32, i32), rc: RECT) {
                 gdiplus(dc, org, || crate::annotate::draw_on_hdc(dc, &marks, r, caret, org));
             }
         }
-        let o = inflate(r, border);
-        for side in [
-            RECT { left: o.left, top: o.top, right: o.right, bottom: r.top },
-            RECT { left: o.left, top: r.bottom, right: o.right, bottom: o.bottom },
-            RECT { left: o.left, top: r.top, right: r.left, bottom: r.bottom },
-            RECT { left: r.right, top: r.top, right: o.right, bottom: r.bottom },
-        ] {
-            fill(dc, &side, 0x00FF_FFFF);
-        }
+        dashed_border(dc, r, border, sx(dpi, 4).max(2), rc);
         // As alças do editor (a área já escolhida): puxam os lados.
         if with(|s| s.editing && s.on_shot.is_some()) {
             let hp = handle_px(dpi);
@@ -1222,11 +1328,11 @@ unsafe fn compose(dc: HDC, org: (i32, i32), rc: RECT) {
         // 3. Tamanho, em px físicos — é o tamanho do vídeo (arredondado
         // pro múltiplo de 16 na gravação).
         let lr = label_rect(r, dpi);
-        gdiplus(dc, org, || fill_round(dc, offset(lr, -org.0, -org.1), sx(dpi, 8) as f32, 0xE614_1517, Some(0xFF3A_3B3E)));
-        let old_font = SelectObject(dc, HGDIOBJ(font.0));
+        gdiplus(dc, org, || fill_round(dc, offset(lr, -org.0, -org.1), sx(dpi, 5) as f32, 0xD914_1517, Some(0xFF2E_2F33)));
+        let old_font = SelectObject(dc, HGDIOBJ(label_font(dpi).0));
         SetBkMode(dc, TRANSPARENT);
-        SetTextColor(dc, COLORREF(0x00FF_FFFF));
-        let mut text = wide(&format!("{} × {}", r.right - r.left, r.bottom - r.top));
+        SetTextColor(dc, COLORREF(0x00E6_E6E6));
+        let mut text = label_text(r);
         let mut lr2 = lr;
         DrawTextW(dc, &mut text, &mut lr2, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
         SelectObject(dc, old_font);
@@ -1264,8 +1370,55 @@ fn on_bar(p: POINT) -> bool {
     with(|s| s.bar.as_ref().is_some_and(|b| b.areas().any(|r| in_rect(&r, p))))
 }
 
-/// Pinta já o que foi invalidado (o arrasto acompanha o mouse sem esperar a fila vazia).
+thread_local! {
+    /// A última pintura e o intervalo entre quadros do monitor.
+    static LAST_PAINT: std::cell::Cell<Option<std::time::Instant>> = const { std::cell::Cell::new(None) };
+    static FRAME: std::cell::Cell<Option<std::time::Duration>> = const { std::cell::Cell::new(None) };
+}
+
+/// Um quadro do monitor (a maior taxa entre as telas; 60 Hz se não der para ler).
+fn frame_interval() -> std::time::Duration {
+    FRAME.with(|c| {
+        if let Some(d) = c.get() {
+            return d;
+        }
+        let d = {
+            let mut hz = 0u32;
+            unsafe {
+                let mut i = 0;
+                loop {
+                    let mut dd = DISPLAY_DEVICEW { cb: std::mem::size_of::<DISPLAY_DEVICEW>() as u32, ..Default::default() };
+                    if !EnumDisplayDevicesW(PCWSTR::null(), i, &mut dd, 0).as_bool() {
+                        break;
+                    }
+                    i += 1;
+                    let mut dm = DEVMODEW { dmSize: std::mem::size_of::<DEVMODEW>() as u16, ..Default::default() };
+                    if EnumDisplaySettingsW(PCWSTR(dd.DeviceName.as_ptr()), ENUM_CURRENT_SETTINGS, &mut dm).as_bool() {
+                        hz = hz.max(dm.dmDisplayFrequency);
+                    }
+                }
+            }
+            let hz = if (24..=1000).contains(&hz) { hz } else { 60 };
+            log!("AreaSelect: monitor a {hz} Hz (no maximo um quadro por atualizacao da tela).");
+            std::time::Duration::from_secs_f64(1.0 / hz as f64)
+        };
+        c.set(Some(d));
+        d
+    })
+}
+
+/// Pinta já o que foi invalidado (o arrasto acompanha o mouse sem esperar a fila vazia),
+/// mas no máximo um quadro por atualização do monitor: um mouse de 1000 Hz mandava mais
+/// quadros do que a tela mostra, e o excesso só pesava (o ponteiro chegava a engasgar). O
+/// que fica para depois sai no próximo movimento ou no `WM_PAINT`, quando o mouse para.
 fn paint_now(hwnd: HWND) {
+    #[cfg(not(test))]
+    {
+        let early = LAST_PAINT.with(|c| c.get()).is_some_and(|t| t.elapsed() < frame_interval());
+        if early {
+            return;
+        }
+    }
     unsafe {
         let _ = UpdateWindow(hwnd);
     }
@@ -2230,7 +2383,11 @@ mod tests {
         let px = |x: i32, y: i32| unsafe { GetPixel(buf.dc, x - 50, y - 50) }.0 & 0xFF;
         assert_eq!(px(150, 150), 200, "dentro: nítida");
         assert!((px(60, 60) as i32 - 100).abs() <= 1, "fora: escurecida ({})", px(60, 60));
-        assert_eq!(px(99, 150), 255, "a borda");
+        // A borda: tracejada (traços brancos e o fio escuro alternando) e fina (1 px: o
+        // pixel de fora dela já é a imagem escurecida).
+        let side: Vec<u32> = (100..140).map(|y| px(99, y)).collect();
+        assert!(side.contains(&255) && side.contains(&0x20), "tracejada: {side:?}");
+        assert!((px(98, 120) as i32 - 100).abs() <= 1, "fina ({})", px(98, 120));
         with(|s| {
             s.frozen = None;
             s.sel = None;

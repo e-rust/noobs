@@ -8,6 +8,11 @@
 //! engolida (descida e subida), e o Windows não a vê. Outras combinações com a Print
 //! Screen (Alt+Print Screen, se só a tecla sozinha está configurada) passam normalmente.
 //!
+//! Com uma janela de administrador à frente, o Windows não passa a tecla ao hook (o
+//! NoOBS sem privilégio não vê as teclas de um processo elevado: UIPI). O
+//! `RegisterHotKey` também não a recebe nesse caso (testado em 13/11/2026). Só o NoOBS
+//! aberto como administrador (Configurações → Geral) pega o atalho por cima deles.
+//!
 //! O hook fica numa thread só dele, com o próprio laço de mensagens: o Windows remove
 //! em silêncio um hook que demora a responder, e a thread principal às vezes está
 //! ocupada. O hook só compara e põe o disparo na fila da main ([`mainthread::queue`]).

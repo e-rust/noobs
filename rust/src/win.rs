@@ -222,7 +222,14 @@ pub fn apply_menu_theme(hwnd: Option<HWND>, dark: bool) {
 
 /// Linha de comando em minúsculas, para os flags `/autostart`, `/tray`…
 pub fn cmdline_lower() -> String {
-    std::env::args().collect::<Vec<_>>().join(" ").to_lowercase()
+    // Aberto elevado pela tarefa, os argumentos vêm do lançador (`elevate::handoff`).
+    let mut cmd = std::env::args().collect::<Vec<_>>().join(" ");
+    let handed = crate::elevate::handoff();
+    if !handed.is_empty() {
+        cmd.push(' ');
+        cmd.push_str(handed);
+    }
+    cmd.to_lowercase()
 }
 
 /// Separador decimal do locale do usuário (`,` em pt-BR, `.` em en-US): os
