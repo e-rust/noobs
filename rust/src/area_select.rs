@@ -25,7 +25,7 @@ use windows::Win32::Foundation::{COLORREF, HINSTANCE, HWND, LPARAM, LRESULT, POI
 use windows::Win32::Graphics::Gdi::*;
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::HiDpi::GetDpiForSystem;
-use windows::Win32::UI::Input::KeyboardAndMouse::{GetKeyState, ReleaseCapture, SetCapture, SetFocus, VK_CONTROL, VK_ESCAPE, VK_RETURN, VK_SHIFT};
+use windows::Win32::UI::Input::KeyboardAndMouse::{GetKeyState, ReleaseCapture, SetCapture, VK_CONTROL, VK_ESCAPE, VK_RETURN, VK_SHIFT};
 use windows::Win32::UI::WindowsAndMessaging::*;
 
 use crate::annotate::{fill_round, Arrow, Frame, Icon, Mark, Stroke, Text, PALETTE, SIZE_MAX, SIZE_MIN, SIZE_STEP, WIDTH_MAX, WIDTH_MIN};
@@ -566,8 +566,10 @@ pub fn start_with_hint(on_selected: OnSelected, hint_key: &'static str) -> bool 
         let _ = ShowWindow(hwnd, SW_SHOW);
         // Foco pra o Esc funcionar. Sem ele (trava de primeiro plano do
         // Windows) o botão direito ainda cancela.
-        let _ = SetForegroundWindow(hwnd);
-        let _ = SetFocus(Some(hwnd));
+        crate::ui::bring_to_front(hwnd);
+        if GetForegroundWindow() != hwnd {
+            log::log("AreaSelect: o Windows nao deu o primeiro plano a selecao (o Esc so vale depois de um clique).");
+        }
         log!("AreaSelect: aberta ({vw}x{vh} em {vx},{vy}){}.", if frozen { ", sobre a tela congelada" } else { "" });
     }
     true

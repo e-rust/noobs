@@ -141,9 +141,6 @@ mod media_tests;
 /// Ponto de entrada do exe (o `main.rs` só chama isto): o crate é lib + bin
 /// pra que os testes em `tests/` enxerguem os módulos.
 pub fn run_app() {
-    // Aberto elevado pela tarefa: os argumentos do lançador (o `/autostart`) antes de
-    // ler a linha de comando.
-    elevate::take_handoff();
     let cmd = win::cmdline_lower();
     log::init_log();
     log!("===== NoOBS startup ({}) =====", version::APP_VERSION);
@@ -153,13 +150,15 @@ pub fn run_app() {
     // única e de qualquer janela (pela tarefa, sem o UAC; sem ela, pelo UAC).
     // Recusado no UAC, segue normal. O lançador sai sem marcar nada no log de quedas:
     // quem confere a execução anterior é a cópia que fica.
+    elevate::sync_installer_choice();
     if elevate::relaunch_elevated_if_wanted() {
         return;
     }
     // Toda queda vai pro log: o panic com a pilha, o crash nativo com a pilha e um
     // minidump, e a execução anterior que não fechou (ver `crash.rs`).
     crash::install();
-    elevate::ensure_task();
+    elevate::remove_old_task();
+    elevate::let_user_terminate();
 
     lang::init_language();
 

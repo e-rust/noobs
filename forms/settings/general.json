@@ -8,35 +8,340 @@
     "height": 851,
     "padding": [18, 14, 632, 14],
     "children": [
-      { "class": "Label", "name": "lblTheme", "style": "s_label", "align": "top", "auto_size": true, "wrap": true, "v_align": "leading", "margins": [0, 0, 0, 0], "text": "Tema" },
-      { "margins": [0, 6, 0, 0], "class": "Panel", "name": "pnlTheme", "style": "s_seg_box", "align": "top", "height": 35, "children": [ { "class": "Button", "name": "btnThemeSystem", "style": "s_seg", "icon": "monitor", "icon_size": 16, "tag": 0, "left": 4, "top": 4, "width": 100, "height": 27, "text": "Sistema", "on_click": "general_theme" }, { "class": "Button", "name": "btnThemeLight", "style": "s_seg", "icon": "sun", "icon_size": 16, "tag": 1, "left": 107, "top": 4, "width": 90, "height": 27, "text": "Claro", "on_click": "general_theme" }, { "class": "Button", "name": "btnThemeDark", "style": "s_seg", "icon": "moon", "icon_size": 16, "tag": 2, "left": 200, "top": 4, "width": 95, "height": 27, "text": "Escuro", "on_click": "general_theme" } ] },
-      { "class": "Rectangle", "name": "lnRule1", "style": "sep", "align": "top", "height": 1, "margins": [0, 10, 0, 0] },
-      { "class": "Label", "name": "lblLanguage", "style": "s_label", "align": "top", "auto_size": true, "wrap": true, "v_align": "leading", "margins": [0, 10, 0, 0], "text": "Idioma" },
-      { "class": "ComboBox", "name": "cmbLanguage", "arrow": "triangle", "align": "top", "height": 32, "margins": [0, 6, 0, 0], "on_change": "general_language" },
-      { "class": "Label", "name": "lblLanguageHint", "style": "s_hint", "align": "top", "auto_size": true, "wrap": true, "v_align": "leading", "margins": [0, 6, 0, 0], "text": "Idioma da interface do NoOBS. \"Automático\" usa o idioma do Windows; outros valores forçam o idioma escolhido." },
-      { "class": "Rectangle", "name": "lnRule2", "style": "sep", "align": "top", "height": 1, "margins": [0, 10, 0, 0] },
-      { "class": "Label", "name": "lblWindowTitle", "style": "s_label", "align": "top", "auto_size": true, "wrap": true, "v_align": "leading", "margins": [0, 10, 0, 0], "text": "Título da janela" },
-      { "class": "Edit", "name": "edtWindowTitle", "align": "top", "height": 32, "margins": [0, 6, 0, 0], "placeholder": "NoOBS", "on_exit": "general_window_title", "on_key_down": "general_window_title" },
-      { "class": "Label", "name": "lblWindowTitleHint", "style": "s_hint", "align": "top", "auto_size": true, "wrap": true, "v_align": "leading", "margins": [0, 6, 0, 0], "text": "Nome exibido na barra de título, no botão da barra de tarefas e no ícone da bandeja. Deixe em branco para usar \"NoOBS\"." },
-      { "class": "Rectangle", "name": "lnRule3", "style": "sep", "align": "top", "height": 1, "margins": [0, 10, 0, 0] },
-      { "class": "CheckBox", "name": "chkAutostart", "style": "web", "box_size": 16, "align": "top", "auto_size": true, "margins": [0, 10, 0, 0], "text": "Iniciar com o Windows", "on_change": "general_autostart" },
-      { "class": "Label", "name": "lblAutostartHint", "style": "s_hint", "align": "top", "auto_size": true, "wrap": true, "v_align": "leading", "margins": [0, 6, 0, 0], "text": "O NoOBS sobe automaticamente quando você loga no Windows." },
-      { "class": "Rectangle", "name": "lnRule4", "style": "sep", "align": "top", "height": 1, "margins": [0, 10, 0, 0] },
-      { "class": "CheckBox", "name": "chkRunAsAdmin", "style": "web", "box_size": 16, "align": "top", "auto_size": true, "margins": [0, 10, 0, 0], "text": "Abrir como administrador", "on_change": "general_run_as_admin" },
-      { "class": "Label", "name": "lblRunAsAdminHint", "style": "s_hint", "align": "top", "auto_size": true, "wrap": true, "v_align": "leading", "margins": [0, 6, 0, 0], "text": "Necessário para o atalho funcionar com aplicações que rodam como administrador (ex.: o Gerenciador de Tarefas). O Windows pede confirmação só na primeira vez; depois, o NoOBS abre como administrador sem perguntar. Se você recusar, ele abre normalmente. Vale a partir da próxima vez que o NoOBS abrir." },
-      { "class": "Label", "name": "lblRunAsAdminState", "style": "s_hint", "align": "top", "auto_size": true, "wrap": true, "v_align": "leading", "margins": [0, 6, 0, 0], "text": "Agora: rodando sem administrador." },
-      { "class": "Rectangle", "name": "lnRule5", "style": "sep", "align": "top", "height": 1, "margins": [0, 10, 0, 0] },
-      { "class": "CheckBox", "name": "chkCloseToTray", "style": "web", "box_size": 16, "align": "top", "auto_size": true, "margins": [0, 10, 0, 0], "text": "Minimizar para bandeja", "on_change": "general_close_to_tray" },
-      { "class": "Label", "name": "lblCloseToTrayHint", "style": "s_hint", "align": "top", "auto_size": true, "wrap": true, "v_align": "leading", "margins": [0, 6, 0, 0], "text": "Permite ao NoOBS usar o ícone na bandeja do sistema. Com esta opção ativa, o botão X da janela manda pra bandeja em vez de encerrar — clique no ícone pra reabrir, ou use o menu do ícone pra fechar de verdade." },
-      { "class": "Rectangle", "name": "lnRuleHibernate", "style": "sep", "align": "top", "height": 1, "margins": [0, 10, 0, 0] },
-      { "class": "CheckBox", "name": "chkHibernate", "style": "web", "box_size": 16, "align": "top", "auto_size": true, "margins": [0, 10, 0, 0], "text": "Liberar memória após 1 minuto na bandeja", "on_change": "general_hibernate" },
-      { "class": "Label", "name": "lblHibernateHint", "style": "s_hint", "align": "top", "auto_size": true, "wrap": true, "v_align": "leading", "margins": [0, 6, 0, 0], "text": "Quando o app fica na bandeja por mais de 1 minuto sem gravar, libera todos os recursos e fica em ~5 MB de RAM. Disponível apenas com 'Minimizar para bandeja' ativo." },
-      { "class": "Rectangle", "name": "lnRule6", "style": "sep", "align": "top", "height": 1, "margins": [0, 10, 0, 0] },
-      { "class": "Label", "name": "lblReset", "style": "s_label", "align": "top", "auto_size": true, "wrap": true, "v_align": "leading", "margins": [0, 10, 0, 0], "text": "Restaurar padrões" },
-      { "class": "Label", "name": "lblResetHint", "style": "s_hint", "align": "top", "auto_size": true, "wrap": true, "v_align": "leading", "margins": [0, 6, 0, 0], "text": "Volta TODAS as abas para os valores padrão de fábrica, não apenas esta. Aplicado na hora." },
-      { "class": "Layout", "name": "lyReset", "align": "top", "height": 33, "margins": [0, 6, 0, 0], "children": [
-          { "class": "Button", "name": "btnReset", "style": "s", "align": "left", "width": 150, "margins": [0, 0, 8, 0], "text": "Restaurar padrão", "on_click": "general_reset" }
-        ] }
+      {
+        "class": "Label",
+        "name": "lblTheme",
+        "text": "Tema",
+        "v_align": "leading",
+        "wrap": true,
+        "height": 17,
+        "align": "top",
+        "auto_size": true,
+        "style": "s_label"
+      },
+      {
+        "class": "Panel",
+        "name": "pnlTheme",
+        "height": 35,
+        "align": "top",
+        "margins": [0, 6, 0, 0],
+        "style": "s_seg_box",
+        "children": [
+          {
+            "class": "Button",
+            "name": "btnThemeSystem",
+            "text": "Sistema",
+            "icon": "monitor",
+            "icon_size": 16,
+            "left": 4,
+            "top": 4,
+            "width": 100,
+            "height": 27,
+            "style": "s_seg",
+            "on_click": "general_theme"
+          },
+          {
+            "class": "Button",
+            "name": "btnThemeLight",
+            "text": "Claro",
+            "icon": "sun",
+            "icon_size": 16,
+            "left": 107,
+            "top": 4,
+            "width": 90,
+            "height": 27,
+            "style": "s_seg",
+            "tag": 1,
+            "on_click": "general_theme"
+          },
+          {
+            "class": "Button",
+            "name": "btnThemeDark",
+            "text": "Escuro",
+            "icon": "moon",
+            "icon_size": 16,
+            "left": 200,
+            "top": 4,
+            "width": 95,
+            "height": 27,
+            "style": "s_seg",
+            "tag": 2,
+            "on_click": "general_theme"
+          }
+        ]
+      },
+      {
+        "class": "Rectangle",
+        "name": "lnRule1",
+        "height": 1,
+        "align": "top",
+        "margins": [0, 10, 0, 0],
+        "style": "sep"
+      },
+      {
+        "class": "Label",
+        "name": "lblLanguage",
+        "text": "Idioma",
+        "v_align": "leading",
+        "wrap": true,
+        "height": 17,
+        "align": "top",
+        "margins": [0, 10, 0, 0],
+        "auto_size": true,
+        "style": "s_label"
+      },
+      {
+        "class": "ComboBox",
+        "name": "cmbLanguage",
+        "arrow": "triangle",
+        "on_change": "general_language",
+        "align": "top",
+        "margins": [0, 6, 0, 0]
+      },
+      {
+        "class": "Label",
+        "name": "lblLanguageHint",
+        "text": "Idioma da interface do NoOBS. \"Automático\" usa o idioma do Windows; outros valores forçam o idioma escolhido.",
+        "v_align": "leading",
+        "wrap": true,
+        "height": 16,
+        "align": "top",
+        "margins": [0, 6, 0, 0],
+        "auto_size": true,
+        "style": "s_hint"
+      },
+      {
+        "class": "Rectangle",
+        "name": "lnRule2",
+        "height": 1,
+        "align": "top",
+        "margins": [0, 10, 0, 0],
+        "style": "sep"
+      },
+      {
+        "class": "Label",
+        "name": "lblWindowTitle",
+        "text": "Título da janela",
+        "v_align": "leading",
+        "wrap": true,
+        "height": 17,
+        "align": "top",
+        "margins": [0, 10, 0, 0],
+        "auto_size": true,
+        "style": "s_label"
+      },
+      {
+        "class": "Edit",
+        "name": "edtWindowTitle",
+        "placeholder": "NoOBS",
+        "align": "top",
+        "margins": [0, 6, 0, 0],
+        "on_key_down": "general_window_title",
+        "on_exit": "general_window_title"
+      },
+      {
+        "class": "Label",
+        "name": "lblWindowTitleHint",
+        "text": "Nome exibido na barra de título, no botão da barra de tarefas e no ícone da bandeja. Deixe em branco para usar \"NoOBS\".",
+        "v_align": "leading",
+        "wrap": true,
+        "height": 16,
+        "align": "top",
+        "margins": [0, 6, 0, 0],
+        "auto_size": true,
+        "style": "s_hint"
+      },
+      {
+        "class": "Rectangle",
+        "name": "lnRule3",
+        "height": 1,
+        "align": "top",
+        "margins": [0, 10, 0, 0],
+        "style": "sep"
+      },
+      {
+        "class": "CheckBox",
+        "name": "chkAutostart",
+        "text": "Iniciar com o Windows",
+        "box_size": 16,
+        "on_change": "general_autostart",
+        "height": 16,
+        "align": "top",
+        "margins": [0, 10, 0, 0],
+        "auto_size": true,
+        "style": "web"
+      },
+      {
+        "class": "Label",
+        "name": "lblAutostartHint",
+        "text": "O NoOBS sobe automaticamente quando você loga no Windows.",
+        "v_align": "leading",
+        "wrap": true,
+        "height": 16,
+        "align": "top",
+        "margins": [0, 6, 0, 0],
+        "auto_size": true,
+        "style": "s_hint"
+      },
+      {
+        "class": "Rectangle",
+        "name": "lnRule4",
+        "height": 1,
+        "align": "top",
+        "margins": [0, 10, 0, 0],
+        "style": "sep"
+      },
+      {
+        "class": "CheckBox",
+        "name": "chkRunAsAdmin",
+        "text": "Abrir como administrador",
+        "box_size": 16,
+        "on_change": "general_run_as_admin",
+        "height": 16,
+        "align": "top",
+        "margins": [0, 10, 0, 0],
+        "auto_size": true,
+        "style": "web"
+      },
+      {
+        "class": "Label",
+        "name": "lblRunAsAdminHint",
+        "text": "Necessário para o atalho funcionar com aplicações que rodam como administrador (ex.: o Gerenciador de Tarefas). O Windows pede confirmação toda vez que o NoOBS abre; se você recusar, a opção é desligada e o NoOBS abre normalmente. Vale a partir da próxima vez que o NoOBS abrir.",
+        "v_align": "leading",
+        "wrap": true,
+        "height": 44,
+        "align": "top",
+        "margins": [0, 6, 0, 0],
+        "auto_size": true,
+        "style": "s_hint"
+      },
+      {
+        "class": "Label",
+        "name": "lblRunAsAdminState",
+        "text": "Agora: rodando sem administrador.",
+        "v_align": "leading",
+        "wrap": true,
+        "height": 16,
+        "align": "top",
+        "margins": [0, 6, 0, 0],
+        "auto_size": true,
+        "style": "s_hint"
+      },
+      {
+        "class": "Rectangle",
+        "name": "lnRule5",
+        "height": 1,
+        "align": "top",
+        "margins": [0, 10, 0, 0],
+        "style": "sep"
+      },
+      {
+        "class": "CheckBox",
+        "name": "chkCloseToTray",
+        "text": "Minimizar para bandeja",
+        "box_size": 16,
+        "on_change": "general_close_to_tray",
+        "height": 16,
+        "align": "top",
+        "margins": [0, 10, 0, 0],
+        "auto_size": true,
+        "style": "web"
+      },
+      {
+        "class": "Label",
+        "name": "lblCloseToTrayHint",
+        "text": "Permite ao NoOBS usar o ícone na bandeja do sistema. Com esta opção ativa, o botão X da janela manda pra bandeja em vez de encerrar — clique no ícone pra reabrir, ou use o menu do ícone pra fechar de verdade.",
+        "v_align": "leading",
+        "wrap": true,
+        "height": 30,
+        "align": "top",
+        "margins": [0, 6, 0, 0],
+        "auto_size": true,
+        "style": "s_hint"
+      },
+      {
+        "class": "Rectangle",
+        "name": "lnRuleHibernate",
+        "height": 1,
+        "align": "top",
+        "margins": [0, 10, 0, 0],
+        "style": "sep"
+      },
+      {
+        "class": "CheckBox",
+        "name": "chkHibernate",
+        "text": "Liberar memória após 1 minuto na bandeja",
+        "box_size": 16,
+        "on_change": "general_hibernate",
+        "height": 16,
+        "align": "top",
+        "margins": [0, 10, 0, 0],
+        "auto_size": true,
+        "style": "web"
+      },
+      {
+        "class": "Label",
+        "name": "lblHibernateHint",
+        "text": "Quando o app fica na bandeja por mais de 1 minuto sem gravar, libera todos os recursos e fica em ~5 MB de RAM. Disponível apenas com 'Minimizar para bandeja' ativo.",
+        "v_align": "leading",
+        "wrap": true,
+        "height": 30,
+        "align": "top",
+        "margins": [0, 6, 0, 0],
+        "auto_size": true,
+        "style": "s_hint"
+      },
+      {
+        "class": "Rectangle",
+        "name": "lnRule6",
+        "height": 1,
+        "align": "top",
+        "margins": [0, 10, 0, 0],
+        "style": "sep"
+      },
+      {
+        "class": "Label",
+        "name": "lblReset",
+        "text": "Restaurar padrões",
+        "v_align": "leading",
+        "wrap": true,
+        "height": 17,
+        "align": "top",
+        "margins": [0, 10, 0, 0],
+        "auto_size": true,
+        "style": "s_label"
+      },
+      {
+        "class": "Label",
+        "name": "lblResetHint",
+        "text": "Volta TODAS as abas para os valores padrão de fábrica, não apenas esta. Aplicado na hora.",
+        "v_align": "leading",
+        "wrap": true,
+        "height": 16,
+        "align": "top",
+        "margins": [0, 6, 0, 0],
+        "auto_size": true,
+        "style": "s_hint"
+      },
+      {
+        "class": "Layout",
+        "name": "lyReset",
+        "height": 33,
+        "align": "top",
+        "margins": [0, 6, 0, 0],
+        "children": [
+          {
+            "class": "Button",
+            "name": "btnReset",
+            "text": "Restaurar padrão",
+            "width": 150,
+            "align": "left",
+            "margins": [0, 0, 8, 0],
+            "style": "s",
+            "on_click": "general_reset"
+          }
+        ]
+      }
     ]
   }
 }

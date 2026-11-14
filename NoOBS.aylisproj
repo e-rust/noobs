@@ -407,7 +407,7 @@
   "locale": "pt-BR",
   "publish": {
     "app_name": "NoOBS",
-    "version": "0.0.9-beta",
+    "version": "0.0.10-beta",
     "icon": "assets/images/icon.png",
     "publisher": "e-rust",
     "windows": {
@@ -420,6 +420,7 @@
       "autostart": "on",
       "autostart_args": "/autostart",
       "desktop_shortcut": "off",
+      "run_as_admin": "off",
       "close_running": true,
       "run_after_install": true,
       "data_dir": "{localappdata}\\NoOBS"

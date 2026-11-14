@@ -396,8 +396,10 @@ fn finish_show(_ui: &mut Ui) {
 /// Anti-roubo de foco: clicando numa notificação, o processo em primeiro plano
 /// é o shell e o Windows recusa o `SetForegroundWindow` (a janela aparece
 /// atrás, com o botão piscando). Compartilhar o input com a thread em primeiro
-/// plano por um instante libera.
-fn bring_to_front(hwnd: HWND) {
+/// plano por um instante libera. O mesmo na seleção do print: a Print Screen é engolida pelo
+/// hook, o NoOBS não recebeu a última tecla e o Windows recusa (sem o foco, o Esc ia para o
+/// app de trás).
+pub fn bring_to_front(hwnd: HWND) {
     unsafe {
         let fg = GetForegroundWindow();
         let me = GetCurrentThreadId();
