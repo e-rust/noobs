@@ -123,6 +123,7 @@ modulos! {
     screenshot,
     print_key,
     annotate,
+    print_editor,
 }
 
 // O passeio pelas telas (NOOBS_TOUR), para comparar com a versão anterior.

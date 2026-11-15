@@ -2489,6 +2489,19 @@ pub fn running_id() -> String {
     with(|st| if st.running { st.running_id.clone() } else { String::new() })
 }
 
+/// A barra que o cartão `id` deve mostrar agora (fração 0–1 e o texto), se ele é a
+/// origem da exportação em curso. A galeria refaz os cartões (uma gravação nova
+/// chegou, a pasta mudou) e o cartão novo nasce sem barra: sem isto ela sumia até o
+/// próximo aviso de progresso, que numa exportação longa demora (parecia perdida).
+pub fn card_progress(id: &str) -> Option<(f32, String)> {
+    let (rec, pct, canceling) = with(|st| (if st.running { st.running_id.clone() } else { String::new() }, st.pct, st.canceling));
+    if rec.is_empty() || !rec.eq_ignore_ascii_case(id) {
+        return None;
+    }
+    let label = if canceling { lang::tr("Cancelando…") } else { tw("Exportando… {{pct}}%", &[("pct", &(pct.round() as i32).to_string())]) };
+    Some(((pct / 100.0) as f32, label))
+}
+
 /// Barra de progresso no cartão da gravação de origem.
 fn sync_card() {
     thread_local! {

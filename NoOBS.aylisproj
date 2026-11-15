@@ -213,6 +213,11 @@
       "name": "fraConfirm",
       "file": "forms/view/confirm.json",
       "auto_create": false
+    },
+    {
+      "name": "frmPrint",
+      "file": "forms/print.json",
+      "auto_create": false
     }
   ],
   "theme": "themes/noobs-dark.json",

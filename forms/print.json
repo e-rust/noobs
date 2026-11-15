@@ -1,0 +1,63 @@
+{
+  "aylis": 1,
+  "root": {
+    "class": "Form",
+    "name": "frmPrint",
+    "caption": "NoOBS - print",
+    "border_style": "none",
+    "window_state": "full_screen",
+    "topmost": true,
+    "show_in_taskbar": false,
+    "key_preview": true,
+    "span_monitors": true,
+    "physical_pixels": true,
+    "force_foreground": true,
+    "close_action": "free",
+    "width": 1920,
+    "height": 1080,
+    "fill": "#000000",
+    "children": [
+      {
+        "class": "Image",
+        "name": "imgShot",
+        "fit": "stretch",
+        "align": "client",
+        "hit_test": false
+      },
+      {
+        "class": "Panel",
+        "name": "pnlShotStage",
+        "fill": "transparent",
+        "align": "client",
+        "can_focus": true,
+        "tab_stop": false,
+        "cursor": "crosshair"
+      },
+      {
+        "class": "Layout",
+        "name": "lyShotTexts",
+        "width": 0,
+        "height": 0,
+        "clip_children": true
+      },
+      {
+        "class": "Panel",
+        "name": "pnlShotBar",
+        "fill": "transparent",
+        "width": 10,
+        "height": 10,
+        "visible": false,
+        "tab_stop": false,
+        "can_focus": false
+      },
+      {
+        "class": "Memo",
+        "name": "memShotModel",
+        "visible": false,
+        "plain": true,
+        "auto_size": true,
+        "spellcheck": false
+      }
+    ]
+  }
+}

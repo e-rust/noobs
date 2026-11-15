@@ -428,6 +428,13 @@ fn add_rec_card(ui: &mut Ui, grid: ComponentId, it: &RecItem) {
             mc.set_image(Some(image));
         }
     }
+    // Exportação em curso desta gravação: a barra volta junto com o cartão.
+    if let Some((progress, label)) = crate::app_export::card_progress(&it.id) {
+        if let Some(mc) = ui.get_mut::<MediaCard>(card.id) {
+            mc.progress = progress;
+            mc.progress_text = label;
+        }
+    }
     // O clique no nome abre o campo de renomear do próprio card (Enter ou clicar fora
     // grava, Esc cancela); o resto do card abre o vídeo.
     card.set_editable_title(ui, true);
@@ -1187,6 +1194,7 @@ pub fn menu_click(ui: &mut Ui, item: ComponentId) {
         (frm.miRecExport, "export"),
         (frm.miRecCut, "cut"),
         (frm.miRecTranscribe, "transcribe"),
+        (frm.miRecReveal, "reveal"),
         (frm.miRecDelete, "delete"),
         (frm.miFolderOpen, "open"),
         (frm.miFolderRename, "rename"),
@@ -1208,6 +1216,9 @@ fn ctx_run(ui: &mut Ui, action: &str) {
         "export" => crate::app_export::open_for(ui, &id),
         "cut" => cut(ui, target_ids(&id)),
         "transcribe" => bridge::handle_transcribe_recording(&id),
+        // O Explorer na pasta do arquivo clicado, com ele selecionado (com vários
+        // selecionados, o do clique).
+        "reveal" => crate::ui::reveal_in_explorer(&id),
         "delete" => {
             let ids = target_ids(&id);
             if ids.len() > 1 {
@@ -1566,6 +1577,26 @@ mod tests {
         open_context(ui, main.lyLibContent.id, "empty", "", PointF::ZERO);
         assert!(!main.miEmptyPaste.enabled(ui), "nada para colar");
         assert!(main.miEmptyUp.visible(ui), "fora da raiz, tem o Voltar");
+        with(|st| *st = State::default());
+    }
+
+    /// "Abrir local do arquivo": o Explorer na pasta do arquivo clicado, com ele selecionado;
+    /// um arquivo que sumiu não abre nada.
+    #[test]
+    fn abrir_local_do_arquivo() {
+        let t = crate::testkit::begin();
+        let mut app = app();
+        let ui = &mut app.ui;
+        ui.create_form("frmMain").unwrap();
+        let main = FrmMain::components(ui).unwrap();
+        let file = t.file("rec/aula.mkv", b"x");
+        with(|st| st.ctx = ("recording".into(), file.clone()));
+        menu_click(ui, main.miRecReveal.id);
+        let reveal = |e: &String| e.starts_with("reveal:");
+        assert_eq!(crate::testkit::effects().into_iter().filter(reveal).collect::<Vec<_>>(), vec![format!("reveal:{}", file.replace('/', "\\"))]);
+        with(|st| st.ctx = ("recording".into(), t.path("rec/sumiu.mkv")));
+        menu_click(ui, main.miRecReveal.id);
+        assert_eq!(crate::testkit::effects().into_iter().filter(reveal).count(), 1, "o que sumiu não abre o Explorer");
         with(|st| *st = State::default());
     }
 

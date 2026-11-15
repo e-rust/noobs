@@ -77,7 +77,7 @@ impl FraTrackCard {
         ui.form_components(ui.find_path("fraTrackCard")?)
     }
 
-    /// Cria o fraTrackCard (ou devolve o que já está criado, como o `CreateForm`); mostrar é com
+    /// Cria o fraTrackCard (ou devolve o que já está criado); mostrar é com
     /// `ui.show`.
     pub fn create(ui: &mut Ui) -> Result<ComponentId, aylis::prelude::Error> {
         ui.create_form("fraTrackCard")

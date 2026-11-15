@@ -687,6 +687,12 @@
           },
           {
             "class": "MenuItem",
+            "name": "miRecReveal",
+            "text": "Abrir local do arquivo",
+            "on_click": "library_menu"
+          },
+          {
+            "class": "MenuItem",
             "name": "miRecSep",
             "text": "-"
           },

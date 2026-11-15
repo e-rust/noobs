@@ -356,3 +356,37 @@ fn keyframes_de_gravacao_interrompida_e_sem_video() {
     let copia = copy_as(&path("uniao_a.mkv"), "uniao-copia.mkv");
     assert_eq!(list_video_keyframes(&copia).map(|(k, _)| k.len()), Some(2));
 }
+
+/// Vídeos de outros programas (WMV, AVI, MPEG): a galeria os lista, o probe lê e a
+/// miniatura sai. Gerados na hora com os encoders do próprio FFmpeg empacotado.
+#[test]
+fn videos_de_outros_programas() {
+    use super::gen::{self, Spec, VideoSpec};
+    need_dlls!();
+    let mut lidos = Vec::new();
+    for (nome, encoder, formato, codec) in
+        [("outro.wmv", "wmv2", "asf", "wmv2"), ("outro.avi", "mpeg4", "avi", "mpeg4"), ("outro.mpg", "mpeg2video", "mpeg", "mpeg2video")]
+    {
+        let spec = Spec { seconds: 2.0, video: Some(VideoSpec { encoder, w: 320, h: 180, fps: 30, bframes: 0, opts: &[], seed: 0 }), audio: Vec::new() };
+        let enc = match gen::encode(&spec) {
+            Ok(e) => e,
+            Err(e) => {
+                eprintln!("{nome}: sem o encoder {encoder} neste FFmpeg ({e})");
+                continue;
+            }
+        };
+        let f = super::out(nome);
+        gen::mux(&enc, &f, formato, &gen::all(&enc), false, true).unwrap_or_else(|e| panic!("{nome}: {e}"));
+        assert!(crate::bridge::is_recording_ext(&f), "{nome} fora da galeria");
+        let r = probe(&f);
+        let v = r.video_stream().unwrap_or_else(|| panic!("{nome} sem vídeo"));
+        assert_eq!((v.codec.as_str(), v.width, v.height), (codec, 320, 180), "{nome}");
+        near(r.duration, 2.0, 0.2, nome);
+        let thumb = super::out(&format!("thumb-{nome}.jpg"));
+        assert!(extract_frame_jpeg(&f, &thumb, 1, 120), "{nome}: miniatura");
+        assert_eq!(jpeg_size(&thumb).1, 120, "{nome}");
+        lidos.push(nome);
+    }
+    eprintln!("lidos: {lidos:?}");
+    assert!(!lidos.is_empty(), "nenhum encoder de outro formato neste FFmpeg");
+}

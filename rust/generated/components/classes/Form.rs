@@ -54,6 +54,12 @@ impl Form {
     pub fn set_layer_cache(self, ui: &mut Ui, value: impl Into<String>) {
         handles::write(ui, self.id, "layer_cache", Into::<String>::into(value))
     }
+    pub fn frame_reuse_kb(self, ui: &Ui) -> i64 {
+        handles::read(ui, self.id, "frame_reuse_kb").and_then(|v| v.to_i64().ok()).unwrap_or_default()
+    }
+    pub fn set_frame_reuse_kb(self, ui: &mut Ui, value: i64) {
+        handles::write(ui, self.id, "frame_reuse_kb", value)
+    }
     pub fn topmost(self, ui: &Ui) -> bool {
         handles::read(ui, self.id, "topmost").and_then(|v| v.to_bool().ok()).unwrap_or_default()
     }
@@ -150,11 +156,29 @@ impl Form {
     pub fn set_gpu(self, ui: &mut Ui, value: impl Into<String>) {
         handles::write(ui, self.id, "gpu", Into::<String>::into(value))
     }
+    pub fn span_monitors(self, ui: &Ui) -> bool {
+        handles::read(ui, self.id, "span_monitors").and_then(|v| v.to_bool().ok()).unwrap_or_default()
+    }
+    pub fn set_span_monitors(self, ui: &mut Ui, value: bool) {
+        handles::write(ui, self.id, "span_monitors", value)
+    }
+    pub fn physical_pixels(self, ui: &Ui) -> bool {
+        handles::read(ui, self.id, "physical_pixels").and_then(|v| v.to_bool().ok()).unwrap_or_default()
+    }
+    pub fn set_physical_pixels(self, ui: &mut Ui, value: bool) {
+        handles::write(ui, self.id, "physical_pixels", value)
+    }
     pub fn activate_on_show(self, ui: &Ui) -> bool {
         handles::read(ui, self.id, "activate_on_show").and_then(|v| v.to_bool().ok()).unwrap_or_default()
     }
     pub fn set_activate_on_show(self, ui: &mut Ui, value: bool) {
         handles::write(ui, self.id, "activate_on_show", value)
+    }
+    pub fn force_foreground(self, ui: &Ui) -> bool {
+        handles::read(ui, self.id, "force_foreground").and_then(|v| v.to_bool().ok()).unwrap_or_default()
+    }
+    pub fn set_force_foreground(self, ui: &mut Ui, value: bool) {
+        handles::write(ui, self.id, "force_foreground", value)
     }
     pub fn close_action(self, ui: &Ui) -> String {
         handles::text(ui, handles::read(ui, self.id, "close_action"))
@@ -167,6 +191,12 @@ impl Form {
     }
     pub fn set_frame_rate(self, ui: &mut Ui, value: f64) {
         handles::write(ui, self.id, "frame_rate", value)
+    }
+    pub fn orientation(self, ui: &Ui) -> String {
+        handles::text(ui, handles::read(ui, self.id, "orientation"))
+    }
+    pub fn set_orientation(self, ui: &mut Ui, value: impl Into<String>) {
+        handles::write(ui, self.id, "orientation", Into::<String>::into(value))
     }
     pub fn client_width(self, ui: &Ui) -> f64 {
         handles::read(ui, self.id, "client_width").and_then(|v| v.to_f64().ok()).unwrap_or_default()
@@ -269,6 +299,12 @@ impl Form {
     }
     pub fn set_captures_wheel(self, ui: &mut Ui, value: bool) {
         handles::write(ui, self.id, "captures_wheel", value)
+    }
+    pub fn captures_gesture(self, ui: &Ui) -> bool {
+        handles::read(ui, self.id, "captures_gesture").and_then(|v| v.to_bool().ok()).unwrap_or_default()
+    }
+    pub fn set_captures_gesture(self, ui: &mut Ui, value: bool) {
+        handles::write(ui, self.id, "captures_gesture", value)
     }
     pub fn can_focus(self, ui: &Ui) -> bool {
         handles::read(ui, self.id, "can_focus").and_then(|v| v.to_bool().ok()).unwrap_or_default()
@@ -575,13 +611,17 @@ impl Form {
         let v = handles::try_call(ui, self.id, "gpu_adapters", &[])?;
         Ok(handles::text(ui, Some(v)))
     }
+    pub fn render_rgba(self, ui: &mut Ui, x: f64, y: f64, width: f64, height: f64, scale: f64) -> Result<String, String> {
+        let v = handles::try_call(ui, self.id, "render_rgba", &[x.into(), y.into(), width.into(), height.into(), scale.into()])?;
+        Ok(handles::text(ui, Some(v)))
+    }
     pub fn show(self, ui: &mut Ui) {
         let _ = ui.show(self.id);
     }
     pub fn close(self, ui: &mut Ui) -> bool {
         ui.close(self.id)
     }
-    /// O nome do controle com foco (vazio sem foco), como o `ActiveControl`.
+    /// O nome do controle com foco (vazio sem foco).
     pub fn focused(self, ui: &Ui) -> String {
         ui.focused(ui.root_of(self.id)).and_then(|f| ui.name(f)).unwrap_or_default().to_string()
     }

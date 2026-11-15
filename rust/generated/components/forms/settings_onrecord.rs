@@ -213,7 +213,7 @@ impl FraOnRecord {
         ui.form_components(ui.find_path("fraOnRecord")?)
     }
 
-    /// Cria o fraOnRecord (ou devolve o que já está criado, como o `CreateForm`); mostrar é com
+    /// Cria o fraOnRecord (ou devolve o que já está criado); mostrar é com
     /// `ui.show`.
     pub fn create(ui: &mut Ui) -> Result<ComponentId, aylis::prelude::Error> {
         ui.create_form("fraOnRecord")

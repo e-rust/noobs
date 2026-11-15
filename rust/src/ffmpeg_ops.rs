@@ -30,6 +30,15 @@ fn detect_container_from_ext(path: &str) -> &'static str {
         ".mkv" => "matroska",
         ".mov" => "mov",
         ".aac" => "adts",
+        // A união grava na extensão da primeira parte: o contêiner tem que ser o dela.
+        ".wmv" | ".asf" => "asf",
+        ".avi" => "avi",
+        ".mpg" | ".mpeg" => "mpeg",
+        ".ts" | ".m2ts" | ".mts" => "mpegts",
+        ".flv" => "flv",
+        ".webm" => "webm",
+        ".3gp" => "3gp",
+        ".ogv" => "ogg",
         _ => "mp4",
     }
 }

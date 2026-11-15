@@ -53,7 +53,9 @@ pub struct Shot {
 }
 
 impl Shot {
-    /// O pedaço `r` (coordenadas de tela) deste print; `None` se não houver interseção.
+    /// O pedaço `r` (coordenadas de tela) deste print; `None` se não houver interseção. (O
+    /// editor do print entrega a imagem já recortada; o recorte fica para os testes.)
+    #[cfg(test)]
     pub fn crop(&self, r: AreaRect) -> Option<Shot> {
         let a = self.area;
         let (l, t) = (r.x.max(a.x), r.y.max(a.y));

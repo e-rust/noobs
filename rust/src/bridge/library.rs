@@ -31,7 +31,12 @@ use super::{is_shutting_down, post_error};
 /// Extensões de vídeo reconhecidas como gravação. Fonte única da listagem e da
 /// whitelist de `open_recording` (não deixar a UI mandar `ShellExecute('open')`
 /// num `.exe`). `.mp3` entrou pela exportação só de áudio.
-pub const RECORDING_EXTS: [&str; 8] = [".mkv", ".mp4", ".mov", ".m4v", ".ts", ".flv", ".webm", ".mp3"];
+/// Os vídeos de outros programas (WMV/ASF, AVI, MPEG, M2TS, 3GP, OGV) entram para
+/// ver, exportar e transcrever: o FFmpeg lê todos. Os metadados do NoOBS no fim do
+/// arquivo continuam só em MKV/MP4 (`file_meta`).
+pub const RECORDING_EXTS: [&str; 17] = [
+    ".mkv", ".mp4", ".mov", ".m4v", ".ts", ".flv", ".webm", ".mp3", ".wmv", ".asf", ".avi", ".mpg", ".mpeg", ".m2ts", ".mts", ".3gp", ".ogv",
+];
 
 const FILE_ATTRIBUTE_HIDDEN: u32 = 0x2;
 const FILE_ATTRIBUTE_SYSTEM: u32 = 0x4;

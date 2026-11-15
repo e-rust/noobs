@@ -192,6 +192,12 @@ impl Panel {
     pub fn set_captures_wheel(self, ui: &mut Ui, value: bool) {
         handles::write(ui, self.id, "captures_wheel", value)
     }
+    pub fn captures_gesture(self, ui: &Ui) -> bool {
+        handles::read(ui, self.id, "captures_gesture").and_then(|v| v.to_bool().ok()).unwrap_or_default()
+    }
+    pub fn set_captures_gesture(self, ui: &mut Ui, value: bool) {
+        handles::write(ui, self.id, "captures_gesture", value)
+    }
     pub fn can_focus(self, ui: &Ui) -> bool {
         handles::read(ui, self.id, "can_focus").and_then(|v| v.to_bool().ok()).unwrap_or_default()
     }

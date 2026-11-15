@@ -141,11 +141,28 @@ pub struct Item {
     pub delay_sec: u32,
     /// `screenshot`: o que o print captura.
     pub target: ShotTarget,
+    /// `screenshot` com a seleção na hora: o editor já abre com a área do último print
+    /// (salvo ou copiado) escolhida.
+    pub last_area: bool,
 }
 
 impl Item {
     pub fn new(mode: Mode, hotkey: &str) -> Item {
-        Item { mode, hotkey: normalize(hotkey), title: String::new(), app_audio: false, area: None, timelapse: false, delay_sec: 0, target: ShotTarget::default() }
+        Item { mode, hotkey: normalize(hotkey), title: String::new(), app_audio: false, area: None, timelapse: false, delay_sec: 0, target: ShotTarget::default(), last_area: false }
+    }
+}
+
+/// A área do último print (salvo ou copiado), em coordenadas de tela.
+pub fn last_shot_area() -> Option<AreaRect> {
+    let v: Value = serde_json::from_str(&crate::config::get_config_str("shotLastArea", "")).ok()?;
+    area_from(Some(&v))
+}
+
+/// Guarda a área do print que acabou de sair (a próxima seleção pode começar nela).
+pub fn set_last_shot_area(a: AreaRect) {
+    let v = area_json(Some(a)).to_string();
+    if crate::config::get_config_str("shotLastArea", "") != v {
+        crate::config::set_config_str("shotLastArea", &v);
     }
 }
 
@@ -185,6 +202,7 @@ pub fn item_from_json(v: &Value) -> Option<Item> {
         // Timelapse, todos os atalhos de área apareciam com ele).
         timelapse: mode == Mode::Area && v.get("timelapse").and_then(Value::as_bool).unwrap_or(false),
         delay_sec: if mode.records() { delay } else { 0 },
+        last_area: mode == Mode::Screenshot && target == ShotTarget::Select && v.get("lastArea").and_then(Value::as_bool).unwrap_or(false),
         target,
     })
 }
@@ -207,6 +225,9 @@ pub fn item_to_json(it: &Item) -> Value {
             m.insert("target".into(), json!(it.target.as_str()));
             if it.target == ShotTarget::Area {
                 m.insert("area".into(), area_json(it.area));
+            }
+            if it.target == ShotTarget::Select {
+                m.insert("lastArea".into(), json!(it.last_area));
             }
         }
         _ => {}
@@ -394,6 +415,23 @@ mod tests {
         assert_eq!(list_from_json(&list_to_json(&l)), l);
         let j = item_to_json(&l[1]);
         assert!(j.get("area").is_none() && j.get("delaySec").is_none() && j.get("timelapse").is_none());
+        assert!(j.get("lastArea").is_none(), "a última área é só da seleção na hora");
+    }
+
+    /// "Abrir com a última área": só com a seleção na hora; vai e volta pelo JSON. A área do
+    /// último print fica no config.
+    #[test]
+    fn print_com_a_ultima_area() {
+        let _t = crate::testkit::begin();
+        let l = list_from_json(&json!([
+            { "mode": "screenshot", "hotkey": "F8", "lastArea": true },
+            { "mode": "screenshot", "hotkey": "F9", "target": "monitor", "lastArea": true }
+        ]));
+        assert!(l[0].last_area && !l[1].last_area, "no monitor do mouse não vale");
+        assert_eq!(list_from_json(&list_to_json(&l)), l);
+        assert_eq!(last_shot_area(), None, "sem print ainda");
+        set_last_shot_area(AreaRect { x: -1500, y: 40, w: 640, h: 360 });
+        assert_eq!(last_shot_area(), Some(AreaRect { x: -1500, y: 40, w: 640, h: 360 }));
     }
 
     #[test]

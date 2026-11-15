@@ -276,6 +276,9 @@ pub fn open(ui: &mut Ui, id: &str) {
     close_popups(ui);
     if let Some(frm) = FrmPlayer::components(ui) {
         frm.pnlPlayerSide.set_visible(ui, false);
+        // A lateral fecha em toda abertura: o "i" não pode ficar aceso da vez
+        // anterior (o form é reaproveitado, o botão guardava o estado).
+        frm.btnInfo.set_checked(ui, false);
     }
     set_controls_visible(ui, true);
     if let Some(v) = FrmPlayer::components(ui).map(|frm| frm.frmVideo.id).and_then(|id| ui.get_mut::<FrameView>(id)) {
@@ -719,10 +722,13 @@ fn sync_popups(ui: &mut Ui) {
 }
 
 /// O botão CC aceso (legenda ou painel de transcrição) e as marcas do menu.
+/// A legenda só acende o botão quando este vídeo TEM fala transcrita: a preferência
+/// ligada num vídeo sem transcrição deixava o CC aceso sem nada na tela. O menu
+/// continua marcando a preferência.
 fn sync_cc(ui: &mut Ui) {
-    let (cap, tr) = with(|st| (st.captions_on, st.side == "transcript"));
+    let (cap, tr, has_turns) = with(|st| (st.captions_on, st.side == "transcript", st.transcript.as_ref().is_some_and(|t| !t.turns.is_empty())));
     let Some(frm) = FrmPlayer::components(ui) else { return };
-    frm.btnCaptions.set_checked(ui, cap || tr);
+    frm.btnCaptions.set_checked(ui, (cap && has_turns) || tr);
     for (on, check, label, key) in [(cap, frm.lblCcCheck1, frm.lblCcCaptions, Some(frm.lblCcKey1)), (tr, frm.lblCcCheck2, frm.lblCcTranscript, None)] {
         check.set_text(ui, if on { "✓" } else { "" });
         let style = if on { "pl_opt_on" } else { "pl_opt" };
@@ -1329,6 +1335,8 @@ pub fn on_transcript(t: &Transcript) {
         if notify {
             notify_no_captions();
         }
+        // A transcrição chegou (ou veio vazia): o CC acende só se houver fala.
+        sync_cc(ui);
         sync_caption(ui);
     });
 }
@@ -2000,6 +2008,32 @@ mod tests {
 
     /// Falas sobrepostas (o microfone longo e o alto-falante curto dentro dele, como no vídeo do
     /// autor): a marca anda para a frente e não volta para a de cima quando a curta termina.
+    #[test]
+    fn the_cc_button_lights_only_with_captions_to_show() {
+        let mut app = app();
+        let ui = &mut app.ui;
+        ui.create_form("frmPlayer").unwrap();
+        setup(ui);
+        let frm = FrmPlayer::components(ui).unwrap();
+        let lit = |ui: &mut Ui, cap: bool, t: Option<Transcript>, side: &str| {
+            with(|st| {
+                st.captions_on = cap;
+                st.transcript = t;
+                st.side = side.into();
+            });
+            sync_cc(ui);
+            frm.btnCaptions.checked(ui)
+        };
+        assert!(!lit(ui, true, None, ""), "legenda ligada, transcrição ainda não chegou");
+        assert!(!lit(ui, true, Some(sample_transcript(0)), ""), "legenda ligada, vídeo sem fala");
+        assert!(lit(ui, true, Some(sample_transcript(3)), ""), "legenda ligada e com fala");
+        assert!(!lit(ui, false, Some(sample_transcript(3)), ""), "legenda desligada");
+        assert!(lit(ui, false, None, "transcript"), "o painel de transcrição aberto acende");
+        // O menu continua marcando a preferência, com ou sem fala.
+        lit(ui, true, Some(sample_transcript(0)), "");
+        assert_eq!(frm.lblCcCheck1.text(ui), "✓");
+    }
+
     #[test]
     fn the_playing_turn_only_moves_forward() {
         let turn = |start: f64, end: f64| Turn { start, end, ..Default::default() };

@@ -1904,7 +1904,19 @@ fn hotkey_cards(ui: &mut Ui, frm: &g::FraHotkeysComponents) {
                     if target != ShotTarget::Area {
                         it.area = None;
                     }
+                    // A última área, só com a seleção na hora.
+                    if target != ShotTarget::Select {
+                        it.last_area = false;
+                    }
                 });
+            });
+            // Com a seleção na hora: abrir já com a área do último print escolhida.
+            card.lyShotLast.set_visible(ui, it.target == ShotTarget::Select);
+            card.chkShotLast.set_checked(ui, it.last_area);
+            let chk = card.chkShotLast;
+            ui.on(chk.id, "on_change", move |ui, _, _| {
+                let on = chk.checked(ui);
+                hk_update(i, |it| it.last_area = on);
             });
         }
         let shows_area = it.mode == Mode::Area || (it.mode == Mode::Screenshot && it.target == ShotTarget::Area);

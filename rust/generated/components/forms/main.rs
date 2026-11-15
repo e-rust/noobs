@@ -80,6 +80,7 @@ pub struct FrmMain {
     pub miRecExport: MenuItem,
     pub miRecCut: MenuItem,
     pub miRecTranscribe: MenuItem,
+    pub miRecReveal: MenuItem,
     pub miRecSep: MenuItem,
     pub miRecDelete: MenuItem,
     pub pmLibFolder: PopupMenu,
@@ -180,6 +181,7 @@ pub struct FrmMainComponents {
     pub miRecExport: MenuItem,
     pub miRecCut: MenuItem,
     pub miRecTranscribe: MenuItem,
+    pub miRecReveal: MenuItem,
     pub miRecSep: MenuItem,
     pub miRecDelete: MenuItem,
     pub pmLibFolder: PopupMenu,
@@ -288,6 +290,7 @@ impl FrmMain {
             miRecExport: MenuItem { id: handles::resolve(ui, root, "miRecExport", "MenuItem", &mut problems) },
             miRecCut: MenuItem { id: handles::resolve(ui, root, "miRecCut", "MenuItem", &mut problems) },
             miRecTranscribe: MenuItem { id: handles::resolve(ui, root, "miRecTranscribe", "MenuItem", &mut problems) },
+            miRecReveal: MenuItem { id: handles::resolve(ui, root, "miRecReveal", "MenuItem", &mut problems) },
             miRecSep: MenuItem { id: handles::resolve(ui, root, "miRecSep", "MenuItem", &mut problems) },
             miRecDelete: MenuItem { id: handles::resolve(ui, root, "miRecDelete", "MenuItem", &mut problems) },
             pmLibFolder: PopupMenu { id: handles::resolve(ui, root, "pmLibFolder", "PopupMenu", &mut problems) },
@@ -387,6 +390,7 @@ impl FrmMain {
             miRecExport: instance.miRecExport,
             miRecCut: instance.miRecCut,
             miRecTranscribe: instance.miRecTranscribe,
+            miRecReveal: instance.miRecReveal,
             miRecSep: instance.miRecSep,
             miRecDelete: instance.miRecDelete,
             pmLibFolder: instance.pmLibFolder,
@@ -413,7 +417,7 @@ impl FrmMain {
         ui.form_components(ui.find_path("frmMain")?)
     }
 
-    /// Cria o frmMain (ou devolve o que já está criado, como o `CreateForm`); mostrar é com
+    /// Cria o frmMain (ou devolve o que já está criado); mostrar é com
     /// `ui.show`.
     pub fn create(ui: &mut Ui) -> Result<ComponentId, aylis::prelude::Error> {
         ui.create_form("frmMain")
@@ -613,6 +617,7 @@ impl FrmMain {
             "miRecExport" => Some(self.miRecExport),
             "miRecCut" => Some(self.miRecCut),
             "miRecTranscribe" => Some(self.miRecTranscribe),
+            "miRecReveal" => Some(self.miRecReveal),
             "miRecSep" => Some(self.miRecSep),
             "miRecDelete" => Some(self.miRecDelete),
             "miFolderOpen" => Some(self.miFolderOpen),

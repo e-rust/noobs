@@ -26,6 +26,8 @@ pub struct FraHotkeyCard {
     pub lyShot: Layout,
     pub lblShotTarget: Label,
     pub cmbShotTarget: ComboBox,
+    pub lyShotLast: Layout,
+    pub chkShotLast: CheckBox,
     pub lyArea: Layout,
     pub btnAreaClear: Button,
     pub btnAreaDefine: Button,
@@ -69,6 +71,8 @@ pub struct FraHotkeyCardComponents {
     pub lyShot: Layout,
     pub lblShotTarget: Label,
     pub cmbShotTarget: ComboBox,
+    pub lyShotLast: Layout,
+    pub chkShotLast: CheckBox,
     pub lyArea: Layout,
     pub btnAreaClear: Button,
     pub btnAreaDefine: Button,
@@ -120,6 +124,8 @@ impl FraHotkeyCard {
             lyShot: Layout { id: handles::resolve(ui, root, "lyShot", "Layout", &mut problems) },
             lblShotTarget: Label { id: handles::resolve(ui, root, "lblShotTarget", "Label", &mut problems) },
             cmbShotTarget: ComboBox { id: handles::resolve(ui, root, "cmbShotTarget", "ComboBox", &mut problems) },
+            lyShotLast: Layout { id: handles::resolve(ui, root, "lyShotLast", "Layout", &mut problems) },
+            chkShotLast: CheckBox { id: handles::resolve(ui, root, "chkShotLast", "CheckBox", &mut problems) },
             lyArea: Layout { id: handles::resolve(ui, root, "lyArea", "Layout", &mut problems) },
             btnAreaClear: Button { id: handles::resolve(ui, root, "btnAreaClear", "Button", &mut problems) },
             btnAreaDefine: Button { id: handles::resolve(ui, root, "btnAreaDefine", "Button", &mut problems) },
@@ -162,6 +168,8 @@ impl FraHotkeyCard {
             lyShot: instance.lyShot,
             lblShotTarget: instance.lblShotTarget,
             cmbShotTarget: instance.cmbShotTarget,
+            lyShotLast: instance.lyShotLast,
+            chkShotLast: instance.chkShotLast,
             lyArea: instance.lyArea,
             btnAreaClear: instance.btnAreaClear,
             btnAreaDefine: instance.btnAreaDefine,
@@ -185,7 +193,7 @@ impl FraHotkeyCard {
         ui.form_components(ui.find_path("fraHotkeyCard")?)
     }
 
-    /// Cria o fraHotkeyCard (ou devolve o que já está criado, como o `CreateForm`); mostrar é com
+    /// Cria o fraHotkeyCard (ou devolve o que já está criado); mostrar é com
     /// `ui.show`.
     pub fn create(ui: &mut Ui) -> Result<ComponentId, aylis::prelude::Error> {
         ui.create_form("fraHotkeyCard")
@@ -247,6 +255,7 @@ impl FraHotkeyCard {
             "chkAlt" => Some(self.chkAlt),
             "chkWin" => Some(self.chkWin),
             "chkAppAudio" => Some(self.chkAppAudio),
+            "chkShotLast" => Some(self.chkShotLast),
             "chkTimelapse" => Some(self.chkTimelapse),
             _ => None,
         }
@@ -312,6 +321,7 @@ impl FraHotkeyCard {
             "lyWindow" => Some(self.lyWindow),
             "lyAppAudio" => Some(self.lyAppAudio),
             "lyShot" => Some(self.lyShot),
+            "lyShotLast" => Some(self.lyShotLast),
             "lyArea" => Some(self.lyArea),
             "lyTimelapse" => Some(self.lyTimelapse),
             "lyShotInfo" => Some(self.lyShotInfo),

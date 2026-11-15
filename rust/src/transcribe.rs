@@ -373,10 +373,41 @@ pub fn transcript_state(path: &str) -> &'static str {
     }
 }
 
+/// `<hash>.transcript-failed` — a gravação de onde o áudio não sai (corrompida: um MKV de
+/// poucos KB de uma gravação que parou no começo). Guarda o tamanho e a data do arquivo: sem
+/// isto ela voltava para os pendentes depois de cada falha, e o "transcrever pendentes"
+/// falhava nela de novo para sempre. Se o arquivo muda (reparado, regravado), vale de novo.
+fn unreadable_path(path: &str) -> PathBuf {
+    player::cache_root_dir().join(format!("{}.transcript-failed", player::hash_name(path)))
+}
+
+/// Tamanho e data da gravação, para saber se o arquivo é o mesmo que falhou.
+fn file_stamp(path: &str) -> Option<String> {
+    let m = std::fs::metadata(path).ok()?;
+    let secs = m.modified().ok()?.duration_since(std::time::UNIX_EPOCH).ok()?.as_secs();
+    Some(format!("{} {secs}", m.len()))
+}
+
+fn mark_unreadable(path: &str) {
+    if let Some(stamp) = file_stamp(path) {
+        let _ = std::fs::create_dir_all(player::cache_root_dir());
+        let _ = std::fs::write(unreadable_path(path), stamp);
+    }
+}
+
+/// A transcrição desta gravação já falhou porque o áudio não sai, e o arquivo continua o
+/// mesmo: não conta como pendente nem entra no "transcrever pendentes". Pelo menu da
+/// gravação, transcrever continua possível (o usuário pediu).
+pub fn is_unreadable(path: &str) -> bool {
+    let Ok(saved) = std::fs::read_to_string(unreadable_path(path)) else { return false };
+    file_stamp(path).is_some_and(|now| now == saved.trim())
+}
+
 /// Apaga os dois arquivos de uma gravação (usado ao excluir/mover).
 pub fn delete_transcript(path: &str) {
     let _ = std::fs::remove_file(transcript_path(path));
     let _ = std::fs::remove_file(transcript_text_path(path));
+    let _ = std::fs::remove_file(unreadable_path(path));
 }
 
 /// Leva a transcrição de `src` para o arquivo EXPORTADO `dst`, no relógio dele: só os
@@ -911,6 +942,7 @@ fn process_one(path: &str) -> Res {
         if cancel_requested() {
             return Err(Stop::Canceled);
         }
+        mark_unreadable(path);
         return fail(lang::tr("Não foi possível extrair o áudio da gravação. Ela pode estar corrompida ou não ter faixa de áudio."));
     }
     if cancel_requested() {

@@ -30,6 +30,12 @@ impl Edit {
     pub fn set_border(self, ui: &mut Ui, value: bool) {
         handles::write(ui, self.id, "border", value)
     }
+    pub fn plain(self, ui: &Ui) -> bool {
+        handles::read(ui, self.id, "plain").and_then(|v| v.to_bool().ok()).unwrap_or_default()
+    }
+    pub fn set_plain(self, ui: &mut Ui, value: bool) {
+        handles::write(ui, self.id, "plain", value)
+    }
     pub fn max_length(self, ui: &Ui) -> i64 {
         handles::read(ui, self.id, "max_length").and_then(|v| v.to_i64().ok()).unwrap_or_default()
     }
@@ -198,6 +204,12 @@ impl Edit {
     pub fn set_keyboard_suggestions(self, ui: &mut Ui, value: bool) {
         handles::write(ui, self.id, "keyboard_suggestions", value)
     }
+    pub fn text_menu(self, ui: &Ui) -> bool {
+        handles::read(ui, self.id, "text_menu").and_then(|v| v.to_bool().ok()).unwrap_or_default()
+    }
+    pub fn set_text_menu(self, ui: &mut Ui, value: bool) {
+        handles::write(ui, self.id, "text_menu", value)
+    }
     pub fn caret_color(self, ui: &Ui) -> String {
         handles::text(ui, handles::read(ui, self.id, "caret_color"))
     }
@@ -329,6 +341,12 @@ impl Edit {
     }
     pub fn set_captures_wheel(self, ui: &mut Ui, value: bool) {
         handles::write(ui, self.id, "captures_wheel", value)
+    }
+    pub fn captures_gesture(self, ui: &Ui) -> bool {
+        handles::read(ui, self.id, "captures_gesture").and_then(|v| v.to_bool().ok()).unwrap_or_default()
+    }
+    pub fn set_captures_gesture(self, ui: &mut Ui, value: bool) {
+        handles::write(ui, self.id, "captures_gesture", value)
     }
     pub fn can_focus(self, ui: &Ui) -> bool {
         handles::read(ui, self.id, "can_focus").and_then(|v| v.to_bool().ok()).unwrap_or_default()

@@ -177,6 +177,31 @@ pub fn shell_open(url: &str) {
     }
 }
 
+/// Abre o Explorer na pasta de `path`, com o arquivo selecionado ("Abrir local do arquivo").
+/// Pelo `explorer.exe /select,`: com o NoOBS como administrador, o Explorer abre na sessão
+/// do usuário mesmo assim (ele entrega a janela à instância que já está rodando).
+pub fn reveal_in_explorer(path: &str) {
+    let path = path.replace('/', "\\");
+    if !std::path::Path::new(&path).is_file() {
+        crate::log!("Explorer: {path} nao existe mais.");
+        return;
+    }
+    // Teste: não abre o Explorer de verdade.
+    #[cfg(test)]
+    {
+        crate::testkit::record_effect(format!("reveal:{path}"));
+        return;
+    }
+    #[allow(unreachable_code)]
+    {
+        use std::os::windows::process::CommandExt;
+        // O caminho entre aspas: o `/select,` não aceita o escape do Rust (raw_arg).
+        if let Err(e) = std::process::Command::new("explorer.exe").raw_arg(format!("/select,\"{path}\"")).spawn() {
+            crate::log!("Explorer: nao abriu ({e}).");
+        }
+    }
+}
+
 /// `RegisterHotKey` global → `WM_HOTKEY` com `wParam = id` (na janela oculta).
 /// Pode falhar se outro app já registrou a combinação: não é fatal.
 pub fn register_global_hotkey(id: i32, modifiers: u32, vk: u32) -> bool {

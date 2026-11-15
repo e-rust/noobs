@@ -133,6 +133,9 @@ pub mod export_part_label;
 #[path = "../src/forms/view/confirm.rs"]
 pub mod view_confirm;
 
+#[path = "../src/forms/print.rs"]
+pub mod print;
+
 /// Registra as classes dos forms (cada form aberto ganha a instância dele), os handlers e
 /// as classes dos pacotes de código.
 pub fn register(ui: &mut Ui) {
@@ -335,4 +338,5 @@ pub fn register(ui: &mut Ui) {
     ui.register_form_class("fraExTick", FraExTick::bind);
     ui.register_form_class("fraExPartLabel", FraExPartLabel::bind);
     ui.register_form_class("fraConfirm", FraConfirm::bind);
+    ui.register_form_class("frmPrint", FrmPrint::bind);
 }

@@ -472,6 +472,36 @@ fn transcrever_por_faixa_pula_a_muda_e_nomeia_pelo_dispositivo() {
 }
 
 #[test]
+fn gravacao_corrompida_sai_dos_pendentes() {
+    // Uma gravação corrompida (um MKV de 2 KB de uma gravação que parou no começo): a
+    // transcrição falha uma vez e ela sai dos pendentes (antes voltava depois de cada falha,
+    // e o "transcrever pendentes" falhava nela para sempre). Mudou o arquivo, vale de novo.
+    let s = begin();
+    if !testkit::media() {
+        return;
+    }
+    let _engine = fake_engine_on();
+    super::super::transcribe::do_init();
+    let bad = s.path("quebrado.mkv");
+    std::fs::write(&bad, vec![0x1Au8; 2048]).unwrap();
+    send(json!({ "type": "get_transcribe_state" }));
+    assert_eq!(testkit::last_of("transcribe_pending").unwrap()["count"], 1);
+    send(json!({ "type": "transcribe_pending" }));
+    let failed = (0..200).any(|_| {
+        testkit::settle(100);
+        crate::transcribe::is_unreadable(&bad)
+    });
+    assert!(failed, "a falha não ficou guardada");
+    assert!(!transcrita(&bad));
+    testkit::clear_sent();
+    send(json!({ "type": "get_transcribe_state" }));
+    assert_eq!(testkit::last_of("transcribe_pending").unwrap()["count"], 0, "a corrompida não fica pendente");
+    std::fs::write(&bad, vec![0x1Au8; 4096]).unwrap();
+    assert!(!crate::transcribe::is_unreadable(&bad), "o arquivo mudou: vale de novo");
+    send(json!({ "type": "cancel_transcribe" }));
+}
+
+#[test]
 fn transcrever_pendentes_e_estado_da_fila() {
     let s = begin();
     if !testkit::media() {

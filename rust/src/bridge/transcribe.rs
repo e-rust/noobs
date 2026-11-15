@@ -88,7 +88,9 @@ pub fn transcribable_paths() -> (Vec<String>, usize) {
     let mut cloud = 0;
     let mut out = Vec::new();
     for f in files {
-        if is_in_hidden_folder(&f, &hidden) || transcribe::has_transcript(&f) {
+        // A que já falhou porque o áudio não sai (arquivo corrompido) também não: senão ficava
+        // pendente para sempre.
+        if is_in_hidden_folder(&f, &hidden) || transcribe::has_transcript(&f) || transcribe::is_unreadable(&f) {
             continue;
         }
         if is_file_cloud_only(&f) {

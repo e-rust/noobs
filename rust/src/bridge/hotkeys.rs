@@ -24,7 +24,7 @@ use serde_json::Value;
 
 use crate::engine::AreaRect;
 use crate::hotkeys::{self, Item, Mode, ShotTarget};
-use crate::{area_select, hotkey, lang, log, screenshot, ui};
+use crate::{area_select, hotkey, lang, log, print_editor, screenshot, ui};
 
 use super::{area, countdown, post_error, post_json, recording, replay, window_record};
 
@@ -40,8 +40,6 @@ thread_local! {
     static SELECT_DELAY: Cell<u32> = const { Cell::new(0) };
     /// O Timelapse desse atalho, enquanto o usuário seleciona.
     static SELECT_TIMELAPSE: Cell<bool> = const { Cell::new(false) };
-    /// O print da tela inteira tirado no atalho, enquanto o usuário escolhe o pedaço.
-    static FROZEN: RefCell<Option<screenshot::Shot>> = const { RefCell::new(None) };
 }
 
 /// A lista, lida do config (com a migração das chaves antigas) no 1º uso.
@@ -292,33 +290,27 @@ fn take_screenshot(it: &Item) {
         post_error(lang::tr("Não foi possível capturar a tela."));
         return;
     };
-    // A seleção mostra ESTA imagem, parada (não a tela ao vivo): o que se escolhe é o
-    // que estava na tela quando o atalho foi apertado. Escolhida a área, o editor
-    // (setas, Copiar, Salvar) espera o usuário.
-    let opened = area_select::start_shot_editor(on_shot_done, &frozen.rgba, frozen.area.w, frozen.area.h);
-    if opened {
-        FROZEN.with(|f| *f.borrow_mut() = Some(frozen));
+    // O editor mostra ESTA imagem, parada (não a tela ao vivo): o que se escolhe é o que
+    // estava na tela quando o atalho foi apertado. Escolhida a área, as marcas e o Copiar
+    // ou Salvar esperam o usuário; a imagem final vem pronta dele.
+    let (w, h) = (frozen.area.w, frozen.area.h);
+    // "Abrir com a última área": a do último print, se ainda cabe nas telas de agora.
+    let preset = if it.last_area { hotkeys::last_shot_area().and_then(area::clamp_to_screen) } else { None };
+    if !print_editor::start(on_shot_done, frozen.rgba, w, h, preset) {
+        log!("Atalhos: o editor do print nao abriu.");
     }
 }
 
-/// O editor do print terminou: recorta a área do print congelado, desenha as marcas (setas e textos)
-/// nele e salva (com cópia) ou só copia. `None`: cancelado.
-fn on_shot_done(done: Option<area_select::ShotDone>) {
-    let frozen = FROZEN.with(|f| f.borrow_mut().take());
-    let (Some(frozen), Some(done)) = (frozen, done) else {
-        return;
-    };
-    let Some(mut shot) = frozen.crop(done.area) else {
-        post_error(lang::tr("Não foi possível capturar a tela."));
-        return;
-    };
-    let (x, y, w, h) = (shot.area.x, shot.area.y, shot.area.w as u32, shot.area.h as u32);
-    if !crate::annotate::draw_on_rgba(&mut shot.rgba, w, h, &done.marks, -x as f32, -y as f32) {
-        log!("Print: as {} marca(s) nao puderam ser desenhadas (GDI+).", done.marks.len());
-    }
+/// O editor do print terminou: a imagem da área, já com as marcas, vai para o arquivo
+/// (com cópia) ou só para a área de transferência. `None`: cancelado.
+fn on_shot_done(done: Option<print_editor::ShotDone>) {
+    let Some(done) = done else { return };
+    // A próxima seleção pode começar nesta área ("Abrir com a última área").
+    hotkeys::set_last_shot_area(done.area);
+    let shot = screenshot::Shot { area: done.area, rgba: done.rgba };
     match done.action {
-        area_select::ShotAction::Save => screenshot::deliver(shot, recording::print_dir()),
-        area_select::ShotAction::Copy => screenshot::deliver_copy(shot),
+        print_editor::ShotAction::Save => screenshot::deliver(shot, recording::print_dir()),
+        print_editor::ShotAction::Copy => screenshot::deliver_copy(shot),
     }
 }
 
