@@ -9,6 +9,7 @@
     "topmost": true,
     "show_in_taskbar": false,
     "key_preview": true,
+    "present": "composed",
     "span_monitors": true,
     "physical_pixels": true,
     "force_foreground": true,
@@ -47,16 +48,14 @@
         "width": 10,
         "height": 10,
         "visible": false,
-        "tab_stop": false,
-        "can_focus": false
+        "tab_stop": false
       },
       {
         "class": "Memo",
         "name": "memShotModel",
-        "visible": false,
         "plain": true,
-        "auto_size": true,
-        "spellcheck": false
+        "visible": false,
+        "auto_size": true
       }
     ]
   }

@@ -156,6 +156,12 @@ impl Form {
     pub fn set_gpu(self, ui: &mut Ui, value: impl Into<String>) {
         handles::write(ui, self.id, "gpu", Into::<String>::into(value))
     }
+    pub fn present(self, ui: &Ui) -> String {
+        handles::text(ui, handles::read(ui, self.id, "present"))
+    }
+    pub fn set_present(self, ui: &mut Ui, value: impl Into<String>) {
+        handles::write(ui, self.id, "present", Into::<String>::into(value))
+    }
     pub fn span_monitors(self, ui: &Ui) -> bool {
         handles::read(ui, self.id, "span_monitors").and_then(|v| v.to_bool().ok()).unwrap_or_default()
     }
