@@ -317,6 +317,35 @@ fn lapis_marca_texto_linha_e_desfazer() {
     assert!(r > 180 && g < 100 && b < 100, "o lápis: {:?}", (r, g, b));
 }
 
+/// O marca-texto começa onde o clique foi e termina no mouse: a pintura não passa para trás
+/// do clique nem para a frente do fim (a ponta quadrada passava meia largura dos dois lados).
+#[test]
+fn marca_texto_comeca_no_clique() {
+    let _t = crate::testkit::begin();
+    let mut e = Ed::open();
+    e.drag((100.0, 100.0), (700.0, 500.0));
+    e.button(ShotButton::Tool(Tool::Marker));
+    e.button(ShotButton::Color(1)); // amarelo
+    // Um clique sem arrasto: o marca-texto não tem lado para pintar, não vira marca.
+    e.down(500.0, 400.0);
+    e.up(500.0, 400.0);
+    assert!(e.marks().is_empty(), "{:?}", e.marks());
+    e.drag((300.0, 300.0), (400.0, 300.0));
+    // Um arrasto curto (antes de o traço escolher a direção): só do clique para o mouse.
+    e.down(300.0, 450.0);
+    e.mv(304.0, 450.0);
+    e.up(304.0, 450.0);
+    assert_eq!(e.marks().len(), 2);
+    e.button(ShotButton::Save);
+    let d = take_done().pop().flatten().expect("salvo");
+    let pintado = |x: i32, y: i32| px(&d, x - 100, y - 100) != (GRAY, GRAY, GRAY);
+    assert!(pintado(303, 300) && pintado(397, 300), "o traço entre o clique e o fim");
+    assert!(!pintado(296, 300), "nada antes do clique");
+    assert!(!pintado(404, 300), "nada depois do fim");
+    assert!(pintado(302, 450) && !pintado(297, 450), "o curto cresce para o lado do mouse");
+    assert!(!pintado(500, 400), "o clique solto não pintou");
+}
+
 /// Sem ferramenta (clicar de novo na ativa), arrastar dentro move a área e as marcas ficam
 /// onde estavam na tela; a alça do canto puxa os dois lados, com qualquer ferramenta.
 #[test]

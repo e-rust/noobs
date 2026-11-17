@@ -150,7 +150,11 @@ pub fn marker_path(points: &[(f32, f32)], width: f32) -> Vec<(f32, f32)> {
         let (dx, dy) = (p.0 - start.0, p.1 - start.1);
         match dir {
             // A direção sai do primeiro passo que conta (meia largura: o tremor do clique não).
-            None if (dx * dx + dy * dy).sqrt() < reach / 2.0 => continue,
+            // Até lá, o traço vai do clique ao mouse como está (cresce para o lado do arrasto).
+            None if (dx * dx + dy * dy).sqrt() < reach / 2.0 => {
+                end = p;
+                continue;
+            }
             None => dir = Some(snap(dx, dy)),
             Some(d) => {
                 let (ux, uy) = direction(d);
@@ -290,9 +294,9 @@ pub fn draw(canvas: &mut dyn Canvas, m: &Mark) {
             let points = if s.marker { marker_path(&s.points, w) } else { s.points.clone() };
             match points.as_slice() {
                 [] => {}
-                // Um ponto sozinho (um clique) vira um pingo: redondo no lápis, quadrado no
-                // marca-texto.
-                [(x, y)] if s.marker => canvas.fill_rect(dot.offset(x - w / 2.0, y - w / 2.0), 0.0, &Brush::Solid(color(c))),
+                // Um ponto sozinho (um clique): no lápis, um pingo redondo; no marca-texto, nada
+                // (ele pinta do clique para o lado do arrasto, e um clique não tem lado).
+                [_] if s.marker => {}
                 [(x, y)] => canvas.fill_ellipse(dot.offset(x - w / 2.0, y - w / 2.0), &Brush::Solid(color(c))),
                 [first, rest @ ..] => {
                     // Num desenho só: o marca-texto translúcido não escurece onde se cruza.
@@ -303,9 +307,11 @@ pub fn draw(canvas: &mut dyn Canvas, m: &Mark) {
                     }
                     let mut p = pen(c, w);
                     if s.marker {
-                        // O marca-texto: as pontas retas (quadradas) e a troca de direção
-                        // arredondada por dentro (sem quina viva no meio da pintura).
-                        p.cap = LineCap::Square;
+                        // O marca-texto: as pontas retas, cortadas no ponto (começa onde o
+                        // clique foi e termina no mouse; a quadrada passava meia largura dos
+                        // dois lados), e a troca de direção arredondada por dentro (sem quina
+                        // viva no meio da pintura).
+                        p.cap = LineCap::Butt;
                         p.join = LineJoin::Round;
                     }
                     canvas.stroke_path(&path, &p);
@@ -405,7 +411,7 @@ mod tests {
         let diagonal = marker_path(&[(0.0, 0.0), (30.0, 28.0), (60.0, 62.0)], w);
         let (x, y) = diagonal[1];
         assert!((x - y).abs() < 0.01 && x > 55.0, "a 45°: {diagonal:?}");
-        // Um traço na marca: o retângulo de repintar cobre a reta e a ponta quadrada.
+        // Um traço na marca: o retângulo de repintar cobre a reta com a meia largura em volta.
         let s = Stroke { points: vec![(0.0, 0.0), (60.0, 2.0), (120.0, 1.0)], width: 4.0, color: COLOR, marker: true };
         let b = s.bounds();
         assert!(b.x <= -6.0 && b.right() >= 126.0, "{b:?}");
