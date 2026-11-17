@@ -12,4 +12,7 @@ impl Handle for PopupMenu {
 }
 
 impl PopupMenu {
+    pub fn close(self, ui: &mut Ui) -> Result<(), String> {
+        handles::try_call(ui, self.id, "close", &[]).map(|_| ())
+    }
 }

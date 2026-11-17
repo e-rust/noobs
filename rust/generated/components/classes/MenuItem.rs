@@ -66,4 +66,10 @@ impl MenuItem {
     pub fn set_header(self, ui: &mut Ui, value: bool) {
         handles::write(ui, self.id, "header", value)
     }
+    pub fn content(self, ui: &Ui) -> String {
+        handles::text(ui, handles::read(ui, self.id, "content"))
+    }
+    pub fn set_content(self, ui: &mut Ui, value: impl Into<String>) {
+        handles::write(ui, self.id, "content", Into::<String>::into(value))
+    }
 }
