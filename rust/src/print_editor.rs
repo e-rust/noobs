@@ -31,7 +31,9 @@ use crate::generated::FrmPrint;
 use crate::{config, lang, log, mainthread};
 
 /// Menor área aceita, em px físicos: arrastar menos que isso é clique perdido.
-const MIN_SIZE: f32 = crate::area_select::MIN_SIZE as f32;
+/// Não é o mínimo da seleção da gravação (32 px, do encoder): o print de um ícone ou de
+/// uma linha de texto é pequeno de propósito.
+const MIN_SIZE: f32 = 4.0;
 /// O escurecido fora da área (0..255): o mesmo véu da seleção de área da gravação.
 const DIM_ALPHA: u8 = 150;
 
@@ -383,6 +385,11 @@ fn open(ui: &mut Ui, rgba: Vec<u8>, w: i32, h: i32, origin: (i32, i32), k: f32, 
     });
     wire(ui, &f);
     let _ = ui.set_prop(f.pnlShotBar.id, "visible", false);
+    // Sem a animação do Windows ao abrir: o editor aparece na hora sobre a tela congelada.
+    // A plataforma aplica antes da janela aparecer (o form é criado de novo a cada print).
+    if let Ok(ws) = ui.create("WindowSettings", Some(form)) {
+        let _ = ui.set_prop(ws, "animation", false);
+    }
     ui.show(form).map_err(|e| e.to_string())?;
     ui.set_focus(f.pnlShotStage.id);
     // A área do último print: já escolhida, com a barra e as alças (dá para ajustar, desenhar
