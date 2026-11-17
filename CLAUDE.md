@@ -18,3 +18,11 @@ Use o servidor MCP `aylis` (a IDE do Aylis), não scripts nem o `cargo` direto:
 
 Não há script de compilação no repositório: o `scripts\build.bat` saiu em 12/11/2026 (procurava
 o `aylis-tool` num lugar que o Aylis não usa mais).
+
+## Publicar uma versão
+
+O passo a passo está em `docs\publicar-versao.md`. O `scripts\release.bat` (de 17/11/2026) faz a
+release inteira pelo `aylis-tool` (em `%USERPROFILE%\.aylis\target\debug`, ou em `AYLIS_TOOL`):
+versão no `.aylisproj`, testes, instalador, commit, tag, envio e release no GitHub. Ele mexe no
+`.aylisproj` por fora da IDE: com o projeto aberto nela, feche antes. Ao mudar o script, rode com
+`/simular`, que confere tudo sem mudar nada.
