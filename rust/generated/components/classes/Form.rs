@@ -36,6 +36,36 @@ impl Form {
     pub fn set_window_corners(self, ui: &mut Ui, value: impl Into<String>) {
         handles::write(ui, self.id, "window_corners", Into::<String>::into(value))
     }
+    pub fn transparent(self, ui: &Ui) -> bool {
+        handles::read(ui, self.id, "transparent").and_then(|v| v.to_bool().ok()).unwrap_or_default()
+    }
+    pub fn set_transparent(self, ui: &mut Ui, value: bool) {
+        handles::write(ui, self.id, "transparent", value)
+    }
+    pub fn window_shape(self, ui: &Ui) -> String {
+        handles::text(ui, handles::read(ui, self.id, "window_shape"))
+    }
+    pub fn set_window_shape(self, ui: &mut Ui, value: impl Into<String>) {
+        handles::write(ui, self.id, "window_shape", Into::<String>::into(value))
+    }
+    pub fn shape_radius(self, ui: &Ui) -> f64 {
+        handles::read(ui, self.id, "shape_radius").and_then(|v| v.to_f64().ok()).unwrap_or_default()
+    }
+    pub fn set_shape_radius(self, ui: &mut Ui, value: f64) {
+        handles::write(ui, self.id, "shape_radius", value)
+    }
+    pub fn shape_radii(self, ui: &Ui) -> String {
+        handles::text(ui, handles::read(ui, self.id, "shape_radii"))
+    }
+    pub fn set_shape_radii(self, ui: &mut Ui, value: impl Into<String>) {
+        handles::write(ui, self.id, "shape_radii", Into::<String>::into(value))
+    }
+    pub fn shape_path(self, ui: &Ui) -> String {
+        handles::text(ui, handles::read(ui, self.id, "shape_path"))
+    }
+    pub fn set_shape_path(self, ui: &mut Ui, value: impl Into<String>) {
+        handles::write(ui, self.id, "shape_path", Into::<String>::into(value))
+    }
     pub fn window_state(self, ui: &Ui) -> String {
         handles::text(ui, handles::read(ui, self.id, "window_state"))
     }

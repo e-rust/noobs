@@ -258,6 +258,22 @@ fn seletor_de_cores() {
     take_done();
 }
 
+/// O Esc cancela ao subir, com a descida também no editor: fechando na descida, a subida ia
+/// para o app de trás. Um Esc que já estava apertado ao abrir só sobe, e não cancela.
+#[test]
+fn esc_cancela_ao_soltar() {
+    let mut e = Ed::open();
+    let root = e.h.ui.root_of(e.form);
+    let esc = KeyEvent { key: Key::Escape, ..Default::default() };
+    e.h.ui.key_up(root, esc);
+    assert!(with(|s| s.open), "a subida sozinha não cancela");
+    e.h.ui.key_down(root, esc);
+    assert!(with(|s| s.open), "a descida não fecha");
+    e.h.ui.key_up(root, esc);
+    let done = take_done();
+    assert!(done.len() == 1 && done[0].is_none(), "cancelado ao soltar: {done:?}");
+}
+
 /// O − e o + mudam o tamanho como a roda (a espessura; com o Texto, a fonte), e a barra não
 /// muda de largura com o número.
 #[test]

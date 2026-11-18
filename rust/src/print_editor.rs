@@ -279,6 +279,9 @@ struct State {
     cursor: &'static str,
     /// Montando a imagem final: só o print e as marcas.
     exporting: bool,
+    /// O Esc desceu no editor: o print cancela quando ele sobe. Fechando na descida, a subida
+    /// ia para o app de trás, que recebia um Esc.
+    esc_down: bool,
 }
 
 thread_local! {
@@ -431,6 +434,7 @@ fn reset(s: &mut State) {
     s.hover = None;
     s.cursor = "crosshair";
     s.exporting = false;
+    s.esc_down = false;
     if !s.prefs {
         load_prefs(s);
     }
@@ -485,8 +489,15 @@ fn close(ui: &mut Ui) -> Option<OnShot> {
         s.bar = None;
         out
     });
+    // Esconde a janela já e fecha o form depois. O `close` do Aylis esconde o form e pede um
+    // quadro antes de esconder a janela, e o Aylis pinta logo depois da tecla ou do clique: a
+    // janela do print ficava um quadro na tela toda preta (gravado a 160 fps). Escondida antes,
+    // com o print ainda desenhado, ninguém vê esse quadro.
     if let Some(form) = form {
-        ui.close(form);
+        ui.window_command(form, aylis::prelude::WindowCommand::Hide);
+        ui.set_timeout(50, move |ui| {
+            ui.close(form);
+        });
     }
     cb
 }
@@ -1534,7 +1545,7 @@ fn key_down(ui: &mut Ui, k: &KeyEvent) {
         _ if ctrl && style_bit.is_some() && (typing || tool == Some(Tool::Text)) => toggle_text_style(ui, style_bit.unwrap_or(0)),
         // O resto do teclado é do texto (as setas, Home, End, Ctrl+A/C/X/V/Z...).
         _ if typing => return,
-        Key::Escape => cancel(ui),
+        Key::Escape => with(|s| s.esc_down = true),
         Key::Enter if editing => finish(ui, ShotAction::Save),
         Key::Char('c') if ctrl && editing => finish(ui, ShotAction::Copy),
         Key::Char('z') if ctrl => undo(ui),
@@ -1593,6 +1604,16 @@ fn wire(ui: &mut Ui, f: &crate::generated::FrmPrintComponents) {
     ui.on(form, "on_key_down", |ui, _, args| {
         if let EventArgs::Key(k) = args {
             key_down(ui, k);
+        }
+    });
+    // O Esc cancela ao subir: a descida e a subida ficam as duas com o editor (um Esc já
+    // apertado quando o print abriu só sobe aqui, e não cancela).
+    ui.on(form, "on_key_up", |ui, _, args| {
+        if let EventArgs::Key(k) = args {
+            if k.key == Key::Escape && with(|s| std::mem::take(&mut s.esc_down)) {
+                ui.suppress_key();
+                cancel(ui);
+            }
         }
     });
 }
