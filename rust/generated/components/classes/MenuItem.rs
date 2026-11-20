@@ -11,6 +11,13 @@ impl Handle for MenuItem {
     }
 }
 
+/// Quem disparou um handler tipado (`sender: MenuItem`): só um MenuItem.
+impl aylis::prelude::FromSender for MenuItem {
+    fn from_sender(ui: &Ui, id: ComponentId) -> Option<Self> {
+        (ui.class_name(id) == Some("MenuItem")).then_some(Self { id })
+    }
+}
+
 impl MenuItem {
     pub fn text(self, ui: &Ui) -> String {
         handles::text(ui, handles::read(ui, self.id, "text"))
@@ -66,10 +73,16 @@ impl MenuItem {
     pub fn set_header(self, ui: &mut Ui, value: bool) {
         handles::write(ui, self.id, "header", value)
     }
-    pub fn content(self, ui: &Ui) -> String {
-        handles::text(ui, handles::read(ui, self.id, "content"))
+    pub fn content(self, ui: &Ui) -> Option<ComponentId> {
+        handles::read_ref(ui, self.id, "content")
     }
-    pub fn set_content(self, ui: &mut Ui, value: impl Into<String>) {
-        handles::write(ui, self.id, "content", Into::<String>::into(value))
+    pub fn set_content(self, ui: &mut Ui, value: impl Into<handles::Ref>) {
+        handles::write(ui, self.id, "content", Into::<handles::Ref>::into(value))
+    }
+    pub fn on_click(self, ui: &Ui) -> String {
+        handles::text(ui, handles::read(ui, self.id, "on_click"))
+    }
+    pub fn set_on_click(self, ui: &mut Ui, value: impl Into<String>) {
+        handles::write(ui, self.id, "on_click", Into::<String>::into(value))
     }
 }

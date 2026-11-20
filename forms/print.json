@@ -19,6 +19,11 @@
     "fill": "#000000",
     "children": [
       {
+        "class": "WindowSettings",
+        "name": "wsShot",
+        "animation": false
+      },
+      {
         "class": "Image",
         "name": "imgShot",
         "fit": "stretch",

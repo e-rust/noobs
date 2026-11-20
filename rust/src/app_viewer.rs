@@ -108,7 +108,7 @@ fn place(ui: &mut Ui) {
         cb.set_rect(pos.0 as f32, pos.1 as f32, w as f32, h as f32);
     }
     frm.lblViewZoom.set_text(ui, format!("{pct}%"));
-    frm.lyViewStage.set_cursor(ui, if bigger { "grab" } else { "default" });
+    frm.lyViewStage.set_cursor(ui, if bigger { aylis::prelude::CursorShape::Grab } else { aylis::prelude::CursorShape::Default });
     ui.invalidate();
 }
 

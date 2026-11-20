@@ -4,6 +4,7 @@
 /// aberta tem a sua; os handlers são métodos dela.
 pub struct FrmPrint {
     pub form: Form,
+    pub wsShot: WindowSettings,
     pub imgShot: Image,
     pub pnlShotStage: Panel,
     pub lyShotTexts: Layout,
@@ -17,6 +18,7 @@ pub struct FrmPrint {
 #[derive(Clone, Copy, Debug)]
 pub struct FrmPrintComponents {
     pub form: Form,
+    pub wsShot: WindowSettings,
     pub imgShot: Image,
     pub pnlShotStage: Panel,
     pub lyShotTexts: Layout,
@@ -35,9 +37,11 @@ impl FrmPrint {
     /// Monta a instância de um frmPrint recém-criado (o `register` liga). Um componente que
     /// sumiu do form ou mudou de classe impede o form de abrir, com a lista do que não bate.
     pub fn bind(ui: &mut Ui, root: ComponentId) -> Result<Box<dyn std::any::Any>, String> {
+        #[allow(unused_mut)] // um form sem componentes não acrescenta nada
         let mut problems: Vec<String> = Vec::new();
         let instance = Self {
             form: Form { id: root },
+            wsShot: WindowSettings { id: handles::resolve(ui, root, "wsShot", "WindowSettings", &mut problems) },
             imgShot: Image { id: handles::resolve(ui, root, "imgShot", "Image", &mut problems) },
             pnlShotStage: Panel { id: handles::resolve(ui, root, "pnlShotStage", "Panel", &mut problems) },
             lyShotTexts: Layout { id: handles::resolve(ui, root, "lyShotTexts", "Layout", &mut problems) },
@@ -50,6 +54,7 @@ impl FrmPrint {
         }
         ui.set_form_components(root, Box::new(FrmPrintComponents {
             form: instance.form,
+            wsShot: instance.wsShot,
             imgShot: instance.imgShot,
             pnlShotStage: instance.pnlShotStage,
             lyShotTexts: instance.lyShotTexts,
@@ -155,5 +160,18 @@ impl FrmPrint {
     /// O Panel que disparou o evento (`None` se o `sender` não é um Panel deste form).
     pub fn sender_as_panel(&self, ui: &Ui, sender: ComponentId) -> Option<Panel> {
         self.find_panel(ui.name(sender)?)
+    }
+
+    /// O WindowSettings deste form com o nome (`None` se não há um WindowSettings com ele).
+    pub fn find_window_settings(&self, name: &str) -> Option<WindowSettings> {
+        match name {
+            "wsShot" => Some(self.wsShot),
+            _ => None,
+        }
+    }
+
+    /// O WindowSettings que disparou o evento (`None` se o `sender` não é um WindowSettings deste form).
+    pub fn sender_as_window_settings(&self, ui: &Ui, sender: ComponentId) -> Option<WindowSettings> {
+        self.find_window_settings(ui.name(sender)?)
     }
 }

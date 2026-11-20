@@ -11,6 +11,13 @@ impl Handle for PopupMenu {
     }
 }
 
+/// Quem disparou um handler tipado (`sender: PopupMenu`): só um PopupMenu.
+impl aylis::prelude::FromSender for PopupMenu {
+    fn from_sender(ui: &Ui, id: ComponentId) -> Option<Self> {
+        (ui.class_name(id) == Some("PopupMenu")).then_some(Self { id })
+    }
+}
+
 impl PopupMenu {
     pub fn close(self, ui: &mut Ui) -> Result<(), String> {
         handles::try_call(ui, self.id, "close", &[]).map(|_| ())

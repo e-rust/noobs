@@ -345,13 +345,13 @@ fn render(ui: &mut Ui) {
     let _ = items;
     if let Some(frm) = FrmMain::components(ui) {
         frm.lblLibMeta.set_text(ui, meta.join("   |   "));
-        frm.lblLibMeta.set_color(ui, if low_disk { "amber" } else { "" });
+        frm.lblLibMeta.set_color(ui, aylis::prelude::handles::ColorRef::token(if low_disk { "amber" } else { "" }));
         frm.lblLibMeta.set_hint(ui, if low_disk { lang::tr("Espaço em disco abaixo de 5 GB na pasta de gravações. Pode não dar pra fazer uma gravação completa sem liberar espaço.") } else { String::new() });
     }
     // O caminho, fora da raiz.
     if let Some(frm) = FrmMain::components(ui) {
         frm.brdLib.set_visible(ui, !at_root);
-        frm.brdLib.set_items(ui, crumbs.iter().map(|(_, l)| l.as_str()).collect::<Vec<_>>().join(";"));
+        frm.brdLib.set_items(ui, &crumbs.iter().map(|(_, l)| l.as_str()).collect::<Vec<_>>());
     }
     with(|st| st.crumbs = crumbs.iter().map(|(id, _)| id.clone()).collect());
     if let Some(frm) = FrmMain::components(ui) {
@@ -818,7 +818,7 @@ fn drag_start(ui: &mut Ui, id: &str) {
     ui.set_drag_image(visual);
     if let Some(frm) = FrmMain::components(ui) {
         frm.btnLibDelete.set_enabled(ui, true);
-        frm.btnLibDelete.set_text_color(ui, "red");
+        frm.btnLibDelete.set_text_color(ui, aylis::prelude::handles::ColorRef::token("red"));
     }
 }
 
@@ -826,7 +826,7 @@ fn drag_start(ui: &mut Ui, id: &str) {
 fn drag_end(ui: &mut Ui) {
     with(|st| st.drag.clear());
     if let Some(frm) = FrmMain::components(ui) {
-        frm.btnLibDelete.set_text_color(ui, "");
+        frm.btnLibDelete.set_text_color(ui, aylis::prelude::handles::ColorRef::token(""));
     }
     sync_bar(ui);
 }

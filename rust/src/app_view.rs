@@ -120,10 +120,10 @@ fn embed_screen(ui: &mut Ui, main: ComponentId, label: &str, create: CreateScree
         }
     };
     let _ = ui.set_parent(form.id, Some(main));
-    form.set_align(ui, "contents");
+    form.set_align(ui, aylis::prelude::Align::Contents);
     // Sem fundo próprio, a tela deixa ver a de baixo.
-    if form.fill(ui).is_empty() {
-        form.set_fill(ui, "transparent");
+    if form.fill(ui).a == 0 {
+        form.set_fill(ui, aylis::prelude::Color::TRANSPARENT);
     }
     form.set_visible(ui, false);
 }
@@ -472,14 +472,14 @@ pub fn confirm(ui: &mut Ui, title: &str, message: &str, ok: &str, danger: bool, 
     }
     // O ícone: a lixeira vermelha (o padrão do frame) ou o "unir" azul.
     if icon == ConfirmIcon::Merge {
-        dlg.cirIcon.set_fill(ui, "blue/10");
+        dlg.cirIcon.set_fill(ui, aylis::prelude::handles::ColorRef::token("blue/10"));
         dlg.pthTrash.set_visible(ui, false);
         dlg.pthMerge.set_visible(ui, true);
     }
     // Os botões, à direita: confirmar e, antes dele, cancelar.
     dlg.btnOk.set_text(ui, ok);
     if danger {
-        dlg.btnOk.set_style(ui, "cf_danger");
+        dlg.btnOk.set_style(ui, g::ButtonStyle::CfDanger);
     }
     let mut x = w - 22.0;
     for (b, is_ok) in [(dlg.btnOk, true), (dlg.btnCancel, false)] {
@@ -525,7 +525,7 @@ mod tests {
         confirm(ui, "Excluir", "Excluir?", "Excluir", true, ConfirmIcon::Delete, |_| {});
         let root = CONFIRM.with(|c| c.borrow().as_ref().map(|(id, _)| *id)).unwrap();
         let dlg = g::FraConfirm::components_of(ui, root).unwrap();
-        assert_eq!(dlg.btnOk.style(ui), "cf_danger");
+        assert_eq!(dlg.btnOk.style(ui), g::ButtonStyle::CfDanger);
         ui.fire(dlg.btnOk.id, "on_click", &EventArgs::None);
         assert!(!confirm_open());
         MAIN_FORM.with(|m| m.set(None));

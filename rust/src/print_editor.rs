@@ -388,16 +388,8 @@ fn open(ui: &mut Ui, rgba: Vec<u8>, w: i32, h: i32, origin: (i32, i32), k: f32, 
     });
     wire(ui, &f);
     let _ = ui.set_prop(f.pnlShotBar.id, "visible", false);
-    // Sem a animação do Windows ao abrir: o editor aparece na hora sobre a tela congelada.
-    // A plataforma aplica ao criar a janela, antes de ela aparecer (o form é criado de novo a
-    // cada print). O campo muda direto, sem o `set_prop`: a troca de propriedade em execução
-    // manda o Aylis reaplicar as opções em todas as janelas, e a principal (na bandeja ou à
-    // vista) não tem nada com o print.
-    if let Ok(ws) = ui.create("WindowSettings", Some(form)) {
-        if let Some(settings) = ui.get_mut::<aylis::prelude::WindowSettings>(ws) {
-            settings.animation = false;
-        }
-    }
+    // Sem a animação do Windows ao abrir: o `wsShot` do form (`animation` desligado) vale ao
+    // criar a janela, antes de ela aparecer; o editor aparece na hora sobre a tela congelada.
     ui.show(form).map_err(|e| e.to_string())?;
     ui.set_focus(f.pnlShotStage.id);
     // A área do último print: já escolhida, com a barra e as alças (dá para ajustar, desenhar

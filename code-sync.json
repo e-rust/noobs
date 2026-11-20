@@ -91,8 +91,8 @@
     "frmExport.export_speed_change": 1,
     "frmExport.export_speed_exit": 1,
     "frmExport.export_speed_key": 2,
-    "frmExport.export_stage_down": 1,
-    "frmExport.export_stage_move": 1,
+    "frmExport.export_stage_down": 3,
+    "frmExport.export_stage_move": 2,
     "frmExport.export_stage_up": 1,
     "frmExport.export_stage_wheel": 1,
     "frmExport.export_time_exit": 1,
@@ -256,6 +256,9 @@
         "frmExport/cmbExScale.on_change": "export_scale",
         "frmExport/crpExCrop.on_change": "export_crop_change",
         "frmExport/crpExCrop.on_end": "export_crop_end",
+        "frmExport/crpExCrop.on_pointer_down": "export_stage_down",
+        "frmExport/crpExCrop.on_pointer_move": "export_stage_move",
+        "frmExport/crpExCrop.on_pointer_up": "export_stage_up",
         "frmExport/crpExCrop.on_tap": "export_play",
         "frmExport/crpExCrop.on_wheel": "export_stage_wheel",
         "frmExport/edtExSpeed.on_change": "export_speed_change",
@@ -724,12 +727,12 @@
           "seen": 2
         },
         "frmExport.export_stage_down": {
-          "hash": "v2:1a4d7b3c42b61dab",
-          "seen": 1
+          "hash": "v2:5cc60375ea1954b4",
+          "seen": 3
         },
         "frmExport.export_stage_move": {
-          "hash": "v2:29de9c1bc9ee8efa",
-          "seen": 1
+          "hash": "v2:c28534e386fcb30c",
+          "seen": 2
         },
         "frmExport.export_stage_up": {
           "hash": "v2:0789441da29ee321",
@@ -1803,6 +1806,7 @@
     "trkRecOpacity",
     "trkRepOpacity",
     "trkVolume",
-    "wavPlayer"
+    "wavPlayer",
+    "wsShot"
   ]
 }

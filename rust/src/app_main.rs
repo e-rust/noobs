@@ -130,7 +130,7 @@ fn add_source_row(ui: &mut Ui, parent: ComponentId, d: &Device, locked: bool, me
     let Ok(row) = FraSourceRow::create_in(ui, parent) else { return };
     if locked {
         // Gravando, a linha trava: meio apagada e sem a mãozinha.
-        row.pnlRow.set_cursor(ui, "default");
+        row.pnlRow.set_cursor(ui, aylis::prelude::CursorShape::Default);
         row.pnlRow.set_opacity(ui, 0.5);
         row.swOn.set_enabled(ui, false);
     }
@@ -143,7 +143,7 @@ fn add_source_row(ui: &mut Ui, parent: ComponentId, d: &Device, locked: bool, me
         Some(ui.theme().colors.get("border_2").copied().unwrap_or(ui.theme().color("border")))
     };
     match color {
-        Some(color) => row.shpStripe.set_fill(ui, color.with_opacity(if d.enabled { 1.0 } else { 0.7 }).to_hex()),
+        Some(color) => row.shpStripe.set_fill(ui, color.with_opacity(if d.enabled { 1.0 } else { 0.7 })),
         None => row.shpStripe.set_visible(ui, false),
     }
     row.swOn.set_checked(ui, d.enabled);
@@ -308,7 +308,7 @@ fn render_legend(ui: &mut Ui) {
                 "off" => off.to_owned(),
                 _ => it.color.to_hex(),
             };
-            row.shpTrack.set_fill(ui, fill);
+            row.shpTrack.set_fill(ui, aylis::prelude::handles::ColorRef::token(&fill));
             row.shpTrack.set_visible(ui, true);
         }
         row.lblTrack.set_text(ui, it.label.as_str());
@@ -639,12 +639,12 @@ fn render_recording(ui: &mut Ui) {
         ("green", "")
     };
     if let Some(frm) = FrmMain::components(ui) {
-        frm.dotStatus.set_fill(ui, dot);
-        frm.lblStatus.set_color(ui, status_color);
-        frm.lblStatus.set_font_weight(ui, if active { "semibold" } else { "default" });
-        frm.lblTimer.set_color(ui, if active && paused { "amber" } else { "" });
+        frm.dotStatus.set_fill(ui, aylis::prelude::handles::ColorRef::token(dot));
+        frm.lblStatus.set_color(ui, aylis::prelude::handles::ColorRef::token(status_color));
+        frm.lblStatus.set_font_weight(ui, if active { crate::generated::FontWeight::Semibold } else { crate::generated::FontWeight::Default });
+        frm.lblTimer.set_color(ui, aylis::prelude::handles::ColorRef::token(if active && paused { "amber" } else { "" }));
         frm.lblRecordAction.set_text(ui, lang::tr(if active { "Parar gravação" } else { "Iniciar gravação" }));
-        frm.pnlRecordCard.set_border_color(ui, if active { "red" } else { "" });
+        frm.pnlRecordCard.set_border_color(ui, aylis::prelude::handles::ColorRef::token(if active { "red" } else { "" }));
         frm.btnPause.set_enabled(ui, active);
         frm.btnPause.set_icon(ui, if paused { "play" } else { "pause" });
         frm.btnPause.set_hint(ui, lang::tr(if paused { "Retomar gravação" } else { "Pausar gravação" }));
@@ -954,7 +954,7 @@ fn render_replay(ui: &mut Ui) {
     }
     let border2 = if ui.theme().colors.contains_key("border_2") { "border_2" } else { "border" };
     if let Some(frm) = FrmMain::components(ui) {
-        frm.dotReplay.set_fill(ui, if st.active { "green" } else { border2 });
+        frm.dotReplay.set_fill(ui, aylis::prelude::handles::ColorRef::token(if st.active { "green" } else { border2 }));
     }
 }
 

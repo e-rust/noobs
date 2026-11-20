@@ -241,7 +241,7 @@ fn push_volumes(ui: &mut Ui) {
     if let Some(frm) = FrmPlayer::components(ui) {
         frm.trkVolume.set_value(ui, v as f64);
         frm.lblVolPct.set_text(ui, format!("{v}%"));
-        frm.lblVolPct.set_text_color(ui, if v > 100 { "danger_2" } else { "" });
+        frm.lblVolPct.set_text_color(ui, aylis::prelude::handles::ColorRef::token(if v > 100 { "danger_2" } else { "" }));
         frm.btnMute.set_icon(ui, if v == 0 { "pl-vol-off" } else if v < 50 { "pl-vol-low" } else { "pl-vol-high" });
     }
 }
@@ -621,7 +621,7 @@ fn set_speed(ui: &mut Ui, r: f64) {
     }
     if let Some(frm) = FrmPlayer::components(ui) {
         frm.btnSpeed.set_text(ui, label);
-        frm.btnSpeed.set_style(ui, if trick { "pl_trick" } else { "pl_speed" });
+        frm.btnSpeed.set_style(ui, if trick { g::ButtonStyle::PlTrick } else { g::ButtonStyle::PlSpeed });
     }
     let hint = if trick { lang::tr("Velocidade de execução — a partir de 8× sem som; se a placa de vídeo não acompanhar, o vídeo avança por saltos entre quadros-chave") } else { lang::tr("Velocidade de execução") };
     if let Some(frm) = FrmPlayer::components(ui) {
@@ -639,7 +639,7 @@ pub fn speed_menu(ui: &mut Ui, _sender: ComponentId) {
     let Some(frm) = FrmPlayer::components(ui) else { return };
     let current = with(|st| st.speed);
     for (item, s) in speed_items(&frm).into_iter().zip(SPEEDS) {
-        item.set_style(ui, if (s - current).abs() < 1e-9 { "pl_item_on" } else { "pl_item" });
+        item.set_style(ui, if (s - current).abs() < 1e-9 { g::ButtonStyle::PlItemOn } else { g::ButtonStyle::PlItem });
     }
     with(|st| st.speed_open = true);
     frm.btnSpeed.set_checked(ui, true);
@@ -731,11 +731,11 @@ fn sync_cc(ui: &mut Ui) {
     frm.btnCaptions.set_checked(ui, (cap && has_turns) || tr);
     for (on, check, label, key) in [(cap, frm.lblCcCheck1, frm.lblCcCaptions, Some(frm.lblCcKey1)), (tr, frm.lblCcCheck2, frm.lblCcTranscript, None)] {
         check.set_text(ui, if on { "✓" } else { "" });
-        let style = if on { "pl_opt_on" } else { "pl_opt" };
+        let style = if on { g::LabelStyle::PlOptOn } else { g::LabelStyle::PlOpt };
         check.set_style(ui, style);
         label.set_style(ui, style);
         if let Some(key) = key {
-            key.set_style(ui, if on { "pl_key_on" } else { "pl_key" });
+            key.set_style(ui, if on { g::LabelStyle::PlKeyOn } else { g::LabelStyle::PlKey });
         }
     }
 }
@@ -1154,14 +1154,14 @@ fn view_option(ui: &mut Ui, parent: ComponentId, idx: i32, label: &str, kind: &s
     let Ok(opt) = FraViewOption::create_in(ui, parent) else { return };
     let full = kind == "full";
     if on {
-        opt.pnlOption.set_style(ui, "pl_view_on");
-        opt.btnIcon.set_style(ui, "pl_vicon_on");
+        opt.pnlOption.set_style(ui, g::PanelStyle::PlViewOn);
+        opt.btnIcon.set_style(ui, g::ButtonStyle::PlViconOn);
     }
     let mark = match (full, on) {
-        (true, true) => "pl_radio_on",
-        (true, false) => "pl_radio",
-        (false, true) => "pl_box_on",
-        (false, false) => "pl_box",
+        (true, true) => g::PanelStyle::PlRadioOn,
+        (true, false) => g::PanelStyle::PlRadio,
+        (false, true) => g::PanelStyle::PlBoxOn,
+        (false, false) => g::PanelStyle::PlBox,
     };
     opt.pnlMark.set_style(ui, mark);
     // Marcada: a bolinha do rádio ou o ✓ da caixa (os dois estão no frame, escondidos).
@@ -1195,7 +1195,7 @@ fn track_card(ui: &mut Ui, parent: ComponentId, i: usize, title: &str, rows: &[(
         add_row(ui, card.lyRows.id, k, v);
     }
     if muted {
-        card.btnMute.set_style(ui, "pl_tmute_off");
+        card.btnMute.set_style(ui, g::ButtonStyle::PlTmuteOff);
         card.btnMute.set_icon(ui, "pl-tvol-off");
         card.btnMute.set_hint(ui, lang::tr("Desmutar"));
     }
@@ -1420,7 +1420,7 @@ fn render_turns(ui: &mut Ui) {
         // A marca do turno ativo, na borda esquerda, da altura da fala.
         row.recMark.set_height(ui, h);
         if i as i32 == active {
-            row.pnlTurn.set_style(ui, "pl_turn_on");
+            row.pnlTurn.set_style(ui, g::PanelStyle::PlTurnOn);
             row.recMark.set_visible(ui, true);
         }
         let s = fmt_duration(tr.start.floor() as i64);
@@ -1435,7 +1435,7 @@ fn render_turns(ui: &mut Ui) {
             let w = ui.measure_text(&name, &spk_style).width + 0.2 * name.chars().count() as f32 + 7.0;
             row.lblSpeaker.set_width(ui, f64::from(w));
             row.lblSpeaker.set_text(ui, name.as_str());
-            row.lblSpeaker.set_text_color(ui, speaker_color(&tr.speaker));
+            row.lblSpeaker.set_text_color(ui, aylis::prelude::handles::ColorRef::token(&speaker_color(&tr.speaker)));
             ui.on(row.lblSpeaker.id, "on_click", move |ui, _, _| {
                 with(|st| st.tr_editing = i as i32);
                 render_turns(ui);
@@ -1533,7 +1533,7 @@ fn sync_transcript_active(ui: &mut Ui, force: bool) {
     if let Some((idx, rows)) = changed {
         for (i, row) in rows {
             let on = i as i32 == idx;
-            row.pnlTurn.set_style(ui, if on { "pl_turn_on" } else { "pl_turn" });
+            row.pnlTurn.set_style(ui, if on { g::PanelStyle::PlTurnOn } else { g::PanelStyle::PlTurn });
             row.recMark.set_visible(ui, on);
         }
     }
@@ -1906,13 +1906,13 @@ mod tests {
         assert_eq!(rows[6].lblValue.text(ui), "1920 × 1080");
 
         // Tela cheia desmarcada (há região escolhida); a webcam marcada, com o ✓.
-        assert_eq!(opts[0].pnlMark.style(ui), "pl_radio");
+        assert_eq!(opts[0].pnlMark.style(ui), g::PanelStyle::PlRadio);
         assert!(!opts[0].cirDot.visible(ui) && !opts[0].btnCheck.visible(ui));
         assert_eq!(opts[0].btnIcon.icon(ui), "pl-expand");
         assert_eq!(opts[1].lblLabel.text(ui), "Tela");
-        assert_eq!(opts[1].pnlOption.style(ui), "pl_view");
-        assert_eq!(opts[2].pnlOption.style(ui), "pl_view_on");
-        assert_eq!(opts[2].pnlMark.style(ui), "pl_box_on");
+        assert_eq!(opts[1].pnlOption.style(ui), g::PanelStyle::PlView);
+        assert_eq!(opts[2].pnlOption.style(ui), g::PanelStyle::PlViewOn);
+        assert_eq!(opts[2].pnlMark.style(ui), g::PanelStyle::PlBoxOn);
         assert!(opts[2].btnCheck.visible(ui) && !opts[2].cirDot.visible(ui));
         assert_eq!(opts[2].btnIcon.icon(ui), "pl-webcam");
 
@@ -1951,20 +1951,20 @@ mod tests {
         assert_eq!(ui.children(frm.lySide.id).len(), 2 + 3, "as peças das informações saíram");
         assert_eq!(turns.iter().map(|(i, _)| *i).collect::<Vec<_>>(), vec![0, 1, 2]);
         let (_, t1) = turns[1];
-        assert_eq!(t1.pnlTurn.style(ui), "pl_turn_on");
+        assert_eq!(t1.pnlTurn.style(ui), g::PanelStyle::PlTurnOn);
         assert!(t1.recMark.visible(ui) && !turns[0].1.recMark.visible(ui));
         assert_eq!(t1.recMark.height(ui), t1.form.height(ui));
         assert_eq!(t1.lblSpeaker.text(ui), lang::tr_with("Falante {{n}}", &[("n", "2")]));
-        assert_eq!(t1.lblSpeaker.text_color(ui), "speaker_2");
+        assert_eq!(ui.get_prop(t1.lblSpeaker.id, "text_color").ok(), Some(aylis::prelude::PropValue::String("speaker_2".into())));
         assert_eq!(t1.lblTime.text(ui), "00:04");
         assert_eq!(turns[0].1.lblTime.text(ui), "00:00");
         assert_eq!(t1.lblText.text(ui), "uma fala de teste com algumas palavras uma fala de teste com algumas palavras");
         // A fala ativa muda (sem motor, a posição é 0: a primeira): o estilo e a marca acompanham.
         sync_transcript_active(ui, true);
         assert_eq!(with(|st| st.tr_active), 0);
-        assert_eq!(turns[0].1.pnlTurn.style(ui), "pl_turn_on");
+        assert_eq!(turns[0].1.pnlTurn.style(ui), g::PanelStyle::PlTurnOn);
         assert!(turns[0].1.recMark.visible(ui));
-        assert_eq!(t1.pnlTurn.style(ui), "pl_turn");
+        assert_eq!(t1.pnlTurn.style(ui), g::PanelStyle::PlTurn);
         assert!(!t1.recMark.visible(ui));
 
         // Clicar no nome põe o campo do falante no lugar dele.
@@ -1997,8 +1997,8 @@ mod tests {
             assert_eq!(item.text(ui), speed_label(s));
         }
         speed_menu(ui, frm.btnSpeed.id);
-        assert_eq!(items[2].style(ui), "pl_item_on");
-        assert_eq!(items[4].style(ui), "pl_item");
+        assert_eq!(items[2].style(ui), g::ButtonStyle::PlItemOn);
+        assert_eq!(items[4].style(ui), g::ButtonStyle::PlItem);
         ui.fire(items[4].id, "on_click", &EventArgs::None);
         assert_eq!(with(|st| st.speed), 2.0);
         assert_eq!(frm.btnSpeed.text(ui), "2×");

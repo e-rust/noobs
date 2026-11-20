@@ -66,6 +66,8 @@ struct PanDrag {
     px: f32,
     py: f32,
     moved: f32,
+    /// Começou com o botão esquerdo puro na prévia: soltar sem arrastar toca/pausa.
+    tap_plays: bool,
 }
 
 #[derive(Default)]
@@ -378,7 +380,7 @@ fn fit_chk(ui: &mut Ui, p: g::Panel, l: g::Label) {
 /// Marca/desmarca uma pílula (e a habilita); a cor de marcada só nas que não são `plain`.
 fn set_chk(ui: &mut Ui, p: g::Panel, b: g::CheckBox, checked: bool, enabled: bool, plain: bool) {
     b.set_checked(ui, checked);
-    p.set_style(ui, if checked && !plain { "ex_chk_on" } else { "ex_chk" });
+    p.set_style(ui, if checked && !plain { g::PanelStyle::ExChkOn } else { g::PanelStyle::ExChk });
     p.set_enabled(ui, enabled);
     p.set_opacity(ui, if enabled { 1.0 } else { 0.4 });
 }
@@ -405,9 +407,8 @@ fn put_value(ui: &mut Ui, l: g::Label, text: &str) {
 }
 
 fn set_items(ui: &mut Ui, b: g::ComboBox, items: &[String], index: usize) {
-    let joined = items.iter().map(|s| s.replace(';', ",")).collect::<Vec<_>>().join(";");
-    if b.items(ui) != joined {
-        b.set_items(ui, joined);
+    if b.items(ui) != items {
+        b.set_items(ui, items);
     }
     if b.item_index(ui) != index as i64 {
         b.set_item_index(ui, index as i64);
@@ -1131,7 +1132,7 @@ fn render_stage(ui: &mut Ui) {
         cb.set_height(fh + 2.0 * STAGE_GAP).set_margins([side, 0.0, side, 0.0]);
     }
     // Sem recorte o palco tem cantos arredondados; com recorte, retos (como na web).
-    f.pnlExStage.set_style(ui, if crop_on { "ex_stage_crop" } else { "ex_stage" });
+    f.pnlExStage.set_style(ui, if crop_on { g::PanelStyle::ExStageCrop } else { g::PanelStyle::ExStage });
     f.lyExCrop.set_visible(ui, crop_on);
     f.lblExCropHint.set_visible(ui, crop_on);
     if let Some(cb) = ui.control_mut(f.fvExFrame.id) {
@@ -1192,7 +1193,7 @@ fn render_playbar(ui: &mut Ui) {
         f.trkExVolume.set_value(ui, vol as f64);
     }
     f.btnExCc.set_enabled(ui, has && !no_video);
-    f.btnExCc.set_style(ui, if on && has && !no_video { "ex_cc_on" } else { "ex_cc" });
+    f.btnExCc.set_style(ui, if on && has && !no_video { g::ButtonStyle::ExCcOn } else { g::ButtonStyle::ExCc });
     f.btnExCc.set_opacity(ui, if has && !no_video { 1.0 } else { 0.45 });
     f.btnExCc.set_hint(
         ui,
@@ -1890,16 +1891,25 @@ pub(crate) fn stage_wheel(ui: &mut Ui, sender: ComponentId, at: PointF, dy: f32)
     set_crop_zoom(ui, z * if dy > 0.0 { 1.2 } else { 1.0 / 1.2 }, Some((cx, cy, vx, vy)));
 }
 
-pub(crate) fn pan_down(ui: &mut Ui, x: f32, y: f32) {
+/// Apertar na prévia (`on_crop`: na moldura do recorte, que fica por cima dela). Com a prévia
+/// aproximada, o botão do meio ou o Shift + esquerdo deslocam a vista em qualquer ponto; o
+/// esquerdo puro na prévia também desloca e, sem zoom, toca/pausa. Na moldura, o esquerdo
+/// puro é dela (recortar, mover e o toque que toca/pausa).
+pub(crate) fn pan_down(ui: &mut Ui, x: f32, y: f32, button: PointerButton, shift: bool, on_crop: bool) {
+    let pan_button = button == PointerButton::Middle || (button == PointerButton::Primary && shift);
+    let plain = button == PointerButton::Primary && !shift && !on_crop;
+    if !pan_button && !plain {
+        return;
+    }
     let started = with(|st| {
         if st.crop_zoom <= 1.001 {
             return false;
         }
-        st.pan_drag = Some(PanDrag { sx: x, sy: y, px: st.pan.0, py: st.pan.1, moved: 0.0 });
+        st.pan_drag = Some(PanDrag { sx: x, sy: y, px: st.pan.0, py: st.pan.1, moved: 0.0, tap_plays: plain });
         true
     });
     // Sem zoom (ou com as telas compostas), clicar na prévia toca/pausa.
-    if !started {
+    if !started && plain {
         toggle_play(ui);
     }
 }
@@ -1919,7 +1929,7 @@ pub(crate) fn pan_move(ui: &mut Ui, x: f32, y: f32) {
 }
 
 pub(crate) fn pan_up(ui: &mut Ui) {
-    let still = with(|st| st.pan_drag.take().is_some_and(|d| d.moved < 4.0));
+    let still = with(|st| st.pan_drag.take().is_some_and(|d| d.tap_plays && d.moved < 4.0));
     if still {
         toggle_play(ui);
     }
@@ -2140,7 +2150,7 @@ fn render_speed(ui: &mut Ui) {
             f.edtExSpeed.set_text(ui, text.as_str());
         }
         // Sem a cor própria (texto vazio), volta a do tema.
-        f.edtExSpeed.set_border_color(ui, if invalid { "red" } else { "" });
+        f.edtExSpeed.set_border_color(ui, aylis::prelude::handles::ColorRef::token(if invalid { "red" } else { "" }));
     }
     render_tlbar(ui);
 }
@@ -2186,7 +2196,7 @@ fn render_quality(ui: &mut Ui) {
     }
     let old = f.lblExQualityHint.text(ui);
     f.lblExQualityHint.set_text(ui, hint.as_str());
-    f.lblExQualityHint.set_text_color(ui, if warn { "amber" } else { "" });
+    f.lblExQualityHint.set_text_color(ui, aylis::prelude::handles::ColorRef::token(if warn { "amber" } else { "" }));
     if old != hint {
         relayout_hint(ui, f.lblExQualityHint);
     }
@@ -2277,7 +2287,7 @@ fn render_actions(ui: &mut Ui) {
     let (running, canceling, previewing, ppct, pct, loaded) = with(|st| (st.running, st.canceling, st.previewing, st.preview_pct, st.pct, st.loaded));
     let Some(f) = frm(ui) else { return };
     put_btn(ui, f.btnExRun, &lang::tr(if running { "Cancelar" } else { "Exportar" }));
-    f.btnExRun.set_style(ui, if running { "ex" } else { "ex_primary" });
+    f.btnExRun.set_style(ui, if running { g::ButtonStyle::Ex } else { g::ButtonStyle::ExPrimary });
     f.btnExRun.set_enabled(ui, loaded && !canceling && (running || !previewing));
     put_btn(ui, f.btnExPreview, &if previewing { tw("Gerando prévia… {{pct}}%", &[("pct", &(ppct.round() as i32).to_string())]) } else { lang::tr("Gerar prévia") });
     f.btnExPreview.set_enabled(ui, loaded && !running);
@@ -2697,7 +2707,7 @@ mod tests {
         let texts: Vec<String> = regions.iter().map(|p| p.lblPill.text(ui)).collect();
         assert_eq!(texts, [lang::tr("Todas"), "Monitor 1".into(), "Monitor 2".into(), lang::tr("Nenhuma (só áudio)")]);
         assert!(regions[0].chkPill.checked(ui) && !regions[1].chkPill.checked(ui));
-        assert_eq!((regions[0].pnlPill.style(ui), regions[1].pnlPill.style(ui)), ("ex_chk_on".to_owned(), "ex_chk".to_owned()));
+        assert_eq!((regions[0].pnlPill.style(ui), regions[1].pnlPill.style(ui)), (g::PanelStyle::ExChkOn, g::PanelStyle::ExChk));
         assert_eq!(ui.control(regions[0].form.id).unwrap().width(), chk_width(ui, &lang::tr("Todas")));
         let (r0, r1) = (ui.absolute_rect(regions[0].pnlPill.id).unwrap(), ui.absolute_rect(regions[1].pnlPill.id).unwrap());
         assert!((r1.x - (r0.x + r0.width + 6.0)).abs() < 0.01 && (r1.y - r0.y).abs() < 0.01 && (r0.height - 30.1).abs() < 0.01);
@@ -2707,7 +2717,7 @@ mod tests {
         assert_eq!(with(|st| st.sel_regions.iter().copied().collect::<Vec<_>>()), [0]);
         let again = pills_of(ui, f.flwExRegions.id);
         assert_eq!(again.iter().map(|p| p.form.id).collect::<Vec<_>>(), ids);
-        assert_eq!((again[0].pnlPill.style(ui), again[1].pnlPill.style(ui)), ("ex_chk".to_owned(), "ex_chk_on".to_owned()));
+        assert_eq!((again[0].pnlPill.style(ui), again[1].pnlPill.style(ui)), (g::PanelStyle::ExChk, g::PanelStyle::ExChkOn));
         // Áudio: com o original, as três faixas marcadas e desligadas; a pílula fixa do JSON
         // ("Manter o áudio original") libera as faixas.
         let tracks = pills_of(ui, f.flwExTracks.id);

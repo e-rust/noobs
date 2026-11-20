@@ -423,7 +423,7 @@ fn codec_options() -> Vec<(String, bool)> {
 }
 
 /// O grupo de cada codec no combo (`groups`, na ordem de `CODECS`): o automático fica sem.
-fn codec_groups() -> String {
+fn codec_groups() -> Vec<String> {
     let (hw, sw) = (lang::tr("Hardware"), lang::tr("Software"));
     CODECS
         .iter()
@@ -432,13 +432,13 @@ fn codec_groups() -> String {
             c if c.ends_with("-hw") => hw.as_str(),
             _ => sw.as_str(),
         })
-        .collect::<Vec<_>>()
-        .join(";")
+        .map(str::to_string)
+        .collect()
 }
 
 /// As posições dos codecs que esta máquina não tem (`disabled_items`).
-fn codec_disabled(options: &[(String, bool)]) -> String {
-    options.iter().enumerate().filter(|(_, (_, ok))| !ok).map(|(i, _)| i.to_string()).collect::<Vec<_>>().join(";")
+fn codec_disabled(options: &[(String, bool)]) -> Vec<String> {
+    options.iter().enumerate().filter(|(_, (_, ok))| !ok).map(|(i, _)| i.to_string()).collect()
 }
 
 fn fps_hint(v: i32) -> String {
@@ -1242,14 +1242,10 @@ fn item_of(ui: &Ui, combo: g::ComboBox) -> usize {
 }
 
 /// Os itens de um combo numa linha só (`;` separa; um `;` no texto vira `,`).
-fn combo_items(items: &[String]) -> String {
-    items.iter().map(|s| s.replace(';', ",")).collect::<Vec<_>>().join(";")
-}
-
 /// Os itens de um combo e o escolhido.
 fn fitems(ui: &mut Ui, combo: Option<g::ComboBox>, items: &[String], index: usize) {
     let Some(combo) = combo else { return };
-    combo.set_items(ui, combo_items(items));
+    combo.set_items(ui, items);
     combo.set_item_index(ui, index as i64);
 }
 
@@ -1327,9 +1323,9 @@ fn render_sidebar(ui: &mut Ui) {
     // Na ordem de `TABS`.
     let rows = [(frm.pnlTabGeneral, frm.lblTabGeneral), (frm.pnlTabOnRecord, frm.lblTabOnRecord), (frm.pnlTabFiles, frm.lblTabFiles), (frm.pnlTabVideo, frm.lblTabVideo), (frm.pnlTabAudio, frm.lblTabAudio), (frm.pnlTabReplay, frm.lblTabReplay), (frm.pnlTabHotkeys, frm.lblTabHotkeys), (frm.pnlTabDevices, frm.lblTabDevices), (frm.pnlTabTranscribe, frm.lblTabTranscribe), (frm.pnlTabUpdates, frm.lblTabUpdates), (frm.pnlTabAbout, frm.lblTabAbout)];
     for (tab, (row, label)) in TABS.iter().zip(rows) {
-        let style = if *tab == current { "s_tab_on" } else { "s_tab" };
-        row.set_style(ui, style);
-        label.set_style(ui, style);
+        let on = *tab == current;
+        row.set_style(ui, if on { g::PanelStyle::STabOn } else { g::PanelStyle::STab });
+        label.set_style(ui, if on { g::LabelStyle::STabOn } else { g::LabelStyle::STab });
         label.set_text(ui, lang::tr_of("settings.tabs", &tab.to_string()));
     }
 }
@@ -1486,7 +1482,7 @@ fn load_general(ui: &mut Ui) {
     let buttons = [frm.btnThemeSystem, frm.btnThemeLight, frm.btnThemeDark];
     for ((mode, key, tip), b) in THEME_MODES.into_iter().zip(buttons) {
         let text = lang::tr(key);
-        b.set_style(ui, if pref == mode { "s_seg_on" } else { "s_seg" });
+        b.set_style(ui, if pref == mode { g::ButtonStyle::SSegOn } else { g::ButtonStyle::SSeg });
         b.set_text(ui, text.as_str());
         b.set_hint(ui, lang::tr(tip));
         let w = text_width(ui, b.id, &text) + 16.0 + 6.0 + 28.0;
@@ -1601,7 +1597,7 @@ fn video_test_box(ui: &mut Ui, frm: &g::FraVideoComponents) {
             lang::tr("Preparando…")
         };
         frm.lblVtStatus.set_text(ui, status);
-        frm.lblVtStatus.set_style(ui, if capturing { "s_err" } else { "s_hint" });
+        frm.lblVtStatus.set_style(ui, if capturing { g::LabelStyle::SErr } else { g::LabelStyle::SHint });
         frm.prgVt.set_value(ui, pct.clamp(0, 100) as f64);
         return;
     }
@@ -1636,7 +1632,7 @@ fn video_test_box(ui: &mut Ui, frm: &g::FraVideoComponents) {
         if k > 0 {
             set_top(ui, line.form.id, 2.0);
         }
-        line.pnlLevel.set_style(ui, if l.level == a { "s_vt_a" } else if l.level == b { "s_vt_b" } else { "s_vt" });
+        line.pnlLevel.set_style(ui, if l.level == a { g::PanelStyle::SVtA } else if l.level == b { g::PanelStyle::SVtB } else { g::PanelStyle::SVt });
         let lv = l.level;
         ui.on(line.pnlLevel.id, "on_pointer_up", move |ui, _, args| {
             if let EventArgs::Pointer(e) = args {
@@ -1653,8 +1649,8 @@ fn video_test_box(ui: &mut Ui, frm: &g::FraVideoComponents) {
         line.lblLevel.set_text(ui, tw("Nível {{n}}", &[("n", &l.level.to_string())]));
         line.lblRelative.set_text(ui, rel);
         if current {
-            line.lblRelative.set_style(ui, "s_q_now12");
-            line.pnlBarFill.set_style(ui, "s_bar_on");
+            line.lblRelative.set_style(ui, g::LabelStyle::SQNow12);
+            line.pnlBarFill.set_style(ui, g::PanelStyle::SBarOn);
         }
         line.lblSize.set_text(ui, if h > 0.0 { tw("{{size}}/hora", &[("size", &fmt_size(h))]) } else { "—".into() });
         bars.push((line.pnlBarFill, if h > 0.0 { (h / max).max(0.015) as f32 } else { 0.0 }));
@@ -1664,7 +1660,7 @@ fn video_test_box(ui: &mut Ui, frm: &g::FraVideoComponents) {
     for (bt, z) in [(frm.btnVtSwap, -1), (frm.btnVtZoom300, 3), (frm.btnVtZoom200, 2), (frm.btnVtZoom100, 1), (frm.btnVtZoomFit, 0)] {
         let w = text_width(ui, frm.btnVtRun.id, &bt.text(ui)) + 22.0;
         bt.set_width(ui, f64::from(w));
-        bt.set_style(ui, if zoom == z { "s_on" } else { "s" });
+        bt.set_style(ui, if zoom == z { g::ButtonStyle::SOn } else { g::ButtonStyle::S });
     }
     compare_view(ui, frm, &r, a, b, zoom);
     frm.btnVtUse.set_text(ui, tw("Usar o nível {{n}} nas gravações", &[("n", &a.to_string())]));
@@ -1802,7 +1798,7 @@ fn hotkey_cards(ui: &mut Ui, frm: &g::FraHotkeysComponents) {
     let key_values: std::rc::Rc<Vec<String>> = std::rc::Rc::new(std::iter::once(String::new()).chain(keys.iter().filter(|k| !k.2).map(|k| k.0.clone())).collect());
     let key_labels: Vec<String> = std::iter::once(lang::tr("Não definida")).chain(keys.iter().filter(|k| !k.2).map(|k| k.1.clone())).collect();
     let delay_labels: Vec<String> = delays.iter().map(|v| if *v == 0 { lang::tr("Sem atraso") } else { tw("{{sec}} segundos", &[("sec", &v.to_string())]) }).collect();
-    let (mode_items, key_items, delay_items) = (combo_items(&mode_labels), combo_items(&key_labels), combo_items(&delay_labels));
+    let (mode_items, key_items, delay_items) = (&mode_labels, &key_labels, &delay_labels);
     let list = frm.lyHotkeys.id;
     clear_list(ui, list);
     frm.lblHotkeysEmpty.set_visible(ui, items.is_empty());
@@ -1815,7 +1811,7 @@ fn hotkey_cards(ui: &mut Ui, frm: &g::FraHotkeysComponents) {
         let Ok(card) = FraHotkeyCard::create_in(ui, list) else { continue };
         set_top(ui, card.form.id, if i == 0 { FIELD_GAP + 6.0 } else { TAB_GAP });
         // Modo, modificadores, tecla, excluir.
-        card.cmbMode.set_items(ui, mode_items.as_str());
+        card.cmbMode.set_items(ui, mode_items);
         card.cmbMode.set_item_index(ui, HK_MODES.iter().position(|m| *m == it.mode).unwrap_or(0) as i64);
         let mode = card.cmbMode;
         ui.on(mode.id, "on_change", move |ui, _, _| {
@@ -1835,7 +1831,7 @@ fn hotkey_cards(ui: &mut Ui, frm: &g::FraHotkeysComponents) {
         // A tecla da combinação (a escolhida no combo, ou a do atalho se o combo não a tem).
         let key_now = std::rc::Rc::new(RefCell::new(key.clone()));
         for (panel, chk, on) in toggles {
-            panel.set_style(ui, if on { "s_mod_on" } else { "s_mod" });
+            panel.set_style(ui, if on { g::PanelStyle::SModOn } else { g::PanelStyle::SMod });
             chk.set_checked(ui, on);
             let w = text_width(ui, chk.id, &chk.text(ui)) + 13.0 + 5.0 + 22.0;
             panel.set_width(ui, f64::from(w));
@@ -1853,7 +1849,7 @@ fn hotkey_cards(ui: &mut Ui, frm: &g::FraHotkeysComponents) {
                 hk_send(items);
             }
         });
-        card.cmbKey.set_items(ui, key_items.as_str());
+        card.cmbKey.set_items(ui, key_items);
         card.cmbKey.set_item_index(ui, ki as i64);
         let kv = key_values.clone();
         ui.on(card.cmbKey.id, "on_change", move |ui, _, _| {
@@ -1893,7 +1889,7 @@ fn hotkey_cards(ui: &mut Ui, frm: &g::FraHotkeysComponents) {
             let w = text_width(ui, card.lblShotTarget.id, &card.lblShotTarget.text(ui)).max(140.0);
             card.lblShotTarget.set_width(ui, f64::from(w));
             let labels: Vec<String> = ShotTarget::ALL.iter().map(|t| lang::tr_of("hotkeys.shot", t.as_str())).collect();
-            card.cmbShotTarget.set_items(ui, combo_items(&labels).as_str());
+            card.cmbShotTarget.set_items(ui, &labels);
             card.cmbShotTarget.set_item_index(ui, ShotTarget::ALL.iter().position(|t| *t == it.target).unwrap_or(0) as i64);
             let cmb = card.cmbShotTarget;
             ui.on(cmb.id, "on_change", move |ui, _, _| {
@@ -1945,7 +1941,7 @@ fn hotkey_cards(ui: &mut Ui, frm: &g::FraHotkeysComponents) {
             ui.on(card.btnAreaDefine.id, "on_click", move |_, _, _| bhk::handle_define_area(i));
             if let Some(r) = it.area {
                 card.lblArea.set_text(ui, tw("{{w}} × {{h}} em ({{x}}, {{y}})", &[("w", &r.w.to_string()), ("h", &r.h.to_string()), ("x", &r.x.to_string()), ("y", &r.y.to_string())]));
-                card.lblArea.set_style(ui, "s_about_v");
+                card.lblArea.set_style(ui, g::LabelStyle::SAboutV);
             }
             // O Timelapse deste atalho (o do Capturar... não vale aqui).
             card.chkTimelapse.set_checked(ui, it.timelapse);
@@ -1959,7 +1955,7 @@ fn hotkey_cards(ui: &mut Ui, frm: &g::FraHotkeysComponents) {
         if it.mode.records() {
             let w = text_width(ui, card.lblDelay.id, &card.lblDelay.text(ui)).max(140.0);
             card.lblDelay.set_width(ui, f64::from(w));
-            card.cmbDelay.set_items(ui, delay_items.as_str());
+            card.cmbDelay.set_items(ui, delay_items);
             card.cmbDelay.set_item_index(ui, delays.iter().position(|d| *d == it.delay_sec).unwrap_or(0) as i64);
             let dl = delays.clone();
             ui.on(card.cmbDelay.id, "on_change", move |ui, _, _| {
@@ -1971,7 +1967,7 @@ fn hotkey_cards(ui: &mut Ui, frm: &g::FraHotkeysComponents) {
         if !st_key.is_empty() {
             card.lyStatus.set_visible(ui, true);
             card.lblStatus.set_text(ui, lang::tr_of("hotkeys.status", st_key));
-            card.lblStatus.set_style(ui, if st_key == "inactive" { "s_hint" } else { "s_err" });
+            card.lblStatus.set_style(ui, if st_key == "inactive" { g::LabelStyle::SHint } else { g::LabelStyle::SErr });
         }
     }
 }
@@ -2036,10 +2032,10 @@ fn transcribe_queue(ui: &mut Ui, frame: ComponentId, queue: &[QueueItem]) {
         // A linha entre os itens.
         row.shpLine.set_visible(ui, i > 0);
         if q.current {
-            r.set_style(ui, "s_q_cur");
+            r.set_style(ui, g::PanelStyle::SQCur);
             row.lblDot.set_text(ui, "●");
-            row.lblDot.set_style(ui, "s_q_dot");
-            row.lblName.set_style(ui, "s_q_on");
+            row.lblDot.set_style(ui, g::LabelStyle::SQDot);
+            row.lblName.set_style(ui, g::LabelStyle::SQOn);
             row.btnRemove.set_visible(ui, false);
             let w = text_width(ui, row.lblNow.id, &lang::tr("agora").to_uppercase()) + 4.0;
             row.lblNow.set_width(ui, f64::from(w));
@@ -2059,7 +2055,7 @@ fn transcribe_queue(ui: &mut Ui, frame: ComponentId, queue: &[QueueItem]) {
             let id = q.id.clone();
             r.set_draggable(ui, true);
             r.set_accepts_drops(ui, true);
-            r.set_cursor(ui, "move");
+            r.set_cursor(ui, aylis::prelude::CursorShape::Move);
             let name = q.name.clone();
             ui.on(r.id, "on_drag_start", move |ui, _, _| ui.begin_drag(id.clone(), name.clone()));
             ui.on(r.id, "on_drag_drop", move |_, _, args| {
@@ -2492,8 +2488,8 @@ fn load_video(ui: &mut Ui) {
     frm.imgGpu.set_visible(ui, logo.is_some());
     let options = codec_options();
     let labels: Vec<String> = options.iter().map(|(t, _)| t.clone()).collect();
-    frm.cmbCodec.set_groups(ui, codec_groups());
-    frm.cmbCodec.set_disabled_items(ui, codec_disabled(&options));
+    frm.cmbCodec.set_groups(ui, &codec_groups());
+    frm.cmbCodec.set_disabled_items(ui, &codec_disabled(&options));
     fitems(ui, Some(frm.cmbCodec), &labels, ci);
     let dim = match codec.as_str() {
         "h264-hw" => 4096,
@@ -2821,9 +2817,9 @@ fn load_transcribe(ui: &mut Ui) {
     let (status, detail, btn, danger, progress) = asr_texts();
     let kind = with(|s| s.asr.as_ref().map(|a| a.status.clone())).unwrap_or_default();
     let style = match kind.as_str() {
-        "ready" => "s_status_ok",
-        "error" => "s_status_fail",
-        _ => "s_status",
+        "ready" => g::LabelStyle::SStatusOk,
+        "error" => g::LabelStyle::SStatusFail,
+        _ => g::LabelStyle::SStatus,
     };
     if let Some(frm) = FraTranscribe::components(ui) {
         frm.lblTrStatus.set_text(ui, status.as_str());
@@ -2832,7 +2828,7 @@ fn load_transcribe(ui: &mut Ui) {
         frm.prgTrInstall.set_value(ui, (progress.max(0.0) * 100.0) as f64);
         frm.lblTrDetail.set_text(ui, detail.as_str());
         frm.btnTrEngine.set_text(ui, btn.as_str());
-        frm.btnTrEngine.set_style(ui, if danger { "s_danger" } else { "s" });
+        frm.btnTrEngine.set_style(ui, if danger { g::ButtonStyle::SDanger } else { g::ButtonStyle::S });
     }
     fit_button(ui, FraTranscribe::components(ui).map(|frm| frm.btnTrEngine));
     let (_, labels, li) = transcribe_langs();
@@ -2927,7 +2923,7 @@ fn load_updates(ui: &mut Ui) {
     if let Some(frm) = FraUpdates::components(ui) {
         frm.lyUpdateStatus.set_visible(ui, !status.is_empty());
         frm.lblUpdateStatus.set_text(ui, status.as_str());
-        frm.lblUpdateStatus.set_style(ui, if available { "s_ok" } else { "s_hint" });
+        frm.lblUpdateStatus.set_style(ui, if available { g::LabelStyle::SOk } else { g::LabelStyle::SHint });
     }
     fit_label(ui, FraUpdates::components(ui).map(|frm| frm.lblUpdateStatus), 0.0);
     if let Some(frm) = FraUpdates::components(ui) {
@@ -3113,7 +3109,7 @@ mod tests {
         assert!(!hotkeys.lblHotkeysEmpty.visible(ui));
         let rec = cards[0];
         assert!(rec.chkCtrl.checked(ui) && rec.chkShift.checked(ui) && !rec.chkAlt.checked(ui));
-        assert_eq!(rec.pnlCtrl.style(ui), "s_mod_on");
+        assert_eq!(rec.pnlCtrl.style(ui), g::PanelStyle::SModOn);
         assert_eq!(rec.cmbKey.item_index(ui), key_table().iter().filter(|k| !k.2).position(|k| k.0 == "F10").unwrap() as i64 + 1);
         assert!(!rec.lyWindow.visible(ui) && !rec.lyArea.visible(ui) && rec.lyDelay.visible(ui) && !rec.lyStatus.visible(ui));
         // Gravar as telas: as teclas (32) e o atraso (10 + 32), com o respiro de 10 + 10.
@@ -3123,7 +3119,7 @@ mod tests {
         assert_eq!(cards[1].edtWindowTitle.text(ui), "nova guia");
         assert_eq!(height(ui, cards[1].form.id), 94.0 + 42.0 + 27.0);
         assert!(cards[2].lyArea.visible(ui) && cards[2].lyTimelapse.visible(ui) && cards[2].lyStatus.visible(ui) && !cards[2].btnAreaClear.visible(ui));
-        assert_eq!(cards[2].lblStatus.style(ui), "s_err");
+        assert_eq!(cards[2].lblStatus.style(ui), g::LabelStyle::SErr);
         assert!(!cards[3].lyDelay.visible(ui));
         assert_eq!(height(ui, cards[3].form.id), 52.0);
         assert_eq!((top(ui, cards[0].form.id), top(ui, cards[1].form.id)), (12.0, 10.0));
@@ -3137,7 +3133,7 @@ mod tests {
         let items: Vec<_> = ui.children(tr.pnlTrQueue.id).iter().map(|&c| g::FraQueueRow::components_of(ui, c).unwrap()).collect();
         assert_eq!(items.len(), 2);
         assert!(items[0].lblNow.visible(ui) && !items[0].btnRemove.visible(ui) && !items[0].shpLine.visible(ui));
-        assert_eq!((items[0].pnlRow.style(ui), items[0].lblDuration.text(ui)), ("s_q_cur".to_owned(), "1:15".to_owned()));
+        assert_eq!((items[0].pnlRow.style(ui), items[0].lblDuration.text(ui)), (g::PanelStyle::SQCur, "1:15".to_owned()));
         assert!(!items[1].lblNow.visible(ui) && items[1].btnRemove.visible(ui) && items[1].shpLine.visible(ui) && items[1].pnlRow.draggable(ui));
         assert_eq!(items[1].lblDuration.text(ui), "—");
         // O quadro: as linhas de 30 e a borda de 1.
@@ -3172,7 +3168,7 @@ mod tests {
         video_test_box(ui, &frm);
         assert!(frm.lblVtStatus.visible(ui) && !frm.prgVt.visible(ui) && !frm.lyVtResult.visible(ui) && frm.btnVtCancel.visible(ui));
         assert!(!frm.btnVtRun.enabled(ui));
-        assert_eq!(frm.lblVtStatus.style(ui), "s_err");
+        assert_eq!(frm.lblVtStatus.style(ui), g::LabelStyle::SErr);
         // Pronto: o resultado com um `fraVtLevel` por nível (o maior em cima).
         let dir = std::env::temp_dir().join(format!("noobs_vt_{}", std::process::id()));
         let r = video_result(&dir);
@@ -3190,15 +3186,15 @@ mod tests {
         let levels: Vec<_> = ui.children(frm.lyVtLevels.id).iter().map(|&c| g::FraVtLevel::components_of(ui, c).unwrap()).collect();
         assert_eq!(levels.len(), 2);
         assert_eq!(levels[0].lblLevel.text(ui), tw("Nível {{n}}", &[("n", "2")]));
-        assert_eq!((levels[0].pnlLevel.style(ui), levels[1].pnlLevel.style(ui)), ("s_vt_b".to_owned(), "s_vt_a".to_owned()));
-        assert_eq!((levels[1].lblRelative.text(ui), levels[1].pnlBarFill.style(ui)), (lang::tr("atual"), "s_bar_on".to_owned()));
+        assert_eq!((levels[0].pnlLevel.style(ui), levels[1].pnlLevel.style(ui)), (g::PanelStyle::SVtB, g::PanelStyle::SVtA));
+        assert_eq!((levels[1].lblRelative.text(ui), levels[1].pnlBarFill.style(ui)), (lang::tr("atual"), g::PanelStyle::SBarOn));
         // A barra do maior enche a trilha; a do atual, a metade.
         let w = |ui: &Ui, id: ComponentId| ui.control(id).unwrap().width();
         let track = ui.bounds(levels[0].pnlBar.id).unwrap().width;
         assert!(track > 0.0 && (w(ui, levels[0].pnlBarFill.id) - track).abs() < 0.01 && (w(ui, levels[1].pnlBarFill.id) - track / 2.0).abs() < 0.01);
         // O "Usar o nível 1" desligado: já é o atual.
         assert!(!frm.btnVtUse.enabled(ui));
-        assert_eq!(frm.btnVtZoomFit.style(ui), "s_on");
+        assert_eq!(frm.btnVtZoomFit.style(ui), g::ButtonStyle::SOn);
         assert_eq!(frm.lblVtTagA.text(ui), tw("Nível {{n}}", &[("n", "1")]));
         let _ = std::fs::remove_dir_all(&dir);
         // As marcas do FPS mudam de número: um `fraSliderTick` para cada, sem acumular.

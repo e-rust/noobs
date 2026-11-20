@@ -12,6 +12,13 @@ use crate::generated::FrmExport;
 #[derive(Default)]
 pub struct Data {}
 
+/// O ponto do mouse no form. O deslocamento da vista não usa a posição relativa à prévia:
+/// a prévia anda junto com a vista, e o arrasto tremia (a referência mudava a cada passo).
+fn absolute(ui: &Ui, sender: ComponentId, p: PointF) -> (f32, f32) {
+    let r = ui.absolute_rect(sender).unwrap_or_default();
+    (r.x + p.x, r.y + p.y)
+}
+
 /// O índice escolhido num `ComboBox` (o "nenhum" vale o primeiro).
 fn index(i: i64) -> usize {
     i.max(0) as usize
@@ -26,16 +33,20 @@ impl FrmExport {
         crate::app_export::resized(ui);
     }
 
-    /// Apertar na prévia: com zoom, começa a deslocar a vista; sem, toca/pausa.
-    pub fn export_stage_down(&mut self, ui: &mut Ui, _sender: ComponentId, args: &EventArgs) {
+    /// Apertar na prévia ou na moldura do recorte: com zoom, o botão do meio (ou Shift +
+    /// esquerdo) desloca a vista; o esquerdo na prévia sem zoom toca/pausa.
+    pub fn export_stage_down(&mut self, ui: &mut Ui, sender: ComponentId, args: &EventArgs) {
         if let EventArgs::Pointer(e) = args {
-            ex::pan_down(ui, e.position.x, e.position.y);
+            let on_crop = sender == self.crpExCrop.id;
+            let (x, y) = absolute(ui, sender, e.position);
+            ex::pan_down(ui, x, y, e.button, e.modifiers.shift, on_crop);
         }
     }
 
-    pub fn export_stage_move(&mut self, ui: &mut Ui, _sender: ComponentId, args: &EventArgs) {
+    pub fn export_stage_move(&mut self, ui: &mut Ui, sender: ComponentId, args: &EventArgs) {
         if let EventArgs::Pointer(e) = args {
-            ex::pan_move(ui, e.position.x, e.position.y);
+            let (x, y) = absolute(ui, sender, e.position);
+            ex::pan_move(ui, x, y);
         }
     }
 

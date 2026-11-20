@@ -27,6 +27,7 @@ impl FraRecCard {
     /// Monta a instância de um fraRecCard recém-criado (o `register` liga). Um componente que
     /// sumiu do form ou mudou de classe impede o form de abrir, com a lista do que não bate.
     pub fn bind(ui: &mut Ui, root: ComponentId) -> Result<Box<dyn std::any::Any>, String> {
+        #[allow(unused_mut)] // um form sem componentes não acrescenta nada
         let mut problems: Vec<String> = Vec::new();
         let instance = Self {
             form: Form { id: root },
