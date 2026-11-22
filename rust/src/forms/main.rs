@@ -132,5 +132,10 @@ impl FrmMain {
     pub fn main_window_created(&mut self, ui: &mut Ui, _sender: ComponentId, _args: &EventArgs) {
         crate::ui::on_window_created(ui);
     }
+
+    /// Arquivos do Explorer soltos na janela: um vídeo ou print da pasta de gravações abre.
+    pub fn main_files_drop(&mut self, ui: &mut Ui, _sender: crate::generated::Form, value: Vec<String>) {
+        crate::app_library::open_dropped(ui, &value);
+    }
 }
 

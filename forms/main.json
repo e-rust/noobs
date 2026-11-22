@@ -6,6 +6,7 @@
     "caption": "NoOBS",
     "on_window_created": "main_window_created",
     "on_close_query": "close_query",
+    "on_files_drop": "main_files_drop",
     "width": 1600,
     "height": 900,
     "children": [
@@ -222,6 +223,7 @@
               {
                 "class": "Panel",
                 "name": "pnlReplay",
+                "hover_fill": "row_hover",
                 "height": 49,
                 "align": "top",
                 "margins": [-6, 0],

@@ -109,6 +109,12 @@ impl Label {
     pub fn set_text_shadow(self, ui: &mut Ui, value: Option<aylis::prelude::Shadow>) {
         handles::write(ui, self.id, "text_shadow", handles::shadow_value(value))
     }
+    pub fn max_lines(self, ui: &Ui) -> i64 {
+        handles::read(ui, self.id, "max_lines").and_then(|v| v.to_i64().ok()).unwrap_or_default()
+    }
+    pub fn set_max_lines(self, ui: &mut Ui, value: i64) {
+        handles::write(ui, self.id, "max_lines", value)
+    }
     pub fn focus_control(self, ui: &Ui) -> Option<ComponentId> {
         handles::read_ref(ui, self.id, "focus_control")
     }

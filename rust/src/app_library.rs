@@ -922,6 +922,29 @@ fn card_clicked(ui: &mut Ui, id: &str) {
     crate::app_player::open(ui, id);
 }
 
+/// Arquivos soltos na janela (`on_files_drop`): abre o primeiro que é uma gravação ou um print
+/// da pasta de gravações, como o clique no card. De fora da pasta, ou de outro tipo, só avisa:
+/// o player e o visualizador só abrem os da biblioteca.
+pub fn open_dropped(ui: &mut Ui, paths: &[String]) {
+    let list: Vec<&str> = paths.iter().map(|p| p.trim()).filter(|p| !p.is_empty()).collect();
+    let openable = |p: &&str| (is_print(p) || crate::bridge::is_recording_ext(p)) && crate::bridge::is_path_in_record_dir(p);
+    match list.iter().copied().find(openable) {
+        Some(path) => {
+            crate::log::log(&format!("Biblioteca: arquivo solto na janela: {path} ({} no total).", list.len()));
+            if is_print(path) {
+                crate::app_viewer::open(ui, path);
+            } else {
+                crate::app_player::open(ui, path);
+            }
+        }
+        None if !list.is_empty() => {
+            crate::log::log(&format!("Biblioteca: {} arquivo(s) solto(s) fora da pasta de gravações ou de outro tipo.", list.len()));
+            crate::app_view::show_toast(&lang::tr("Arquivo não aberto"), &lang::tr("Solte um vídeo ou um print da pasta de gravações."), true, 0);
+        }
+        None => {}
+    }
+}
+
 /// Os prints da lista como ela está na tela (a busca e a ordem, do mais novo ao mais
 /// antigo): o ← e o → do visualizador andam por eles.
 pub fn print_ids() -> Vec<String> {

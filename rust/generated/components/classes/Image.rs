@@ -547,4 +547,15 @@ impl Image {
     pub fn set_on_drag_end(self, ui: &mut Ui, value: impl Into<String>) {
         handles::write(ui, self.id, "on_drag_end", Into::<String>::into(value))
     }
+    pub fn set_image_file(self, ui: &mut Ui, path: &str) -> Result<(), String> {
+        handles::try_call(ui, self.id, "set_image_file", &[PropValue::String(path.to_string())]).map(|_| ())
+    }
+    /// Mostra uma imagem de bytes (PNG, JPEG...: a capa de uma música); vazio volta ao `image`.
+    pub fn set_image_bytes(self, ui: &mut Ui, bytes: &[u8]) {
+        aylis::prelude::ImageView::set_image_bytes(ui, self.id, bytes.to_vec());
+    }
+    pub fn dominant_color(self, ui: &mut Ui) -> Result<aylis::prelude::Color, String> {
+        let v = handles::try_call(ui, self.id, "dominant_color", &[])?;
+        Ok(v.to_color().unwrap_or_default())
+    }
 }

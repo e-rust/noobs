@@ -367,6 +367,18 @@ impl Form {
     pub fn set_on_undock(self, ui: &mut Ui, value: impl Into<String>) {
         handles::write(ui, self.id, "on_undock", Into::<String>::into(value))
     }
+    pub fn on_files_drop(self, ui: &Ui) -> String {
+        handles::text(ui, handles::read(ui, self.id, "on_files_drop"))
+    }
+    pub fn set_on_files_drop(self, ui: &mut Ui, value: impl Into<String>) {
+        handles::write(ui, self.id, "on_files_drop", Into::<String>::into(value))
+    }
+    pub fn on_view_change(self, ui: &Ui) -> String {
+        handles::text(ui, handles::read(ui, self.id, "on_view_change"))
+    }
+    pub fn set_on_view_change(self, ui: &mut Ui, value: impl Into<String>) {
+        handles::write(ui, self.id, "on_view_change", Into::<String>::into(value))
+    }
     pub fn client_width(self, ui: &Ui) -> f64 {
         handles::read(ui, self.id, "client_width").and_then(|v| v.to_f64().ok()).unwrap_or_default()
     }
@@ -896,6 +908,14 @@ impl Form {
     pub fn gpu_adapters(self, ui: &mut Ui) -> Result<Vec<String>, String> {
         let v = handles::try_call(ui, self.id, "gpu_adapters", &[])?;
         Ok(v.to_str().unwrap_or_default().split(';').map(str::trim).filter(|s| !s.is_empty()).map(str::to_string).collect())
+    }
+    pub fn drop_x(self, ui: &mut Ui) -> Result<f64, String> {
+        let v = handles::try_call(ui, self.id, "drop_x", &[])?;
+        Ok(v.to_f64().unwrap_or_default())
+    }
+    pub fn drop_y(self, ui: &mut Ui) -> Result<f64, String> {
+        let v = handles::try_call(ui, self.id, "drop_y", &[])?;
+        Ok(v.to_f64().unwrap_or_default())
     }
     pub fn render_rgba(self, ui: &mut Ui, x: f64, y: f64, width: f64, height: f64, scale: f64) -> Result<String, String> {
         let v = handles::try_call(ui, self.id, "render_rgba", &[x.into(), y.into(), width.into(), height.into(), scale.into()])?;

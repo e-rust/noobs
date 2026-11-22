@@ -142,6 +142,7 @@ pub fn register(ui: &mut Ui) {
     ui.register_form_class("frmMain", FrmMain::bind);
     ui.register_handler("frmMain.main_window_created", aylis::prelude::instances::form_handler(FrmMain::main_window_created));
     ui.register_handler("frmMain.close_query", aylis::prelude::instances::form_handler(FrmMain::close_query));
+    ui.register_handler("frmMain.main_files_drop", aylis::prelude::instances::form_handler(FrmMain::main_files_drop));
     ui.register_handler("frmMain.update_close", aylis::prelude::instances::form_handler(FrmMain::update_close));
     ui.register_handler("frmMain.update_open", aylis::prelude::instances::form_handler(FrmMain::update_open));
     ui.register_handler("frmMain.settings_click", aylis::prelude::instances::form_handler(FrmMain::settings_click));

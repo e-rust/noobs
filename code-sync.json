@@ -121,6 +121,7 @@
     "frmMain.library_search": 2,
     "frmMain.library_trash_drop": 1,
     "frmMain.main_countdown_frame": 1,
+    "frmMain.main_files_drop": 1,
     "frmMain.main_ripple_frame": 1,
     "frmMain.main_window_created": 1,
     "frmMain.pause_click": 1,
@@ -300,6 +301,7 @@
         "frmMain/btnUpdOpen.on_click": "update_open",
         "frmMain/edLibSearch.on_change": "library_search",
         "frmMain/frmMain.on_close_query": "close_query",
+        "frmMain/frmMain.on_files_drop": "main_files_drop",
         "frmMain/frmMain.on_window_created": "main_window_created",
         "frmMain/lyLibContent.on_pointer_up": "library_background",
         "frmMain/lyLibrary.on_pointer_up": "library_background",
@@ -844,6 +846,10 @@
         },
         "frmMain.main_countdown_frame": {
           "hash": "v2:098afbe8995fec3c",
+          "seen": 1
+        },
+        "frmMain.main_files_drop": {
+          "hash": "v2:5a75a211d51a176f",
           "seen": 1
         },
         "frmMain.main_ripple_frame": {

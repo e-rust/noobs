@@ -55,6 +55,30 @@ impl Panel {
     pub fn set_gap(self, ui: &mut Ui, value: f64) {
         handles::write(ui, self.id, "gap", value)
     }
+    pub fn hover_fill(self, ui: &Ui) -> aylis::prelude::Color {
+        handles::read(ui, self.id, "hover_fill").and_then(|v| v.to_color().ok()).unwrap_or_default()
+    }
+    pub fn set_hover_fill(self, ui: &mut Ui, value: impl Into<handles::ColorRef>) {
+        handles::write(ui, self.id, "hover_fill", Into::<handles::ColorRef>::into(value))
+    }
+    pub fn pressed_fill(self, ui: &Ui) -> aylis::prelude::Color {
+        handles::read(ui, self.id, "pressed_fill").and_then(|v| v.to_color().ok()).unwrap_or_default()
+    }
+    pub fn set_pressed_fill(self, ui: &mut Ui, value: impl Into<handles::ColorRef>) {
+        handles::write(ui, self.id, "pressed_fill", Into::<handles::ColorRef>::into(value))
+    }
+    pub fn interactive(self, ui: &Ui) -> bool {
+        handles::read(ui, self.id, "interactive").and_then(|v| v.to_bool().ok()).unwrap_or_default()
+    }
+    pub fn set_interactive(self, ui: &mut Ui, value: bool) {
+        handles::write(ui, self.id, "interactive", value)
+    }
+    pub fn selected_fill(self, ui: &Ui) -> aylis::prelude::Color {
+        handles::read(ui, self.id, "selected_fill").and_then(|v| v.to_color().ok()).unwrap_or_default()
+    }
+    pub fn set_selected_fill(self, ui: &mut Ui, value: impl Into<handles::ColorRef>) {
+        handles::write(ui, self.id, "selected_fill", Into::<handles::ColorRef>::into(value))
+    }
     pub fn fill(self, ui: &Ui) -> aylis::prelude::Color {
         handles::read(ui, self.id, "fill").and_then(|v| v.to_color().ok()).unwrap_or_default()
     }
