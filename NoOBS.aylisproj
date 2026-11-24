@@ -412,7 +412,7 @@
   "locale": "pt-BR",
   "publish": {
     "app_name": "NoOBS",
-    "version": "0.0.15-beta",
+    "version": "0.0.16-beta",
     "icon": "assets/images/icon.png",
     "publisher": "e-rust",
     "windows": {
