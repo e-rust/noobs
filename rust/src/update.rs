@@ -99,10 +99,10 @@ fn fetch_latest() -> UpdateResult {
         return r;
     }
     r.ok = true;
-    // O canal de quem está nesta versão (veja `version::pick_update`). Build de
-    // desenvolvimento nunca é avisado.
+    // O canal de quem está nesta versão (veja `version::pick_update`). Toda versão que se
+    // entende é avisada, também com o sufixo do describe; só `dev` e o hash solto não.
     let published: Vec<version::Published> = releases.iter().map(|(p, _)| p.clone()).collect();
-    let picked = if version::is_dev_build() { None } else { version::pick_update(version::APP_VERSION, &published) };
+    let picked = if version::has_version() { version::pick_update(version::APP_VERSION, &published) } else { None };
     match picked.and_then(|p| releases.iter().find(|(q, _)| q.tag == p.tag)) {
         Some((p, url)) => {
             r.latest_tag = p.tag.clone();

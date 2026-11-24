@@ -1,20 +1,28 @@
 //! Versão do app e comparação semântica.
 //!
-//! A versão vem do `git describe --tags --always --dirty`, lido pelo
-//! `build.rs`:
-//! * `v0.15.0-beta` — release: exatamente na tag, limpo;
+//! A versão vem do `build.rs`: na release, a que o `scripts\release.bat` publica
+//! (`NOOBS_RELEASE_VERSION`, sempre `vX.Y.Z[-sufixo]`); fora dela, o
+//! `git describe --tags --always --dirty`:
+//! * `v0.15.0-beta` — exatamente na tag, limpo;
 //! * `v0.15.0-beta-1-gd7e4f73` — commits depois da tag;
 //! * `...-dirty` — alterações não commitadas;
-//! * `d7e4f73` — repositório sem tags: não é versão.
+//! * `d7e4f73` ou `dev` — sem tag ou sem git: não é versão.
 //!
-//! Os três últimos são build de desenvolvimento: a checagem de atualização
-//! NÃO roda neles (estão à frente da tag por definição; avisaria sempre).
+//! A checagem de atualização compara só `X.Y.Z[-sufixo]` e roda em toda versão que se
+//! entende, com ou sem o sufixo do describe: um instalador que saiu com `-dirty` (as
+//! 0.0.14 a 0.0.16-beta saíram assim) ainda recebe a próxima. Só `dev` e o hash solto
+//! ficam sem checagem.
 
 /// Versão crua do `git describe`; `dev` sem git.
 pub const APP_VERSION: &str = match option_env!("NOOBS_APP_VERSION") {
     Some(v) => v,
     None => "dev",
 };
+
+/// A versão dentro do executável, entre marcas: o `scripts\release.bat` confere no
+/// `NoOBS.exe` publicado que ela é exatamente a da release (`NOOBS-VERSION=v0.0.17-beta;`).
+#[used]
+static VERSION_MARK: &str = concat!("NOOBS-VERSION=", env!("NOOBS_APP_VERSION"), ";");
 
 #[derive(Debug, Default, PartialEq, Eq)]
 struct SemVer {
@@ -74,9 +82,15 @@ fn parse_semver(s: &str) -> Option<SemVer> {
     })
 }
 
-/// O build NÃO está exatamente numa tag limpa (ou não há versão).
+/// O build NÃO está exatamente numa tag limpa (ou não há versão). Só para mostrar: a
+/// checagem de atualização usa o [`has_version`].
 pub fn is_dev_build() -> bool {
     parse_semver(APP_VERSION).is_none() || has_describe_suffix(APP_VERSION)
+}
+
+/// A versão se entende (`X.Y.Z`, com ou sem sufixo): a checagem de atualização roda.
+pub fn has_version() -> bool {
+    parse_semver(APP_VERSION).is_some()
 }
 
 /// Para a UI: sem o `v`; build de dev mantém o sufixo de propósito.
@@ -131,10 +145,15 @@ pub fn pick_update<'a>(current: &str, published: &'a [Published]) -> Option<&'a 
 /// `remote` é mais novo que a versão atual? Qualquer dúvida = `false`:
 /// avisar à toa destrói a confiança no aviso.
 pub fn is_remote_newer(remote: &str) -> bool {
-    if remote.trim().is_empty() || is_dev_build() || parse_semver(remote).is_none() {
+    is_newer(APP_VERSION, remote)
+}
+
+/// `remote` é mais novo que `current`? O sufixo do describe de `current` não conta.
+fn is_newer(current: &str, remote: &str) -> bool {
+    if remote.trim().is_empty() || parse_semver(current).is_none() || parse_semver(remote).is_none() {
         return false;
     }
-    compare_versions(APP_VERSION, remote) < 0
+    compare_versions(current, remote) < 0
 }
 
 #[cfg(test)]
@@ -177,6 +196,21 @@ mod tests {
         // Marcada como release no GitHub, mas com sufixo de pré-lançamento: não é release.
         assert_eq!(picked("v0.0.1", &[("v0.0.2-beta", false)]), None);
         assert_eq!(picked("v0.0.2", &[("v0.0.1", false)]), None, "mais velha não é atualização");
+    }
+
+    /// Uma versão com o sufixo do describe (o instalador da 0.0.14-beta saiu como
+    /// `0.0.14-beta-1-g3e0a07a-dirty`) recebe as atualizações como a versão limpa.
+    #[test]
+    fn a_version_with_the_describe_suffix_still_gets_updates() {
+        for current in ["v0.0.14-beta-1-g3e0a07a-dirty", "v0.0.14-beta-dirty", "v0.0.14-beta-3-gabc1234"] {
+            assert!(parse_semver(current).is_some(), "{current}");
+            assert!(is_newer(current, "v0.0.16-beta"), "{current}");
+            assert!(!is_newer(current, "v0.0.14-beta"), "a mesma não é novidade: {current}");
+            assert_eq!(picked(current, &[("v0.0.15-beta", true), ("v0.0.16-beta", true)]).as_deref(), Some("v0.0.16-beta"), "{current}");
+        }
+        // Sem versão de verdade: nada.
+        assert!(!is_newer("dev", "v0.0.16-beta"));
+        assert!(!is_newer("d7e4f73", "v0.0.16-beta"));
     }
 
     #[test]

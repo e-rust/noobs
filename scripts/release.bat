@@ -24,6 +24,11 @@ for %%a in (%3 %4) do (
 if "%VERSAO%"=="" goto :uso
 if "%~2"=="" goto :uso
 
+rem O aylis-tool fica na pasta de compilação do Aylis: a do rust\.cargo\config.toml (o Aylis
+rem grava o target-dir lá) ou, sem ela, a padrão em %USERPROFILE%\.aylis\target.
+if not defined AYLIS_TOOL (
+    for /f "usebackq delims=" %%d in (`powershell -NoProfile -Command "$c='rust\.cargo\config.toml'; if (Test-Path $c) { $m=[regex]::Match((Get-Content -Raw $c), 'target-dir\s*=\s*[\x27\x22]([^\x27\x22]+)'); if ($m.Success) { $m.Groups[1].Value } }"`) do set "AYLIS_TOOL=%%d\debug\aylis-tool.exe"
+)
 if not defined AYLIS_TOOL set "AYLIS_TOOL=%USERPROFILE%\.aylis\target\debug\aylis-tool.exe"
 set "TAG=v%VERSAO%"
 set "INSTALADOR=dist\windows\NoOBS-%VERSAO%-setup.exe"
@@ -92,6 +97,10 @@ if "%SIMULAR%"=="1" (
     exit /b 0
 )
 
+rem A versão gravada no executável (o build.rs lê): o instalador é compilado antes do commit e
+rem da tag, e pelo git describe sairia a tag anterior com -dirty, que não checava atualização.
+set "NOOBS_RELEASE_VERSION=%VERSAO%"
+
 echo -- 1. Versão no NoOBS.aylisproj
 powershell -NoProfile -Command "$p='NoOBS.aylisproj'; $s=[IO.File]::ReadAllText($p); $r=[regex]'(\x22publish\x22\s*:\s*\{[^{}]*?\x22version\x22\s*:\s*\x22)[^\x22]*'; if (-not $r.IsMatch($s)) { exit 1 }; $s=$r.Replace($s, '${1}'+$env:VERSAO, 1); [IO.File]::WriteAllText($p, $s, (New-Object Text.UTF8Encoding $false))"
 if errorlevel 1 (set "ERRO=Não achei publish.version no NoOBS.aylisproj." & goto :erro_antes_do_commit)
@@ -110,6 +119,11 @@ if "%TESTES%"=="1" (
 echo -- 3. Instalador
 "%AYLIS_TOOL%" publish NoOBS.aylisproj --installer || (set "ERRO=A publicação falhou." & goto :erro_antes_do_commit)
 if not exist "%INSTALADOR%" (set "ERRO=A publicação terminou, mas %INSTALADOR% não existe." & goto :erro_antes_do_commit)
+
+rem O NoOBS.exe publicado tem exatamente esta versão (a marca NOOBS-VERSION=vVERSAO; do
+rem version.rs): com outra, ou com o sufixo do git describe, ele não acharia as atualizações.
+powershell -NoProfile -Command "$b=[IO.File]::ReadAllBytes('dist\windows\NoOBS.exe'); $s=[Text.Encoding]::ASCII.GetString($b); $m=[regex]::Match($s,'NOOBS-VERSION=([^;\x00]{1,80});'); if (-not $m.Success) { Write-Host '   o NoOBS.exe nao tem a marca da versao'; exit 1 }; Write-Host ('   versao no NoOBS.exe: '+$m.Groups[1].Value); if ($m.Groups[1].Value -ne ('v'+$env:VERSAO)) { exit 1 }"
+if errorlevel 1 (set "ERRO=O NoOBS.exe publicado não tem a versão v%VERSAO%: ele não receberia atualizações." & goto :erro_antes_do_commit)
 
 rem As notas da release: as que você escreveu, mais a instalação com o SHA-256 do instalador.
 powershell -NoProfile -Command "$h=(Get-FileHash -Algorithm SHA256 -LiteralPath $env:INSTALADOR).Hash; $n=(Get-Content -Raw -LiteralPath $env:NOTAS -Encoding UTF8).TrimEnd(); $nl=[Environment]::NewLine; $f=$n+$nl+$nl+'## Instalação'+$nl+'Baixe `NoOBS-'+$env:VERSAO+'-setup.exe` abaixo e execute. Ele instala para o seu usuário, sem pedir administrador, em `%%LOCALAPPDATA%%\NoOBS`.'+$nl+$nl+'Requer Windows 10 ou 11 (64 bits).'+$nl+$nl+'SHA-256 do instalador: `'+$h+'`'+$nl+$nl+'## Atualizações'+$nl+'Quem tem uma versão beta anterior recebe esta pela checagem diária (Configurações → Atualizações).'+$nl; [IO.File]::WriteAllText($env:NOTAS_FINAIS, $f, (New-Object Text.UTF8Encoding $false)); [IO.File]::WriteAllText($env:MSG, 'NoOBS v'+$env:VERSAO+': '+$env:TITULO+$nl, (New-Object Text.UTF8Encoding $false)); Write-Host ('   SHA-256: '+$h)"

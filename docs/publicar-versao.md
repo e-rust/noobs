@@ -22,12 +22,14 @@ o commit e a tag, envia para o GitHub e cria a release. Você só escreve as not
 | Git | commit, tag e envio | `git --version` |
 | GitHub CLI (`gh`), conectado à conta | criar a release e enviar sem pedir senha | `gh auth status` |
 | Rust (`cargo`) | rodar os testes | `cargo --version` |
-| Aylis (o `aylis-tool`) | gerar o código dos forms e o instalador | o arquivo `%USERPROFILE%\.aylis\target\debug\aylis-tool.exe` |
+| Aylis (o `aylis-tool`) | gerar o código dos forms e o instalador | o `debug\aylis-tool.exe` da pasta de compilação do Aylis |
 
 Se o `gh` não estiver conectado, rode `gh auth login` uma vez.
 
-Se o `aylis-tool` estiver em outro lugar, defina a variável `AYLIS_TOOL` antes de rodar o
-script:
+O script acha o `aylis-tool` na pasta de compilação do Aylis: a do `target-dir` em
+`rust\.cargo\config.toml` (o Aylis grava esse arquivo) ou, sem ele,
+`%USERPROFILE%\.aylis\target`. Se ele estiver em outro lugar, defina a variável `AYLIS_TOOL`
+antes de rodar o script:
 
 ```bat
 set AYLIS_TOOL=D:\aylis\aylis-tool.exe
@@ -120,7 +122,8 @@ O script leva alguns minutos e faz, em ordem:
 
 1. troca a versão no `NoOBS.aylisproj`;
 2. gera o código dos forms e roda os testes (`cargo test`);
-3. gera o instalador em `dist\windows\NoOBS-0.0.14-beta-setup.exe`;
+3. gera o instalador em `dist\windows\NoOBS-0.0.14-beta-setup.exe` e confere que o
+   `NoOBS.exe` tem exatamente a versão `v0.0.14-beta` (veja "A versão dentro do NoOBS");
 4. faz o commit (do `NoOBS.aylisproj` e do cache em `rust\generated`), cria a tag
    `v0.0.14-beta` e envia os dois para o GitHub;
 5. cria a release no GitHub com o instalador e as notas.
@@ -137,6 +140,19 @@ scripts\release.bat 0.0.14-beta C:\temp\notas.md /sem-testes
 
 - Abra o link da release: o instalador tem que estar anexado e as notas, com o SHA-256.
 - Se quiser, instale por cima de uma versão anterior para conferir a atualização.
+
+## A versão dentro do NoOBS
+
+O NoOBS mostra a versão nas Configurações e a usa para achar as atualizações. Na release, o
+script passa a versão para a compilação (`NOOBS_RELEASE_VERSION`), e o `NoOBS.exe` sai com
+`v0.0.14-beta`. Fora da release (Executar na IDE, `cargo build`), a versão vem do
+`git describe`: `0.0.14-beta-1-g3e0a07a-dirty` quer dizer 1 commit depois da tag, com
+mudanças sem commit.
+
+As 0.0.14-beta a 0.0.16-beta saíram com a versão do `git describe` (o instalador é compilado
+antes do commit e da tag) e não checavam atualização. Agora a checagem compara só o
+`X.Y.Z-sufixo` e ignora o resto do `git describe`, e o script recusa publicar um `NoOBS.exe`
+com outra versão.
 
 ## Quando dá errado
 

@@ -389,10 +389,11 @@ pub fn handle_set_check_updates(enable: bool) {
 
 /// No startup e a cada minuto: uma checagem por dia, ANCORADA às 6 h locais
 /// (release raramente sai no meio do dia; com janela deslizante o horário
-/// escorregava pra quando o app abriu). Nunca em build de desenvolvimento.
+/// escorregava pra quando o app abriu). Só sem versão (`dev`, o hash solto) não checa: a
+/// versão com o sufixo do describe checa como a limpa.
 pub fn maybe_auto_check_updates() {
     use chrono::{Duration, Local, TimeZone};
-    if !config::get_config_bool("checkUpdates", true) || update::is_checking() || version::is_dev_build() {
+    if !config::get_config_bool("checkUpdates", true) || update::is_checking() || !version::has_version() {
         return;
     }
     let last = config::get_config_int("lastUpdateCheck", 0) as i64;
