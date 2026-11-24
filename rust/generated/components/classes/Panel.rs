@@ -127,6 +127,12 @@ impl Panel {
     pub fn set_stroke_width(self, ui: &mut Ui, value: f64) {
         handles::write(ui, self.id, "stroke_width", value)
     }
+    pub fn stroke_dash(self, ui: &Ui) -> Vec<f64> {
+        handles::read_numbers(ui, self.id, "stroke_dash")
+    }
+    pub fn set_stroke_dash(self, ui: &mut Ui, value: &[f64]) {
+        handles::write(ui, self.id, "stroke_dash", handles::numbers_value(value))
+    }
     pub fn radius(self, ui: &Ui) -> aylis::prelude::Bounds {
         handles::read(ui, self.id, "radius").and_then(|v| v.to_bounds().ok()).unwrap_or_default()
     }
@@ -463,10 +469,10 @@ impl Panel {
     pub fn set_font_size(self, ui: &mut Ui, value: f64) {
         handles::write(ui, self.id, "font_size", value)
     }
-    pub fn font_weight(self, ui: &Ui) -> FontWeight {
-        handles::read_enum::<FontWeight>(ui, self.id, "font_weight")
+    pub fn font_weight(self, ui: &Ui) -> Option<aylis::prelude::FontWeight> {
+        handles::read_enum::<Option<aylis::prelude::FontWeight>>(ui, self.id, "font_weight")
     }
-    pub fn set_font_weight(self, ui: &mut Ui, value: FontWeight) {
+    pub fn set_font_weight(self, ui: &mut Ui, value: Option<aylis::prelude::FontWeight>) {
         handles::write(ui, self.id, "font_weight", PropValue::enum_value(value))
     }
     pub fn font_italic(self, ui: &Ui) -> bool {

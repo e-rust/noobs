@@ -379,6 +379,12 @@ impl Form {
     pub fn set_on_view_change(self, ui: &mut Ui, value: impl Into<String>) {
         handles::write(ui, self.id, "on_view_change", Into::<String>::into(value))
     }
+    pub fn on_topmost_lost(self, ui: &Ui) -> String {
+        handles::text(ui, handles::read(ui, self.id, "on_topmost_lost"))
+    }
+    pub fn set_on_topmost_lost(self, ui: &mut Ui, value: impl Into<String>) {
+        handles::write(ui, self.id, "on_topmost_lost", Into::<String>::into(value))
+    }
     pub fn client_width(self, ui: &Ui) -> f64 {
         handles::read(ui, self.id, "client_width").and_then(|v| v.to_f64().ok()).unwrap_or_default()
     }
@@ -727,10 +733,10 @@ impl Form {
     pub fn set_font_size(self, ui: &mut Ui, value: f64) {
         handles::write(ui, self.id, "font_size", value)
     }
-    pub fn font_weight(self, ui: &Ui) -> FontWeight {
-        handles::read_enum::<FontWeight>(ui, self.id, "font_weight")
+    pub fn font_weight(self, ui: &Ui) -> Option<aylis::prelude::FontWeight> {
+        handles::read_enum::<Option<aylis::prelude::FontWeight>>(ui, self.id, "font_weight")
     }
-    pub fn set_font_weight(self, ui: &mut Ui, value: FontWeight) {
+    pub fn set_font_weight(self, ui: &mut Ui, value: Option<aylis::prelude::FontWeight>) {
         handles::write(ui, self.id, "font_weight", PropValue::enum_value(value))
     }
     pub fn font_italic(self, ui: &Ui) -> bool {
@@ -900,6 +906,9 @@ impl Form {
     }
     pub fn request_attention(self, ui: &mut Ui, critical: bool) -> Result<(), String> {
         handles::try_call(ui, self.id, "request_attention", &[critical.into()]).map(|_| ())
+    }
+    pub fn place(self, ui: &mut Ui, monitor: i64, x: i64, y: i64, width: i64, height: i64, activate: bool) -> Result<(), String> {
+        handles::try_call(ui, self.id, "place", &[monitor.into(), x.into(), y.into(), width.into(), height.into(), activate.into()]).map(|_| ())
     }
     pub fn gpu_adapter(self, ui: &mut Ui) -> Result<String, String> {
         let v = handles::try_call(ui, self.id, "gpu_adapter", &[])?;

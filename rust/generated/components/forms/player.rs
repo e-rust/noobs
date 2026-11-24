@@ -329,7 +329,8 @@ impl FrmPlayer {
     }
 
     /// Os componentes do frmPlayer aberto (o primeiro, se houver dois), sem o estado: valem
-    /// também enquanto um handler dele roda, quando o `get` dá `None`.
+    /// também enquanto um handler dele roda, quando o `get` dá `None`. É o caminho no
+    /// código que um handler do próprio frmPlayer chama (no handler mesmo, o `self`).
     pub fn components(ui: &Ui) -> Option<FrmPlayerComponents> {
         ui.form_components(ui.find_path("frmPlayer")?)
     }
@@ -364,6 +365,10 @@ impl FrmPlayer {
     }
 
     /// O frmPlayer aberto (o primeiro, se houver dois), para outro form ler ou mexer nele.
+    ///
+    /// Dentro de um handler do próprio frmPlayer, dá `None`: a instância está emprestada ao
+    /// handler que roda. Ali, use o `self` do handler ou, no código chamado por ele,
+    /// [`components`](Self::components) (em debug, o `None` por empréstimo avisa no stderr).
     pub fn get(ui: &Ui) -> Option<&FrmPlayer> {
         ui.form_instance(ui.find_path("frmPlayer")?)
     }

@@ -79,6 +79,18 @@ impl ComboBox {
     pub fn set_drop_down_count(self, ui: &mut Ui, value: i64) {
         handles::write(ui, self.id, "drop_down_count", value)
     }
+    pub fn label(self, ui: &Ui) -> String {
+        handles::text(ui, handles::read(ui, self.id, "label"))
+    }
+    pub fn set_label(self, ui: &mut Ui, value: impl Into<String>) {
+        handles::write(ui, self.id, "label", Into::<String>::into(value))
+    }
+    pub fn clear_button(self, ui: &Ui) -> bool {
+        handles::read(ui, self.id, "clear_button").and_then(|v| v.to_bool().ok()).unwrap_or_default()
+    }
+    pub fn set_clear_button(self, ui: &mut Ui, value: bool) {
+        handles::write(ui, self.id, "clear_button", value)
+    }
     pub fn on_change(self, ui: &Ui) -> String {
         handles::text(ui, handles::read(ui, self.id, "on_change"))
     }
@@ -427,10 +439,10 @@ impl ComboBox {
     pub fn set_font_size(self, ui: &mut Ui, value: f64) {
         handles::write(ui, self.id, "font_size", value)
     }
-    pub fn font_weight(self, ui: &Ui) -> FontWeight {
-        handles::read_enum::<FontWeight>(ui, self.id, "font_weight")
+    pub fn font_weight(self, ui: &Ui) -> Option<aylis::prelude::FontWeight> {
+        handles::read_enum::<Option<aylis::prelude::FontWeight>>(ui, self.id, "font_weight")
     }
-    pub fn set_font_weight(self, ui: &mut Ui, value: FontWeight) {
+    pub fn set_font_weight(self, ui: &mut Ui, value: Option<aylis::prelude::FontWeight>) {
         handles::write(ui, self.id, "font_weight", PropValue::enum_value(value))
     }
     pub fn font_italic(self, ui: &Ui) -> bool {

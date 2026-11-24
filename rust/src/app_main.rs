@@ -641,7 +641,7 @@ fn render_recording(ui: &mut Ui) {
     if let Some(frm) = FrmMain::components(ui) {
         frm.dotStatus.set_fill(ui, aylis::prelude::handles::ColorRef::token(dot));
         frm.lblStatus.set_color(ui, aylis::prelude::handles::ColorRef::token(status_color));
-        frm.lblStatus.set_font_weight(ui, if active { crate::generated::FontWeight::Semibold } else { crate::generated::FontWeight::Default });
+        frm.lblStatus.set_font_weight(ui, active.then_some(aylis::prelude::FontWeight::SemiBold));
         frm.lblTimer.set_color(ui, aylis::prelude::handles::ColorRef::token(if active && paused { "amber" } else { "" }));
         frm.lblRecordAction.set_text(ui, lang::tr(if active { "Parar gravação" } else { "Iniciar gravação" }));
         frm.pnlRecordCard.set_border_color(ui, aylis::prelude::handles::ColorRef::token(if active { "red" } else { "" }));

@@ -367,10 +367,10 @@ impl TabItem {
     pub fn set_font_size(self, ui: &mut Ui, value: f64) {
         handles::write(ui, self.id, "font_size", value)
     }
-    pub fn font_weight(self, ui: &Ui) -> FontWeight {
-        handles::read_enum::<FontWeight>(ui, self.id, "font_weight")
+    pub fn font_weight(self, ui: &Ui) -> Option<aylis::prelude::FontWeight> {
+        handles::read_enum::<Option<aylis::prelude::FontWeight>>(ui, self.id, "font_weight")
     }
-    pub fn set_font_weight(self, ui: &mut Ui, value: FontWeight) {
+    pub fn set_font_weight(self, ui: &mut Ui, value: Option<aylis::prelude::FontWeight>) {
         handles::write(ui, self.id, "font_weight", PropValue::enum_value(value))
     }
     pub fn font_italic(self, ui: &Ui) -> bool {

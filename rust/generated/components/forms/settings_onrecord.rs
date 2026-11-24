@@ -209,7 +209,8 @@ impl FraOnRecord {
     }
 
     /// Os componentes do fraOnRecord aberto (o primeiro, se houver dois), sem o estado: valem
-    /// também enquanto um handler dele roda, quando o `get` dá `None`.
+    /// também enquanto um handler dele roda, quando o `get` dá `None`. É o caminho no
+    /// código que um handler do próprio fraOnRecord chama (no handler mesmo, o `self`).
     pub fn components(ui: &Ui) -> Option<FraOnRecordComponents> {
         ui.form_components(ui.find_path("fraOnRecord")?)
     }
@@ -244,6 +245,10 @@ impl FraOnRecord {
     }
 
     /// O fraOnRecord aberto (o primeiro, se houver dois), para outro form ler ou mexer nele.
+    ///
+    /// Dentro de um handler do próprio fraOnRecord, dá `None`: a instância está emprestada ao
+    /// handler que roda. Ali, use o `self` do handler ou, no código chamado por ele,
+    /// [`components`](Self::components) (em debug, o `None` por empréstimo avisa no stderr).
     pub fn get(ui: &Ui) -> Option<&FraOnRecord> {
         ui.form_instance(ui.find_path("fraOnRecord")?)
     }

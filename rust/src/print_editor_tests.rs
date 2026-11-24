@@ -93,7 +93,7 @@ impl Ed {
     }
 
     fn ctrl(&mut self, c: char) {
-        self.h.press_with(KeyEvent { key: Key::Char(c), modifiers: Modifiers { ctrl: true, ..Default::default() }, repeat: false });
+        self.h.press_with(KeyEvent { key: Key::Char(c), modifiers: Modifiers { ctrl: true, ..Default::default() }, ..Default::default() });
     }
 
     /// Clica no botão `b` da barra (as cores e a faixa de matizes: abre o seletor antes).

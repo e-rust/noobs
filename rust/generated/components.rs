@@ -194,13 +194,14 @@ impl aylis::prelude::PropEnum for CircleStyle {
 pub enum ComboBoxStyle {
     #[default]
     Default,
+    Outlined,
     Ex,
 }
 
 impl aylis::prelude::PropEnum for ComboBoxStyle {
-    const NAMES: &'static [&'static str] = &["", "ex"];
+    const NAMES: &'static [&'static str] = &["", "outlined", "ex"];
     fn from_index(index: usize) -> Option<Self> {
-        [Self::Default, Self::Ex].get(index).copied()
+        [Self::Default, Self::Outlined, Self::Ex].get(index).copied()
     }
     fn index(self) -> usize {
         self as usize
@@ -259,30 +260,6 @@ impl aylis::prelude::PropEnum for FlowLayoutStyle {
     const NAMES: &'static [&'static str] = &[""];
     fn from_index(index: usize) -> Option<Self> {
         [Self::Default].get(index).copied()
-    }
-    fn index(self) -> usize {
-        self as usize
-    }
-}
-
-/// Os valores de um enum do acesso tipado.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub enum FontWeight {
-    #[default]
-    Default,
-    Thin,
-    Light,
-    Normal,
-    Medium,
-    Semibold,
-    Bold,
-    Black,
-}
-
-impl aylis::prelude::PropEnum for FontWeight {
-    const NAMES: &'static [&'static str] = &["default", "thin", "light", "normal", "medium", "semibold", "bold", "black"];
-    fn from_index(index: usize) -> Option<Self> {
-        [Self::Default, Self::Thin, Self::Light, Self::Normal, Self::Medium, Self::Semibold, Self::Bold, Self::Black].get(index).copied()
     }
     fn index(self) -> usize {
         self as usize
@@ -972,6 +949,55 @@ impl aylis::prelude::PropEnum for WaveformStyle {
     }
     fn index(self) -> usize {
         self as usize
+    }
+}
+
+/// Um registro do acesso tipado (no fio, um objeto JSON com os mesmos campos).
+#[derive(Clone, Debug, PartialEq)]
+pub struct SyntaxToken {
+    pub name: String,
+    pub words: Vec<String>,
+    pub prefix: String,
+    pub color: Option<aylis::prelude::Color>,
+}
+
+impl SyntaxToken {
+    /// O registro lido do JSON.
+    pub fn from_json(v: &aylis::json::serde_json::Value) -> Self {
+        Self {
+            name: v.get("name").and_then(|x| x.as_str()).unwrap_or_default().to_string(),
+            words: v.get("words").and_then(|x| x.as_array()).map(|a| a.iter().filter_map(|x| x.as_str().map(str::to_string)).collect()).unwrap_or_default(),
+            prefix: v.get("prefix").and_then(|x| x.as_str()).unwrap_or_default().to_string(),
+            color: v.get("color").and_then(|x| x.as_str()).and_then(aylis::prelude::Color::from_hex),
+        }
+    }
+
+    /// O registro em JSON.
+    pub fn to_json(&self) -> aylis::json::serde_json::Value {
+        let mut m = aylis::json::serde_json::Map::new();
+        m.insert("name".into(), aylis::json::serde_json::Value::from(self.name.clone()));
+        m.insert("words".into(), aylis::json::serde_json::Value::from(self.words.clone()));
+        m.insert("prefix".into(), aylis::json::serde_json::Value::from(self.prefix.clone()));
+        if let Some(x) = self.color {
+            m.insert("color".into(), aylis::json::serde_json::Value::from(x.to_hex()));
+        }
+        aylis::json::serde_json::Value::Object(m)
+    }
+
+    /// A lista em JSON, como a tela grava.
+    pub fn list_text(items: &[Self]) -> String {
+        aylis::json::serde_json::Value::Array(items.iter().map(Self::to_json).collect()).to_string()
+    }
+
+    /// A lista do texto com o JSON (vazia se não é uma lista).
+    pub fn list_from_text(text: &str) -> Vec<Self> {
+        aylis::json::serde_json::from_str::<aylis::json::serde_json::Value>(text).ok().and_then(|j| j.as_array().map(|a| a.iter().map(Self::from_json).collect())).unwrap_or_default()
+    }
+}
+
+impl Default for SyntaxToken {
+    fn default() -> Self {
+        Self::from_json(&aylis::json::serde_json::Value::Null)
     }
 }
 include!("components/classes/ActivityIndicator.rs");

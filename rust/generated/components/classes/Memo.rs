@@ -121,6 +121,48 @@ impl Memo {
     pub fn set_syntax(self, ui: &mut Ui, value: impl Into<String>) {
         handles::write(ui, self.id, "syntax", Into::<String>::into(value))
     }
+    pub fn keyword_color(self, ui: &Ui) -> aylis::prelude::Color {
+        handles::read(ui, self.id, "keyword_color").and_then(|v| v.to_color().ok()).unwrap_or_default()
+    }
+    pub fn set_keyword_color(self, ui: &mut Ui, value: impl Into<handles::ColorRef>) {
+        handles::write(ui, self.id, "keyword_color", Into::<handles::ColorRef>::into(value))
+    }
+    pub fn type_color(self, ui: &Ui) -> aylis::prelude::Color {
+        handles::read(ui, self.id, "type_color").and_then(|v| v.to_color().ok()).unwrap_or_default()
+    }
+    pub fn set_type_color(self, ui: &mut Ui, value: impl Into<handles::ColorRef>) {
+        handles::write(ui, self.id, "type_color", Into::<handles::ColorRef>::into(value))
+    }
+    pub fn string_color(self, ui: &Ui) -> aylis::prelude::Color {
+        handles::read(ui, self.id, "string_color").and_then(|v| v.to_color().ok()).unwrap_or_default()
+    }
+    pub fn set_string_color(self, ui: &mut Ui, value: impl Into<handles::ColorRef>) {
+        handles::write(ui, self.id, "string_color", Into::<handles::ColorRef>::into(value))
+    }
+    pub fn number_color(self, ui: &Ui) -> aylis::prelude::Color {
+        handles::read(ui, self.id, "number_color").and_then(|v| v.to_color().ok()).unwrap_or_default()
+    }
+    pub fn set_number_color(self, ui: &mut Ui, value: impl Into<handles::ColorRef>) {
+        handles::write(ui, self.id, "number_color", Into::<handles::ColorRef>::into(value))
+    }
+    pub fn comment_color(self, ui: &Ui) -> aylis::prelude::Color {
+        handles::read(ui, self.id, "comment_color").and_then(|v| v.to_color().ok()).unwrap_or_default()
+    }
+    pub fn set_comment_color(self, ui: &mut Ui, value: impl Into<handles::ColorRef>) {
+        handles::write(ui, self.id, "comment_color", Into::<handles::ColorRef>::into(value))
+    }
+    pub fn function_color(self, ui: &Ui) -> aylis::prelude::Color {
+        handles::read(ui, self.id, "function_color").and_then(|v| v.to_color().ok()).unwrap_or_default()
+    }
+    pub fn set_function_color(self, ui: &mut Ui, value: impl Into<handles::ColorRef>) {
+        handles::write(ui, self.id, "function_color", Into::<handles::ColorRef>::into(value))
+    }
+    pub fn syntax_tokens(self, ui: &Ui) -> Vec<SyntaxToken> {
+        SyntaxToken::list_from_text(&handles::text(ui, handles::read(ui, self.id, "syntax_tokens")))
+    }
+    pub fn set_syntax_tokens(self, ui: &mut Ui, value: &[SyntaxToken]) {
+        handles::write(ui, self.id, "syntax_tokens", PropValue::String(SyntaxToken::list_text(value)))
+    }
     pub fn line_numbers(self, ui: &Ui) -> bool {
         handles::read(ui, self.id, "line_numbers").and_then(|v| v.to_bool().ok()).unwrap_or_default()
     }
@@ -589,10 +631,10 @@ impl Memo {
     pub fn set_font_size(self, ui: &mut Ui, value: f64) {
         handles::write(ui, self.id, "font_size", value)
     }
-    pub fn font_weight(self, ui: &Ui) -> FontWeight {
-        handles::read_enum::<FontWeight>(ui, self.id, "font_weight")
+    pub fn font_weight(self, ui: &Ui) -> Option<aylis::prelude::FontWeight> {
+        handles::read_enum::<Option<aylis::prelude::FontWeight>>(ui, self.id, "font_weight")
     }
-    pub fn set_font_weight(self, ui: &mut Ui, value: FontWeight) {
+    pub fn set_font_weight(self, ui: &mut Ui, value: Option<aylis::prelude::FontWeight>) {
         handles::write(ui, self.id, "font_weight", PropValue::enum_value(value))
     }
     pub fn font_italic(self, ui: &Ui) -> bool {
