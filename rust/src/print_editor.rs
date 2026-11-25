@@ -390,7 +390,10 @@ fn open(ui: &mut Ui, rgba: Vec<u8>, w: i32, h: i32, origin: (i32, i32), k: f32, 
     let _ = ui.set_prop(f.pnlShotBar.id, "visible", false);
     // Sem a animação do Windows ao abrir: o `wsShot` do form (`animation` desligado) vale ao
     // criar a janela, antes de ela aparecer; o editor aparece na hora sobre a tela congelada.
-    ui.show(form).map_err(|e| e.to_string())?;
+    // Sem dona: com o `show`, o Aylis faz a janela do print ser possuída pela do form aberto
+    // antes (a principal, escondida na bandeja), e o Windows mostra, minimiza e ativa as duas
+    // juntas; depois do print a principal aparecia branca (hibernada, sem pintar).
+    ui.show_owned(form, None).map_err(|e| e.to_string())?;
     ui.set_focus(f.pnlShotStage.id);
     // A área do último print: já escolhida, com a barra e as alças (dá para ajustar, desenhar
     // ou salvar direto). Só se cabe inteira no form.

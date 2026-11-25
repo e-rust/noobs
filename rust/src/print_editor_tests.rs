@@ -258,6 +258,29 @@ fn seletor_de_cores() {
     take_done();
 }
 
+/// O print abre sem dona, mesmo com a janela principal aberta (escondida na bandeja): com o
+/// `show`, a janela dele era possuída pela principal, e o Windows mostrava a principal (branca,
+/// hibernada) depois do print.
+#[test]
+fn o_print_abre_sem_dona() {
+    take_done();
+    with(|s| *s = State::default());
+    let mut app = aylis::Application::bundled(crate::PROJECT).unwrap();
+    crate::generated::register(&mut app.ui);
+    let mut h = app.headless();
+    let main = crate::generated::FrmMain::create(&mut h.ui).expect("a principal nasce");
+    h.ui.show(main).expect("a principal abre");
+    with(|s| {
+        s.open = true;
+        s.on_shot = Some(on_done);
+    });
+    let rgba: Vec<u8> = (0..W * H).flat_map(|_| [GRAY, GRAY, GRAY, 255]).collect();
+    let form = open(&mut h.ui, rgba, W, H, (-1920, 0), 1.0, None).expect("o editor abre");
+    assert_eq!(h.ui.form_owner(form), None, "o print não tem dona");
+    cancel(&mut h.ui);
+    take_done();
+}
+
 /// O Esc cancela ao subir, com a descida também no editor: fechando na descida, a subida ia
 /// para o app de trás. Um Esc que já estava apertado ao abrir só sobe, e não cancela.
 #[test]
