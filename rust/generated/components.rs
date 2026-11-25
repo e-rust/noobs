@@ -2,7 +2,7 @@
 //! componentes resolvidos ao abrir (`self.edtNome.set_text(ui, ...)`).
 //! Gerado pela IDE do Aylis a cada "Gerar código": não edite.
 
-#![allow(non_snake_case, dead_code, unused_imports)]
+#![allow(non_snake_case, dead_code, unused_imports, clippy::too_many_arguments)]
 
 use aylis::prelude::handles::{self, Handle};
 use aylis::prelude::{ComponentId, PropValue, Ui};
