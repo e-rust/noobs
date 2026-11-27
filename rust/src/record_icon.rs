@@ -121,12 +121,3 @@ pub fn create_recording_overlay_icon(base: HICON, size: i32) -> Option<HICON> {
     dib.into_icon()
 }
 
-/// Só a bolinha (vermelha sólida, sem borda, ~72% do canvas), CENTRADA: o
-/// Windows já desenha o overlay no canto inferior direito do botão.
-pub fn create_recording_dot_icon(size: i32) -> Option<HICON> {
-    let size = size.max(8);
-    let mut dib = Dib::new(size)?;
-    let c = size as f64 / 2.0;
-    dib.paint_disc(c, c, size as f64 * 0.72 / 2.0, 0, 0);
-    dib.into_icon()
-}

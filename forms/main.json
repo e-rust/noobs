@@ -11,6 +11,10 @@
     "height": 900,
     "children": [
       {
+        "class": "Taskbar",
+        "name": "tbrMain"
+      },
+      {
         "class": "Panel",
         "name": "pnlSources",
         "width": 400,

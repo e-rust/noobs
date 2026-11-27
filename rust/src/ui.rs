@@ -17,20 +17,20 @@ use std::cell::RefCell;
 use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicU32, Ordering};
 
 use windows::core::{w, HSTRING, PCWSTR};
-use windows::Win32::Foundation::{CloseHandle, HINSTANCE, HWND, LPARAM, LRESULT, RECT, WPARAM};
-use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CoUninitialize, CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED};
+use windows::Win32::Foundation::{CloseHandle, HINSTANCE, HWND, LPARAM, LRESULT, WPARAM};
+use windows::Win32::System::Com::{CoInitializeEx, CoUninitialize, COINIT_APARTMENTTHREADED};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::System::Threading::{AttachThreadInput, GetCurrentThreadId};
 use windows::Win32::UI::HiDpi::{SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2};
 use windows::Win32::UI::Input::KeyboardAndMouse::{RegisterHotKey, SetFocus, UnregisterHotKey, HOT_KEY_MODIFIERS};
-use windows::Win32::UI::Shell::{ITaskbarList3, ShellExecuteW, TaskbarList};
+use windows::Win32::UI::Shell::ShellExecuteW;
 use windows::Win32::UI::WindowsAndMessaging::*;
 
 use aylis::prelude::{ComponentId, Ui, WindowCommand};
 
 use crate::app_view::{self, with_ui};
 use crate::single_instance::{CLASS_NAME, MUTEX_NAME, SHOW_MSG_NAME};
-use crate::{config, elevate, log, mainthread, record_icon, startup_check, tray, win};
+use crate::{config, elevate, log, mainthread, startup_check, tray, win};
 
 /// IDs de comando do menu da bandeja são >= 9000.
 const TRAY_COMMAND_BASE: u16 = 9000;
@@ -54,19 +54,16 @@ static REAL_QUIT: AtomicBool = AtomicBool::new(false);
 struct WinState {
     /// Estava maximizada antes de ir pra bandeja: volta igual.
     was_maximized: bool,
-    /// Posição e tamanho da 1ª vez que a janela aparece.
-    initial_bounds: Option<RECT>,
-    /// Ícone do exe já aplicado no HWND do aylis.
-    icon_applied: bool,
+    /// A janela ainda não apareceu nenhuma vez.
+    never_shown: bool,
+    /// O HWND do aylis já foi visto (o registro das janelas e o raw input do teclado).
+    hwnd_seen: bool,
     /// /autostart sem bandeja: a 1ª exibição é minimizada.
     start_minimized: bool,
     /// Um `restore_from_tray` chegou antes de a janela existir: o `on_window_created`
     /// termina a exibição.
     show_pending: bool,
-    /// Overlay de "gravando" no botão da taskbar.
-    taskbar: Option<ITaskbarList3>,
-    taskbar_tried: bool,
-    dot_icon: Option<HICON>,
+    /// O selo de "gravando" no botão da taskbar (o `Taskbar` do frmMain).
     recording_now: bool,
     fullscreen: bool,
 }
@@ -126,9 +123,7 @@ fn hooks<R>(f: impl FnOnce(&Hooks) -> R) -> R {
 /// do `CoUninitialize`: o destrutor do `thread_local` só roda no ExitProcess,
 /// com a DLL deles (explorerframe, do `ITaskbarList3`) já descarregada — a
 /// saída caía.
-pub fn release_thread_com() {
-    wstate(|s| s.taskbar = None);
-}
+pub fn release_thread_com() {}
 
 /// Um pedido à janela do aylis (esconder, mostrar, minimizar...).
 fn window_command(command: WindowCommand) {
@@ -309,12 +304,12 @@ pub fn hide_to_tray() {
         minimize_to_taskbar();
         return;
     }
-    remember_maximized();
     crate::view::call(|v| v.window_hidden());
     let asked = std::time::Instant::now();
     with_ui(move |ui| {
         log::log(&format!("UI: janela escondida ({} ms depois do pedido).", asked.elapsed().as_millis()));
         if let Some(form) = app_view::main_form() {
+            remember_maximized(ui, form);
             ui.window_command(form, WindowCommand::Hide);
         }
     });
@@ -338,9 +333,9 @@ pub fn set_tray_hibernating(on: bool) {
     tray::update_tooltip(&tip);
 }
 
-fn remember_maximized() {
-    let h = VISIBLE_HWND.load(Ordering::SeqCst);
-    let max = h != 0 && unsafe { IsZoomed(HWND(h as *mut _)).as_bool() };
+/// A janela estava maximizada (o Aylis sabe): volta igual da bandeja ou da taskbar.
+fn remember_maximized(ui: &Ui, form: ComponentId) {
+    let max = ui.is_maximized(form);
     wstate(|s| s.was_maximized = max);
 }
 
@@ -350,9 +345,13 @@ pub fn minimize_to_taskbar() {
     if !is_window_visible() {
         return;
     }
-    remember_maximized();
     crate::view::call(|v| v.window_hidden());
-    window_command(WindowCommand::Minimize);
+    with_ui(|ui| {
+        if let Some(form) = app_view::main_form() {
+            remember_maximized(ui, form);
+            ui.window_command(form, WindowCommand::Minimize);
+        }
+    });
 }
 
 /// Ícone na bandeja SEM esconder a janela (ativar `closeToTray`).
@@ -394,28 +393,30 @@ pub fn on_window_created(ui: &mut Ui) {
 /// Segunda metade do [`restore_from_tray`], com o HWND já criado. O winit cria
 /// a janela num evento do laço que pode vir depois: aí fica pendente e o
 /// [`on_window_created`] termina.
-fn finish_show(_ui: &mut Ui) {
-    let Some(hwnd) = visible_hwnd() else {
+///
+/// Tudo pelos comandos do Aylis (nada direto na janela pelo Windows): o `Show` mostra, tira
+/// do minimizado e traz para a frente (o `force_foreground` do frmMain); o tamanho e o lugar
+/// da primeira vez são os do form (centralizado).
+fn finish_show(ui: &mut Ui) {
+    let Some(form) = app_view::main_form() else { return };
+    if visible_hwnd().is_none() {
         wstate(|s| s.show_pending = true);
         return;
-    };
-    on_visible_hwnd();
-    unsafe {
-        if let Some(b) = wstate(|s| s.initial_bounds.take()) {
-            let _ = SetWindowPos(hwnd, None, b.left, b.top, b.right - b.left, b.bottom - b.top, SWP_NOZORDER | SWP_NOACTIVATE);
-            log::log("UI: janela mostrada pela primeira vez.");
-        }
-        // /autostart sem bandeja: minimizado na taskbar, sem roubar o foco.
-        if wstate(|s| std::mem::take(&mut s.start_minimized)) {
-            let _ = ShowWindow(hwnd, SW_SHOWMINNOACTIVE);
-            return;
-        }
-        let max = wstate(|s| s.was_maximized);
-        let _ = ShowWindow(hwnd, if max { SW_SHOWMAXIMIZED } else if IsIconic(hwnd).as_bool() { SW_RESTORE } else { SW_SHOW });
     }
-    bring_to_front(hwnd);
-    // O botão da taskbar é recriado ao reaparecer e o overlay se perde.
-    reapply_recording_overlay();
+    on_visible_hwnd();
+    log::log("UI: mostrando a janela (pedido do NoOBS).");
+    if wstate(|s| std::mem::take(&mut s.never_shown)) {
+        log::log("UI: janela mostrada pela primeira vez.");
+    }
+    // /autostart sem bandeja: minimizado na taskbar, sem roubar o foco.
+    if wstate(|s| std::mem::take(&mut s.start_minimized)) {
+        ui.window_command(form, WindowCommand::Minimize);
+        return;
+    }
+    ui.window_command(form, WindowCommand::Show);
+    if wstate(|s| s.was_maximized) {
+        ui.window_command(form, WindowCommand::Maximize);
+    }
 }
 
 /// Anti-roubo de foco: clicando numa notificação, o processo em primeiro plano
@@ -449,93 +450,24 @@ pub fn bring_to_front(hwnd: HWND) {
 fn on_visible_hwnd() {
     let Some(hwnd) = visible_hwnd() else { return };
     VISIBLE_HWND.store(hwnd.0 as isize, Ordering::SeqCst);
-    if !wstate(|s| std::mem::replace(&mut s.icon_applied, true)) {
+    crate::window_watch::start(hwnd.0 as isize);
+    if !wstate(|s| std::mem::replace(&mut s.hwnd_seen, true)) {
         // Sem isso, a Print Screen dos atalhos não chega ao hook com o NoOBS à frente.
         crate::print_key::release_raw_keyboard();
-        if let Some(form) = app_view::main_form() {
-            keep_native_maximize_button(form);
-        }
-        let icon = win::main_icon();
-        if !icon.0.is_null() {
-            unsafe {
-                SendMessageW(hwnd, WM_SETICON, Some(WPARAM(ICON_BIG as usize)), Some(LPARAM(icon.0 as isize)));
-                SendMessageW(hwnd, WM_SETICON, Some(WPARAM(ICON_SMALL as usize)), Some(LPARAM(icon.0 as isize)));
-            }
-        }
     }
 }
 
-/// O botão maximizar/restaurar da barra de título NATIVA volta a funcionar.
-///
-/// Desde a barra de título própria do Aylis (0.2.0-beta.4), a janela engole o clique em
-/// `HTMAXBUTTON` (`WM_NCLBUTTONDOWN`/`UP`/`DBLCLK`) para entregá-lo à barra própria, sem
-/// conferir se o form tem uma. Na barra do sistema, que o NoOBS usa, quem diz `HTMAXBUTTON`
-/// é o próprio Windows: o clique sumia e o botão não maximizava nem restaurava. Os ganchos do
-/// app rodam antes desse trecho do Aylis: aqui o clique vai direto ao `DefWindowProcW`, que
-/// acompanha o botão e manda o `SC_MAXIMIZE`/`SC_RESTORE` à janela (o caminho de sempre).
-fn keep_native_maximize_button(form: ComponentId) {
-    use aylis::platform::win::{on_message, MessageReply};
-    const WM_NCLBUTTONDOWN: u32 = 0x00A1;
-    const WM_NCLBUTTONUP: u32 = 0x00A2;
-    const WM_NCLBUTTONDBLCLK: u32 = 0x00A3;
-    const HTMAXBUTTON: usize = 9;
-    on_message(form, |m| {
-        if !matches!(m.message, WM_NCLBUTTONDOWN | WM_NCLBUTTONUP | WM_NCLBUTTONDBLCLK) || m.wparam != HTMAXBUTTON {
-            return MessageReply::Default;
-        }
-        let Some(hwnd) = visible_hwnd() else { return MessageReply::Default };
-        let result = unsafe { DefWindowProcW(hwnd, m.message, WPARAM(m.wparam), LPARAM(m.lparam)) };
-        MessageReply::Handled(result.0)
-    });
-}
-
-/// `ITaskbarList3` lazy; `None` se a COM falhar (degrada calado).
-fn taskbar() -> Option<ITaskbarList3> {
-    wstate(|s| {
-        if !s.taskbar_tried {
-            s.taskbar_tried = true;
-            s.taskbar = unsafe { CoCreateInstance::<_, ITaskbarList3>(&TaskbarList, None, CLSCTX_INPROC_SERVER) }
-                .ok()
-                .filter(|tb| unsafe { tb.HrInit() }.is_ok());
-        }
-        s.taskbar.clone()
-    })
-}
-
-fn reapply_recording_overlay() {
-    let (rec, dot) = wstate(|s| (s.recording_now, s.dot_icon));
-    if let (true, Some(dot), Some(hwnd)) = (rec, dot, visible_hwnd()) {
-        if let Some(tb) = taskbar() {
-            unsafe {
-                let _ = tb.SetOverlayIcon(hwnd, dot, PCWSTR::null());
-            }
-        }
-    }
-}
-
-/// Selo de "gravando" no botão da taskbar (`SetOverlayIcon`). É a API certa: o
-/// `WM_SETICON` não reflete no botão de forma garantida.
+/// Selo de "gravando" no botão da taskbar: o `Taskbar` do frmMain (o Aylis aplica no botão
+/// e põe de novo quando a janela reaparece).
 pub fn set_window_icon_recording(on: bool) {
     if wstate(|s| std::mem::replace(&mut s.recording_now, on) == on) {
         return;
     }
-    let Some(hwnd) = visible_hwnd() else { return };
-    let Some(tb) = taskbar() else { return };
-    unsafe {
-        if on {
-            let dot = wstate(|s| {
-                if s.dot_icon.is_none() {
-                    s.dot_icon = record_icon::create_recording_dot_icon(GetSystemMetrics(SM_CXSMICON).max(16));
-                }
-                s.dot_icon
-            });
-            if let Some(dot) = dot {
-                let _ = tb.SetOverlayIcon(hwnd, dot, PCWSTR::null());
-            }
-        } else {
-            let _ = tb.SetOverlayIcon(hwnd, HICON::default(), PCWSTR::null());
+    with_ui(move |ui| {
+        if let Some(frm) = crate::generated::FrmMain::components(ui) {
+            frm.tbrMain.set_badge(ui, if on { "•" } else { "" });
         }
-    }
+    });
 }
 
 /// Popup do menu da bandeja no tema do app (o bridge resolve `system` antes).
@@ -708,17 +640,6 @@ fn create_host_window(hinst: HINSTANCE) -> Option<HWND> {
 
 /// Posição e tamanho iniciais: 1700×1200, limitado a 90% da área de trabalho e
 /// centralizado nela (pixels físicos: o processo é DPI-aware).
-fn initial_bounds() -> RECT {
-    let mut work = RECT::default();
-    unsafe {
-        let _ = SystemParametersInfoW(SPI_GETWORKAREA, 0, Some(&mut work as *mut RECT as *mut _), SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS(0));
-    }
-    let (ww, wh) = (work.right - work.left, work.bottom - work.top);
-    let (win_w, win_h) = (1700.min(ww * 9 / 10), 1200.min(wh * 9 / 10));
-    let (x, y) = (work.left + (ww - win_w) / 2, work.top + (wh - win_h) / 2);
-    RECT { left: x, top: y, right: x + win_w, bottom: y + win_h }
-}
-
 /// Entry point do app.
 pub fn run() {
     if let Ok(dir) = std::env::current_exe().map(|p| p.parent().map(|d| d.to_path_buf())) {
@@ -799,7 +720,7 @@ pub fn run() {
     // fica escondida.
     app.ui.set_start_hidden(form, true);
     wstate(|s| {
-        s.initial_bounds = Some(initial_bounds());
+        s.never_shown = true;
         // Convenção: depois de um início escondido, a janela volta maximizada.
         s.was_maximized = start_in_tray || start_minimized;
     });

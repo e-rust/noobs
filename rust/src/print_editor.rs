@@ -484,15 +484,13 @@ fn close(ui: &mut Ui) -> Option<OnShot> {
         s.bar = None;
         out
     });
-    // Esconde a janela já e fecha o form depois. O `close` do Aylis esconde o form e pede um
-    // quadro antes de esconder a janela, e o Aylis pinta logo depois da tecla ou do clique: a
-    // janela do print ficava um quadro na tela toda preta (gravado a 160 fps). Escondida antes,
-    // com o print ainda desenhado, ninguém vê esse quadro.
     if let Some(form) = form {
-        ui.window_command(form, aylis::prelude::WindowCommand::Hide);
-        ui.set_timeout(50, move |ui| {
-            ui.close(form);
-        });
+        ui.close(form);
+        // Sem trazer a janela principal para a frente: ao fechar um form, o Aylis pede para
+        // ativar a dona dele ou o último form aberto (a principal, mesmo atrás de outras
+        // janelas). Sem o pedido, o Windows devolve o foco à janela que estava na frente antes
+        // do print.
+        let _ = ui.take_activation();
     }
     cb
 }

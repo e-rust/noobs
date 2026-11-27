@@ -954,6 +954,47 @@ impl aylis::prelude::PropEnum for WaveformStyle {
 
 /// Um registro do acesso tipado (no fio, um objeto JSON com os mesmos campos).
 #[derive(Clone, Debug, PartialEq)]
+pub struct JumpTask {
+    pub name: String,
+    pub arguments: String,
+}
+
+impl JumpTask {
+    /// O registro lido do JSON.
+    pub fn from_json(v: &aylis::json::serde_json::Value) -> Self {
+        Self {
+            name: v.get("name").and_then(|x| x.as_str()).unwrap_or_default().to_string(),
+            arguments: v.get("arguments").and_then(|x| x.as_str()).unwrap_or_default().to_string(),
+        }
+    }
+
+    /// O registro em JSON.
+    pub fn to_json(&self) -> aylis::json::serde_json::Value {
+        let mut m = aylis::json::serde_json::Map::new();
+        m.insert("name".into(), aylis::json::serde_json::Value::from(self.name.clone()));
+        m.insert("arguments".into(), aylis::json::serde_json::Value::from(self.arguments.clone()));
+        aylis::json::serde_json::Value::Object(m)
+    }
+
+    /// A lista em JSON, como a tela grava.
+    pub fn list_text(items: &[Self]) -> String {
+        aylis::json::serde_json::Value::Array(items.iter().map(Self::to_json).collect()).to_string()
+    }
+
+    /// A lista do texto com o JSON (vazia se não é uma lista).
+    pub fn list_from_text(text: &str) -> Vec<Self> {
+        aylis::json::serde_json::from_str::<aylis::json::serde_json::Value>(text).ok().and_then(|j| j.as_array().map(|a| a.iter().map(Self::from_json).collect())).unwrap_or_default()
+    }
+}
+
+impl Default for JumpTask {
+    fn default() -> Self {
+        Self::from_json(&aylis::json::serde_json::Value::Null)
+    }
+}
+
+/// Um registro do acesso tipado (no fio, um objeto JSON com os mesmos campos).
+#[derive(Clone, Debug, PartialEq)]
 pub struct SyntaxToken {
     pub name: String,
     pub words: Vec<String>,
@@ -1000,6 +1041,47 @@ impl Default for SyntaxToken {
         Self::from_json(&aylis::json::serde_json::Value::Null)
     }
 }
+
+/// Um registro do acesso tipado (no fio, um objeto JSON com os mesmos campos).
+#[derive(Clone, Debug, PartialEq)]
+pub struct ThumbButton {
+    pub icon: String,
+    pub hint: String,
+}
+
+impl ThumbButton {
+    /// O registro lido do JSON.
+    pub fn from_json(v: &aylis::json::serde_json::Value) -> Self {
+        Self {
+            icon: v.get("icon").and_then(|x| x.as_str()).unwrap_or_default().to_string(),
+            hint: v.get("hint").and_then(|x| x.as_str()).unwrap_or_default().to_string(),
+        }
+    }
+
+    /// O registro em JSON.
+    pub fn to_json(&self) -> aylis::json::serde_json::Value {
+        let mut m = aylis::json::serde_json::Map::new();
+        m.insert("icon".into(), aylis::json::serde_json::Value::from(self.icon.clone()));
+        m.insert("hint".into(), aylis::json::serde_json::Value::from(self.hint.clone()));
+        aylis::json::serde_json::Value::Object(m)
+    }
+
+    /// A lista em JSON, como a tela grava.
+    pub fn list_text(items: &[Self]) -> String {
+        aylis::json::serde_json::Value::Array(items.iter().map(Self::to_json).collect()).to_string()
+    }
+
+    /// A lista do texto com o JSON (vazia se não é uma lista).
+    pub fn list_from_text(text: &str) -> Vec<Self> {
+        aylis::json::serde_json::from_str::<aylis::json::serde_json::Value>(text).ok().and_then(|j| j.as_array().map(|a| a.iter().map(Self::from_json).collect())).unwrap_or_default()
+    }
+}
+
+impl Default for ThumbButton {
+    fn default() -> Self {
+        Self::from_json(&aylis::json::serde_json::Value::Null)
+    }
+}
 include!("components/classes/ActivityIndicator.rs");
 include!("components/classes/Breadcrumb.rs");
 include!("components/classes/Button.rs");
@@ -1034,6 +1116,7 @@ include!("components/classes/SegmentedControl.rs");
 include!("components/classes/Switch.rs");
 include!("components/classes/TabControl.rs");
 include!("components/classes/TabItem.rs");
+include!("components/classes/Taskbar.rs");
 include!("components/classes/TrackBar.rs");
 include!("components/classes/Waveform.rs");
 include!("components/classes/WindowSettings.rs");

@@ -4,6 +4,7 @@
 /// aberta tem a sua; os handlers são métodos dela.
 pub struct FrmMain {
     pub form: Form,
+    pub tbrMain: Taskbar,
     pub pnlSources: Panel,
     pub lnSourcesEdge: Rectangle,
     pub pnlUpdate: Panel,
@@ -105,6 +106,7 @@ pub struct FrmMain {
 #[derive(Clone, Copy, Debug)]
 pub struct FrmMainComponents {
     pub form: Form,
+    pub tbrMain: Taskbar,
     pub pnlSources: Panel,
     pub lnSourcesEdge: Rectangle,
     pub pnlUpdate: Panel,
@@ -215,6 +217,7 @@ impl FrmMain {
         let mut problems: Vec<String> = Vec::new();
         let instance = Self {
             form: Form { id: root },
+            tbrMain: Taskbar { id: handles::resolve(ui, root, "tbrMain", "Taskbar", &mut problems) },
             pnlSources: Panel { id: handles::resolve(ui, root, "pnlSources", "Panel", &mut problems) },
             lnSourcesEdge: Rectangle { id: handles::resolve(ui, root, "lnSourcesEdge", "Rectangle", &mut problems) },
             pnlUpdate: Panel { id: handles::resolve(ui, root, "pnlUpdate", "Panel", &mut problems) },
@@ -315,6 +318,7 @@ impl FrmMain {
         }
         ui.set_form_components(root, Box::new(FrmMainComponents {
             form: instance.form,
+            tbrMain: instance.tbrMain,
             pnlSources: instance.pnlSources,
             lnSourcesEdge: instance.lnSourcesEdge,
             pnlUpdate: instance.pnlUpdate,
@@ -745,5 +749,18 @@ impl FrmMain {
     /// O Switch que disparou o evento (`None` se o `sender` não é um Switch deste form).
     pub fn sender_as_switch(&self, ui: &Ui, sender: ComponentId) -> Option<Switch> {
         self.find_switch(ui.name(sender)?)
+    }
+
+    /// O Taskbar deste form com o nome (`None` se não há um Taskbar com ele).
+    pub fn find_taskbar(&self, name: &str) -> Option<Taskbar> {
+        match name {
+            "tbrMain" => Some(self.tbrMain),
+            _ => None,
+        }
+    }
+
+    /// O Taskbar que disparou o evento (`None` se o `sender` não é um Taskbar deste form).
+    pub fn sender_as_taskbar(&self, ui: &Ui, sender: ComponentId) -> Option<Taskbar> {
+        self.find_taskbar(ui.name(sender)?)
     }
 }

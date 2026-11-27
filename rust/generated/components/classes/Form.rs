@@ -403,6 +403,12 @@ impl Form {
     pub fn set_on_scale_change(self, ui: &mut Ui, value: impl Into<String>) {
         handles::write(ui, self.id, "on_scale_change", Into::<String>::into(value))
     }
+    pub fn on_monitor_change(self, ui: &Ui) -> String {
+        handles::text(ui, handles::read(ui, self.id, "on_monitor_change"))
+    }
+    pub fn set_on_monitor_change(self, ui: &mut Ui, value: impl Into<String>) {
+        handles::write(ui, self.id, "on_monitor_change", Into::<String>::into(value))
+    }
     pub fn on_resize_end(self, ui: &Ui) -> String {
         handles::text(ui, handles::read(ui, self.id, "on_resize_end"))
     }
